@@ -1,11 +1,14 @@
 package main
 
 import (
+	"example.com/travel-advisor/db"
 	"example.com/travel-advisor/routes"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
+
+	db.InitDB()
 
 	server := gin.Default()
 
