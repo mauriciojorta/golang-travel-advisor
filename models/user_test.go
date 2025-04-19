@@ -56,7 +56,7 @@ func TestUser_FindUser_Success(t *testing.T) {
 
 	db.DB = dbMock
 
-	mock.ExpectQuery("SELECT id,password FROM users WHERE email=?").
+	mock.ExpectQuery("SELECT id FROM users WHERE email=?").
 		WithArgs("test@example.com").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 
@@ -75,7 +75,7 @@ func TestUser_FindUser_NotFound(t *testing.T) {
 
 	db.DB = dbMock
 
-	mock.ExpectQuery("SELECT id,password FROM users WHERE email=?").
+	mock.ExpectQuery("SELECT id FROM users WHERE email=?").
 		WithArgs("test@example.com").
 		WillReturnRows(sqlmock.NewRows([]string{"id"})) // No rows returned
 
@@ -94,7 +94,7 @@ func TestUser_FindUser_DBError(t *testing.T) {
 
 	db.DB = dbMock
 
-	mock.ExpectQuery("SELECT id,password FROM users WHERE email=?").
+	mock.ExpectQuery("SELECT id FROM users WHERE email=?").
 		WithArgs("test@example.com").
 		WillReturnError(errors.New("database error"))
 

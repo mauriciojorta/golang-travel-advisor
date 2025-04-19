@@ -11,7 +11,7 @@ import (
 type User struct {
 	ID            int64     `json:"id"`
 	Email         string    `json:"email" binding:"required"`
-	Password      string    `json:"password" binding:"required"`
+	Password      string    `json:"password"`
 	CreationDate  time.Time `json:"creationDate"`
 	UpdateDate    time.Time `json:"updateDate"`
 	LastLoginDate time.Time `json:"lastLoginDate"`
@@ -67,7 +67,7 @@ func (u *User) defaultCreate() error {
 }
 
 func (u *User) defaultFindUser() error {
-	query := "SELECT id,password FROM users WHERE email=?"
+	query := "SELECT id FROM users WHERE email=?"
 	row := db.DB.QueryRow(query, u.Email)
 
 	err := row.Scan(&u.ID)

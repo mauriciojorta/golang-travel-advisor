@@ -2,7 +2,6 @@ package utils
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -16,8 +15,6 @@ var GenerateToken = func(email string, userId int64) (string, error) {
 		"userId": userId,
 		"exp":    time.Now().Add(time.Hour * 2).Unix(),
 	})
-
-	fmt.Print(token)
 
 	return token.SignedString([]byte(secretKey))
 }
