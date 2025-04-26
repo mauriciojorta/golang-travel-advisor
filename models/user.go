@@ -16,7 +16,7 @@ type User struct {
 	UpdateDate    time.Time `json:"updateDate"`
 	LastLoginDate time.Time `json:"lastLoginDate"`
 
-	FindUser            func() error
+	FindByEmail         func() error
 	Create              func() error
 	ValidateCredentials func() error
 }
@@ -28,7 +28,7 @@ var NewUser = func(email, password string) *User {
 	}
 
 	// Set default implementations for FindUser and Create
-	user.FindUser = user.defaultFindUser
+	user.FindByEmail = user.defaultFindUser
 	user.Create = user.defaultCreate
 	user.ValidateCredentials = user.defaultValidateCredentials
 

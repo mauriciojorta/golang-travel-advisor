@@ -62,7 +62,7 @@ func TestUser_FindUser_Success(t *testing.T) {
 
 	user := NewUser("test@example.com", "password123")
 
-	err = user.FindUser()
+	err = user.FindByEmail()
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), user.ID)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -81,7 +81,7 @@ func TestUser_FindUser_NotFound(t *testing.T) {
 
 	user := NewUser("test@example.com", "password123")
 
-	err = user.FindUser()
+	err = user.FindByEmail()
 	assert.Error(t, err)
 	assert.Equal(t, "sql: no rows in result set", err.Error())
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -100,7 +100,7 @@ func TestUser_FindUser_DBError(t *testing.T) {
 
 	user := NewUser("test@example.com", "password123")
 
-	err = user.FindUser()
+	err = user.FindByEmail()
 	assert.Error(t, err)
 	assert.Equal(t, "database error", err.Error())
 	assert.NoError(t, mock.ExpectationsWereMet())

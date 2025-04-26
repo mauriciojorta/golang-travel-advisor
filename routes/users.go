@@ -25,7 +25,7 @@ func signUp(context *gin.Context) {
 	user := models.NewUser(input.Email, input.Password)
 
 	// Check if the user already exists
-	if err := user.FindUser(); err == nil {
+	if err := user.FindByEmail(); err == nil {
 		context.JSON(http.StatusBadRequest, gin.H{"error": "Could not create user. It already exists."})
 		return
 	}

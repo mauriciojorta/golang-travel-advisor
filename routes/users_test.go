@@ -40,7 +40,7 @@ func TestSignUp_UserAlreadyExists(t *testing.T) {
 				Password: password,
 			}
 
-			user.FindUser = func() error {
+			user.FindByEmail = func() error {
 				return nil // Simulate user already exists
 			}
 
@@ -75,7 +75,7 @@ func TestSignUp_CreateUserError(t *testing.T) {
 			mockFindUser := func() error {
 				return errors.New("user not found") // Simulate user does not exist
 			}
-			user.FindUser = mockFindUser
+			user.FindByEmail = mockFindUser
 
 			mockCreate := func() error {
 				return errors.New("create error") // Simulate create user error
@@ -110,7 +110,7 @@ func TestSignUp_Success(t *testing.T) {
 			}
 
 			// Set default implementations for FindUser and Create
-			user.FindUser = func() error {
+			user.FindByEmail = func() error {
 				return errors.New("user not found") // Simulate user does not exist
 			}
 			user.Create = func() error {
