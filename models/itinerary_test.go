@@ -277,7 +277,7 @@ func TestItineraryUpdate_Success(t *testing.T) {
 		WithArgs(itinerary.Title, itinerary.Description, itinerary.TravelStartDate, itinerary.TravelEndDate, sqlmock.AnyArg(), itinerary.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	mock.ExpectExec(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = ?`).
+	mock.ExpectPrepare(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = ?`).ExpectExec().
 		WithArgs(itinerary.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
@@ -344,7 +344,7 @@ func TestItineraryUpdate_DeleteDestinationsError(t *testing.T) {
 		WithArgs(itinerary.Title, itinerary.Description, itinerary.TravelStartDate, itinerary.TravelEndDate, sqlmock.AnyArg(), itinerary.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	mock.ExpectExec(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`).
+	mock.ExpectPrepare(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`).ExpectExec().
 		WithArgs(itinerary.ID).
 		WillReturnError(errors.New("delete destinations error"))
 
@@ -386,7 +386,7 @@ func TestItineraryUpdate_InsertDestinationsError(t *testing.T) {
 		WithArgs(itinerary.Title, itinerary.Description, itinerary.TravelStartDate, itinerary.TravelEndDate, sqlmock.AnyArg(), itinerary.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	mock.ExpectExec(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`).
+	mock.ExpectPrepare(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`).ExpectExec().
 		WithArgs(itinerary.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
