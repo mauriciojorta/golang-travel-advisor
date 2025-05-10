@@ -121,9 +121,9 @@ func TestDestinationCreate_Success(t *testing.T) {
 		DepartureDate: time.Now().Add(24 * time.Hour),
 	}
 
-	query := `INSERT INTO itinerary_travel_destinations \(country, city, itinerary_id, arrival_date, departure_date\) VALUES \(\?, \?, \?, \?, \?\)`
+	query := `INSERT INTO itinerary_travel_destinations \(country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date\) VALUES \(\?, \?, \?, \?, \?, \?, \?\)`
 	mock.ExpectPrepare(query).ExpectExec().
-		WithArgs(destination.Country, destination.City, destination.ItineraryID, destination.ArrivalDate, destination.DepartureDate).
+		WithArgs(destination.Country, destination.City, destination.ItineraryID, destination.ArrivalDate, destination.DepartureDate, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	// Act
@@ -165,7 +165,7 @@ func TestDestinationCreate_PrepareError(t *testing.T) {
 		DepartureDate: time.Now().Add(24 * time.Hour),
 	}
 
-	query := `INSERT INTO itinerary_travel_destinations \(country, city, itinerary_id, arrival_date, departure_date\) VALUES \(\?, \?, \?, \?, \?\)`
+	query := `INSERT INTO itinerary_travel_destinations \(country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date\) VALUES \(\?, \?, \?, \?, \?, \?, \?\)`
 	mock.ExpectPrepare(query).WillReturnError(sql.ErrConnDone)
 
 	// Act
@@ -207,10 +207,10 @@ func TestDestinationCreate_ExecError(t *testing.T) {
 		DepartureDate: time.Now().Add(24 * time.Hour),
 	}
 
-	query := `INSERT INTO itinerary_travel_destinations \(country, city, itinerary_id, arrival_date, departure_date\) VALUES \(\?, \?, \?, \?, \?\)`
+	query := `INSERT INTO itinerary_travel_destinations \(country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date\) VALUES \(\?, \?, \?, \?, \?, \?, \?\)`
 	mock.ExpectPrepare(query)
 	mock.ExpectExec(query).
-		WithArgs(destination.Country, destination.City, destination.ItineraryID, destination.ArrivalDate, destination.DepartureDate).
+		WithArgs(destination.Country, destination.City, destination.ItineraryID, destination.ArrivalDate, destination.DepartureDate, sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(sql.ErrNoRows)
 
 	// Act
@@ -238,9 +238,9 @@ func TestDestinationUpdate_Success(t *testing.T) {
 		DepartureDate: time.Now().Add(24 * time.Hour),
 	}
 
-	query := `UPDATE itinerary_travel_destinations SET country = \?, city = \?, arrival_date = \?, departure_date = \? WHERE id = \?`
+	query := `UPDATE itinerary_travel_destinations SET country = \?, city = \?, arrival_date = \?, departure_date = \?, update_date = \? WHERE id = \?`
 	mock.ExpectPrepare(query).ExpectExec().
-		WithArgs(destination.Country, destination.City, destination.ArrivalDate, destination.DepartureDate, destination.ID).
+		WithArgs(destination.Country, destination.City, destination.ArrivalDate, destination.DepartureDate, sqlmock.AnyArg(), destination.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	// Act
@@ -267,7 +267,7 @@ func TestDestinationUpdate_PrepareError(t *testing.T) {
 		DepartureDate: time.Now().Add(24 * time.Hour),
 	}
 
-	query := `UPDATE itinerary_travel_destinations SET country = \?, city = \?, arrival_date = \?, departure_date = \? WHERE id = \?`
+	query := `UPDATE itinerary_travel_destinations SET country = \?, city = \?, arrival_date = \?, departure_date = \?, update_date = \? WHERE id = \?`
 	mock.ExpectPrepare(query).WillReturnError(sql.ErrConnDone)
 
 	// Act
@@ -295,10 +295,10 @@ func TestDestinationUpdate_ExecError(t *testing.T) {
 		DepartureDate: time.Now().Add(24 * time.Hour),
 	}
 
-	query := `UPDATE itinerary_travel_destinations SET country = \?, city = \?, arrival_date = \?, departure_date = \? WHERE id = \?`
+	query := `UPDATE itinerary_travel_destinations SET country = \?, city = \?, arrival_date = \?, departure_date = \?, update_date = \? WHERE id = \?`
 	mock.ExpectPrepare(query)
 	mock.ExpectExec(query).
-		WithArgs(destination.Country, destination.City, destination.ArrivalDate, destination.DepartureDate, destination.ID).
+		WithArgs(destination.Country, destination.City, destination.ArrivalDate, destination.DepartureDate, sqlmock.AnyArg(), destination.ID).
 		WillReturnError(sql.ErrNoRows)
 
 	// Act

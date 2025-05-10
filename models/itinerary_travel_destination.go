@@ -17,10 +17,10 @@ type ItineraryTravelDestination struct {
 	CreationDate  time.Time `json:"creationDate"`
 	UpdateDate    time.Time `json:"updateDate"`
 
-	Find   func() error
-	Create func(*sql.Tx) error
-	Update func() error
-	Delete func() error
+	Find   func() error        `json:"-"`
+	Create func(*sql.Tx) error `json:"-"`
+	Update func() error        `json:"-"`
+	Delete func() error        `json:"-"`
 }
 
 var NewItineraryTravelDestination = func(country string, city string, itineraryId int64, arrivalDate time.Time, departureDate time.Time) *ItineraryTravelDestination {
@@ -56,8 +56,8 @@ func (d *ItineraryTravelDestination) defaultFind() error {
 }
 
 func (d *ItineraryTravelDestination) defaultCreate(tx *sql.Tx) error {
-	query := `INSERT INTO itinerary_travel_destinations (country, city, itinerary_id, arrival_date, departure_date)
-	VALUES (?, ?, ?, ?, ?)`
+	query := `INSERT INTO itinerary_travel_destinations (country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date)
+	VALUES (?, ?, ?, ?, ?, ?, ?)`
 
 	stmt, err := tx.Prepare(query)
 	if err != nil {
@@ -66,7 +66,7 @@ func (d *ItineraryTravelDestination) defaultCreate(tx *sql.Tx) error {
 
 	defer stmt.Close()
 
-	result, err := stmt.Exec(d.Country, d.City, d.ItineraryID, d.ArrivalDate, d.DepartureDate)
+	result, err := stmt.Exec(d.Country, d.City, d.ItineraryID, d.ArrivalDate, d.DepartureDate, time.Now(), time.Now())
 	if err != nil {
 		return err
 	}
@@ -82,7 +82,7 @@ func (d *ItineraryTravelDestination) defaultCreate(tx *sql.Tx) error {
 }
 
 func (d *ItineraryTravelDestination) defaultUpdate() error {
-	query := `UPDATE itinerary_travel_destinations SET country = ?, city = ?, arrival_date = ?, departure_date = ? WHERE id = ?`
+	query := `UPDATE itinerary_travel_destinations SET country = ?, city = ?, arrival_date = ?, departure_date = ?, update_date = ? WHERE id = ?`
 
 	stmt, err := db.DB.Prepare(query)
 	if err != nil {
@@ -91,7 +91,7 @@ func (d *ItineraryTravelDestination) defaultUpdate() error {
 
 	defer stmt.Close()
 
-	_, err = stmt.Exec(d.Country, d.City, d.ArrivalDate, d.DepartureDate, d.ID)
+	_, err = stmt.Exec(d.Country, d.City, d.ArrivalDate, d.DepartureDate, time.Now(), d.ID)
 	if err != nil {
 		return err
 	}

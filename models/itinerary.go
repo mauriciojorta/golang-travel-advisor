@@ -18,10 +18,10 @@ type Itinerary struct {
 	OwnerID            int64                        `json:"ownerId"`
 	ItineraryFilePath  string                       `json:"itineraryFilePath"`
 
-	FindByOwnerId func() error
-	Create        func() error
-	Update        func() error
-	Delete        func() error
+	FindByOwnerId func() error `json:"-"`
+	Create        func() error `json:"-"`
+	Update        func() error `json:"-"`
+	Delete        func() error `json:"-"`
 }
 
 var NewItinerary = func(title string, description string, travelStartDate time.Time, travelEndDate time.Time, travelDestinations []ItineraryTravelDestination) *Itinerary {
@@ -45,14 +45,34 @@ var NewItinerary = func(title string, description string, travelStartDate time.T
 func (i *Itinerary) defaultFindByOwnerId() error {
 
 	query := `SELECT id, title, description, travel_start_date, travel_end_date, owner_id
-	FROM itineraries WHERE owner_id = ?`
+    FROM itineraries WHERE owner_id = ?`
 	row := db.DB.QueryRow(query, i.OwnerID)
 
 	err := row.Scan(&i.ID, &i.Title, &i.Description, &i.TravelStartDate, &i.TravelEndDate, &i.OwnerID)
-
 	if err != nil {
 		return err
 	}
+
+	// Fetch travel destinations for the itinerary
+	destinationsQuery := `SELECT id, country, city, itinerary_id, arrival_date, departure_date
+    FROM itinerary_travel_destinations WHERE itinerary_id = ?`
+	rows, err := db.DB.Query(destinationsQuery, i.ID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	var travelDestinations []ItineraryTravelDestination
+	for rows.Next() {
+		var destination ItineraryTravelDestination
+		err := rows.Scan(&destination.ID, &destination.Country, &destination.City, &destination.ItineraryID, &destination.ArrivalDate, &destination.DepartureDate)
+		if err != nil {
+			return err
+		}
+		travelDestinations = append(travelDestinations, destination)
+	}
+
+	i.TravelDestinations = travelDestinations
 
 	return nil
 }
@@ -90,6 +110,7 @@ func (i *Itinerary) defaultCreate() error {
 	i.ID = itineraryId
 
 	for _, travelDestination := range i.TravelDestinations {
+		travelDestination.ItineraryID = itineraryId
 		travelDestination = *NewItineraryTravelDestination(travelDestination.Country, travelDestination.City, travelDestination.ItineraryID, travelDestination.ArrivalDate, travelDestination.DepartureDate)
 		err = travelDestination.Create(tx)
 		if err != nil {

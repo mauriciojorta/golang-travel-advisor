@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -35,9 +36,29 @@ func createItinerary(context *gin.Context) {
 
 	err := itinerary.Create()
 	if err != nil {
+		fmt.Print(err)
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not create itinerary. Try again later."})
 		return
 	}
 
-	context.JSON(http.StatusCreated, gin.H{"message": "Itinerary created.", "itinerary": itinerary})
+	context.JSON(http.StatusCreated, gin.H{"message": "Itinerary created."})
+}
+
+func getOwnersItineraries(context *gin.Context) {
+	userId, exists := context.Get("userId")
+	if !exists {
+		context.JSON(http.StatusUnauthorized, gin.H{"message": "Not authorized."})
+		return
+	}
+
+	itinerary := models.NewItinerary("", "", time.Time{}, time.Time{}, nil)
+	itinerary.OwnerID = userId.(int64)
+
+	err := itinerary.FindByOwnerId()
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve itineraries. Try again later."})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{"itineraries": itinerary})
 }
