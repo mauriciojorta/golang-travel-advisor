@@ -54,11 +54,49 @@ func getOwnersItineraries(context *gin.Context) {
 	itinerary := models.NewItinerary("", "", time.Time{}, time.Time{}, nil)
 	itinerary.OwnerID = userId.(int64)
 
-	err := itinerary.FindByOwnerId()
+	itineraries, err := itinerary.FindByOwnerId()
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve itineraries. Try again later."})
 		return
 	}
 
-	context.JSON(http.StatusOK, gin.H{"itineraries": itinerary})
+	context.JSON(http.StatusOK, gin.H{"itineraries": itineraries})
+}
+
+func getItinerary(context *gin.Context) {
+	itineraryId := context.Param("itineraryId")
+	if itineraryId == "" {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Itinerary ID is required."})
+		return
+	}
+
+	itinerary := models.NewItinerary("", "", time.Time{}, time.Time{}, nil)
+
+	// Convert itineraryId from string to int64
+	var id int64
+	_, err := fmt.Sscan(itineraryId, &id)
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Invalid itinerary ID."})
+		return
+	}
+	itinerary.ID = id
+
+	err = itinerary.FindById()
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve itinerary. Try again later."})
+		return
+	}
+
+	userId, exists := context.Get("userId")
+	if !exists {
+		context.JSON(http.StatusUnauthorized, gin.H{"message": "Not authorized."})
+		return
+	}
+
+	if itinerary.OwnerID != userId.(int64) {
+		context.JSON(http.StatusForbidden, gin.H{"message": "You do not have permission to access this itinerary."})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{"itinerary": itinerary})
 }

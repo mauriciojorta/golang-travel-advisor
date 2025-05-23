@@ -3,6 +3,7 @@ package routes
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -109,14 +110,14 @@ func TestGetOwnersItineraries_Success(t *testing.T) {
 
 		// Mock the FindByOwnerId method
 		mockItinerary := models.NewItinerary("", "", time.Time{}, time.Time{}, nil)
-		mockItinerary.FindByOwnerId = func() error {
+		mockItinerary.FindByOwnerId = func() (*[]models.Itinerary, error) {
 			mockItinerary.ID = 1
 			mockItinerary.Title = "Mock Itinerary"
 			mockItinerary.Description = "Mock Description"
 			mockItinerary.TravelStartDate = time.Now()
 			mockItinerary.TravelEndDate = time.Now().Add(48 * time.Hour)
 			mockItinerary.OwnerID = 1
-			return nil // Simulate successful retrieval
+			return &[]models.Itinerary{*mockItinerary}, nil // Simulate successful retrieval
 		}
 		models.NewItinerary = func(title string, description string, travelStartDate time.Time, travelEndDate time.Time, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
 			return mockItinerary
@@ -153,4 +154,123 @@ func TestGetOwnersItineraries_Unauthorized(t *testing.T) {
 
 	// Assert
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestGetItinerary_InvalidID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/itineraries/:itineraryId", getItinerary)
+
+	req, _ := http.NewRequest(http.MethodGet, "/itineraries/abc", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	var resp map[string]interface{}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	assert.Equal(t, "Invalid itinerary ID.", resp["message"])
+}
+
+func TestGetItinerary_DBError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/itineraries/:itineraryId", func(c *gin.Context) {
+		// Mock FindById to return error
+		mockItinerary := models.NewItinerary("", "", time.Time{}, time.Time{}, nil)
+		mockItinerary.FindById = func() error {
+			return fmt.Errorf("db error")
+		}
+		models.NewItinerary = func(title string, description string, travelStartDate time.Time, travelEndDate time.Time, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
+			return mockItinerary
+		}
+		c.Set("userId", int64(1))
+		getItinerary(c)
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/itineraries/1", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+	var resp map[string]interface{}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	assert.Equal(t, "Could not retrieve itinerary. Try again later.", resp["message"])
+}
+
+func TestGetItinerary_Unauthorized(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/itineraries/:itineraryId", func(c *gin.Context) {
+		mockItinerary := models.NewItinerary("", "", time.Time{}, time.Time{}, nil)
+		mockItinerary.FindById = func() error { return nil }
+		mockItinerary.OwnerID = 1
+		models.NewItinerary = func(title string, description string, travelStartDate time.Time, travelEndDate time.Time, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
+			return mockItinerary
+		}
+		getItinerary(c)
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/itineraries/1", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+	var resp map[string]interface{}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	assert.Equal(t, "Not authorized.", resp["message"])
+}
+
+func TestGetItinerary_Forbidden(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/itineraries/:itineraryId", func(c *gin.Context) {
+		mockItinerary := models.NewItinerary("", "", time.Time{}, time.Time{}, nil)
+		mockItinerary.FindById = func() error { return nil }
+		mockItinerary.OwnerID = 2 // Not matching userId
+		models.NewItinerary = func(title string, description string, travelStartDate time.Time, travelEndDate time.Time, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
+			return mockItinerary
+		}
+		c.Set("userId", int64(1))
+		getItinerary(c)
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/itineraries/1", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+	var resp map[string]interface{}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	assert.Equal(t, "You do not have permission to access this itinerary.", resp["message"])
+}
+
+func TestGetItinerary_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.GET("/itineraries/:itineraryId", func(c *gin.Context) {
+		mockItinerary := models.NewItinerary("", "", time.Time{}, time.Time{}, nil)
+		mockItinerary.FindById = func() error { return nil }
+		mockItinerary.OwnerID = 1
+		mockItinerary.ID = 1
+		mockItinerary.Title = "Test"
+		models.NewItinerary = func(title string, description string, travelStartDate time.Time, travelEndDate time.Time, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
+			return mockItinerary
+		}
+		c.Set("userId", int64(1))
+		getItinerary(c)
+	})
+
+	req, _ := http.NewRequest(http.MethodGet, "/itineraries/1", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+	var resp map[string]interface{}
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	assert.NotNil(t, resp["itinerary"])
 }

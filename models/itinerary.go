@@ -18,10 +18,11 @@ type Itinerary struct {
 	OwnerID            int64                        `json:"ownerId"`
 	ItineraryFilePath  string                       `json:"itineraryFilePath"`
 
-	FindByOwnerId func() error `json:"-"`
-	Create        func() error `json:"-"`
-	Update        func() error `json:"-"`
-	Delete        func() error `json:"-"`
+	FindById      func() error                 `json:"-"`
+	FindByOwnerId func() (*[]Itinerary, error) `json:"-"`
+	Create        func() error                 `json:"-"`
+	Update        func() error                 `json:"-"`
+	Delete        func() error                 `json:"-"`
 }
 
 var NewItinerary = func(title string, description string, travelStartDate time.Time, travelEndDate time.Time, travelDestinations []ItineraryTravelDestination) *Itinerary {
@@ -33,7 +34,8 @@ var NewItinerary = func(title string, description string, travelStartDate time.T
 		TravelDestinations: travelDestinations,
 	}
 
-	// Set default implementations for FindByOwnerId, Create, Update, Delete, and GenerateItineraryFile
+	// Set default implementations for FindById, FindByOwnerId, Create, Update, Delete, and GenerateItineraryFile
+	itinerary.FindById = itinerary.defaultFindById
 	itinerary.FindByOwnerId = itinerary.defaultFindByOwnerId
 	itinerary.Create = itinerary.defaultCreate
 	itinerary.Update = itinerary.defaultUpdate
@@ -42,11 +44,10 @@ var NewItinerary = func(title string, description string, travelStartDate time.T
 	return itinerary
 }
 
-func (i *Itinerary) defaultFindByOwnerId() error {
-
+func (i *Itinerary) defaultFindById() error {
 	query := `SELECT id, title, description, travel_start_date, travel_end_date, owner_id
-    FROM itineraries WHERE owner_id = ?`
-	row := db.DB.QueryRow(query, i.OwnerID)
+	FROM itineraries WHERE id = ?`
+	row := db.DB.QueryRow(query, i.ID)
 
 	err := row.Scan(&i.ID, &i.Title, &i.Description, &i.TravelStartDate, &i.TravelEndDate, &i.OwnerID)
 	if err != nil {
@@ -75,6 +76,52 @@ func (i *Itinerary) defaultFindByOwnerId() error {
 	i.TravelDestinations = travelDestinations
 
 	return nil
+
+}
+
+func (i *Itinerary) defaultFindByOwnerId() (*[]Itinerary, error) {
+	query := `SELECT id, title, description, travel_start_date, travel_end_date, owner_id
+	FROM itineraries WHERE owner_id = ?`
+	rows, err := db.DB.Query(query, i.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var itineraries []Itinerary
+
+	for rows.Next() {
+		var itinerary Itinerary
+		err := rows.Scan(&itinerary.ID, &itinerary.Title, &itinerary.Description, &itinerary.TravelStartDate, &itinerary.TravelEndDate, &itinerary.OwnerID)
+		if err != nil {
+			return nil, err
+		}
+
+		// Fetch travel destinations for the itinerary
+		destinationsQuery := `SELECT id, country, city, itinerary_id, arrival_date, departure_date
+		FROM itinerary_travel_destinations WHERE itinerary_id = ?`
+		destRows, err := db.DB.Query(destinationsQuery, itinerary.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		var travelDestinations []ItineraryTravelDestination
+		for destRows.Next() {
+			var destination ItineraryTravelDestination
+			err := destRows.Scan(&destination.ID, &destination.Country, &destination.City, &destination.ItineraryID, &destination.ArrivalDate, &destination.DepartureDate)
+			if err != nil {
+				destRows.Close()
+				return nil, err
+			}
+			travelDestinations = append(travelDestinations, destination)
+		}
+		destRows.Close()
+
+		itinerary.TravelDestinations = travelDestinations
+		itineraries = append(itineraries, itinerary)
+	}
+
+	return &itineraries, nil
 }
 
 func (i *Itinerary) defaultCreate() error {

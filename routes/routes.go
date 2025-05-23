@@ -14,5 +14,6 @@ func RegisterRoutes(server *gin.Engine) {
 	authenticated.Use(middlewares.Authenticate)
 	authenticated.POST("/itineraries", createItinerary)
 	authenticated.GET("/itineraries", getOwnersItineraries)
+	authenticated.GET("/itineraries/:id", getItinerary)
 
 }
