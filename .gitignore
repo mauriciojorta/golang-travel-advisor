@@ -32,3 +32,6 @@ go.work.sum
 
 # Specific file to ignore
 api.sql
+
+# Environment variables file
+.env

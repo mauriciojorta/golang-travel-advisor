@@ -1,0 +1,155 @@
+package apis
+
+import (
+	"context"
+	"os"
+	"sync"
+	"testing"
+
+	log "github.com/sirupsen/logrus"
+
+	"github.com/joho/godotenv"
+	"github.com/stretchr/testify/assert"
+	"github.com/tmc/langchaingo/llms"
+)
+
+// mockModel implements llms.Model for testing.
+type mockModel struct {
+	generateContentCalled bool
+}
+
+func (m *mockModel) GenerateContent(ctx context.Context, messages []llms.MessageContent, opts ...llms.CallOption) (*llms.ContentResponse, error) {
+	m.generateContentCalled = true
+	return &llms.ContentResponse{
+		Choices: []*llms.ContentChoice{
+			{
+				Content:    "Test completion",
+				StopReason: "stop",
+			},
+		},
+	}, nil
+}
+
+func (m *mockModel) Type() string { return "mock" }
+
+// Call is required to satisfy the llms.Model interface.
+func (m *mockModel) Call(ctx context.Context, prompt string, opts ...llms.CallOption) (string, error) {
+	m.generateContentCalled = true
+	return "Test completion", nil
+}
+
+func resetSingleton() {
+	llmClient = nil
+	llmOnce = sync.Once{}
+}
+
+func TestInitLlmClient_Defaults(t *testing.T) {
+	resetSingleton()
+	os.Setenv("OPENAI_API_KEY", "test_key")
+	os.Unsetenv("LLM_VENDOR")
+	os.Unsetenv("LLM_MODEL")
+
+	err := InitLlmClient()
+	assert.NoError(t, err)
+}
+
+func TestInitLlmClient_WithOpenAIVendor(t *testing.T) {
+	resetSingleton()
+	os.Setenv("OPENAI_API_KEY", "test_key")
+	os.Setenv("LLM_VENDOR", "openai")
+	os.Unsetenv("LLM_MODEL")
+
+	err := InitLlmClient()
+	assert.NoError(t, err)
+}
+
+func TestInitLlmClient_WithModelEnvAndDefaultVendor(t *testing.T) {
+	resetSingleton()
+	os.Setenv("OPENAI_API_KEY", "test_key")
+	os.Unsetenv("LLM_VENDOR")
+	os.Setenv("LLM_MODEL", "gpt-4")
+
+	err := InitLlmClient()
+	assert.NoError(t, err)
+}
+
+func TestInitLlmClient_DefaultVendorWithoutOpenAIKey(t *testing.T) {
+	resetSingleton()
+	os.Unsetenv("OPENAI_API_KEY")
+	os.Unsetenv("LLM_VENDOR")
+
+	err := InitLlmClient()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "missing the OpenAI API key")
+}
+
+func TestInitLlmClient_OpenAIVendorWithoutOpenAIKey(t *testing.T) {
+	resetSingleton()
+	os.Unsetenv("OPENAI_API_KEY")
+	os.Setenv("LLM_VENDOR", "openai")
+
+	err := InitLlmClient()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "missing the OpenAI API key")
+}
+
+func TestCallLlm_UsesLlmClient(t *testing.T) {
+	os.Setenv("OPENAI_API_KEY", "test_key")
+
+	// Replace llmClient with a mock
+	resetSingleton()
+	mock := &mockModel{}
+	llmClient = mock
+
+	// CallLlm prints to stdout and may call log.Fatal on error, so we only test that GenerateContent is called.
+	// To avoid os.Exit from log.Fatal, we do not trigger error paths.
+	messages := []llms.MessageContent{
+		{
+			Role: llms.ChatMessageTypeSystem,
+			Parts: []llms.ContentPart{
+				llms.TextContent{Text: "You are a helpful expert of international travel."},
+			},
+		},
+		{
+			Role: llms.ChatMessageTypeHuman,
+			Parts: []llms.ContentPart{
+				llms.TextContent{Text: "What is the capital of France?"},
+			},
+		},
+	}
+
+	response, _ := CallLlm(messages)
+	assert.True(t, mock.generateContentCalled)
+	assert.NotEmpty(t, response)
+
+}
+
+func TestCallRealLlm_UsesLlmClient(t *testing.T) {
+	t.Skip("Skipping real LLM call test, requires environment setup and API key")
+
+	log.SetLevel(log.DebugLevel) // Set log level to avoid debug output during tests
+
+	err := godotenv.Load("../.env")
+	assert.NoError(t, err)
+
+	err = InitLlmClient()
+	assert.NoError(t, err)
+
+	messages := []llms.MessageContent{
+		{
+			Role: llms.ChatMessageTypeSystem,
+			Parts: []llms.ContentPart{
+				llms.TextContent{Text: "You are a helpful expert of international travel."},
+			},
+		},
+		{
+			Role: llms.ChatMessageTypeHuman,
+			Parts: []llms.ContentPart{
+				llms.TextContent{Text: "What is the capital of France?"},
+			},
+		},
+	}
+	response, err := CallLlm(messages)
+	assert.NoError(t, err)
+	assert.NotEmpty(t, response)
+}
