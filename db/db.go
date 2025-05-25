@@ -45,8 +45,6 @@ func createTables() {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		title TEXT NOT NULL,
 		description TEXT NOT NULL,
-		travel_start_date DATETIME NOT NULL,
-		travel_end_date DATETIME NOT NULL,
 		owner_id INTEGER NOT NULL,
 		creation_date DATETIME NOT NULL,
 		update_date DATETIME NOT NULL,
@@ -75,6 +73,23 @@ func createTables() {
 	_, err = DB.Exec(createItinerariesTravelDestinationsTable)
 	if err != nil {
 		panic("Could not create itineraries travel destinations table!")
+	}
+
+	createItinerariesFileJobsTable := `
+	CREATE TABLE IF NOT EXISTS itinerary_file_jobs (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		itinerary_id INTEGER NOT NULL,
+		status TEXT NOT NULL,
+		status_description TEXT,
+		start_date DATETIME NOT NULL,
+		end_date DATETIME,
+		file_path TEXT,
+		FOREIGN KEY (itinerary_id) REFERENCES itineraries(id)
+	)
+	`
+	_, err = DB.Exec(createItinerariesFileJobsTable)
+	if err != nil {
+		panic("Could not create itineraries file jobs table!")
 	}
 
 }

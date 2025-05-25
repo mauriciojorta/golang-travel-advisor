@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"fmt"
 	"time"
 
 	"example.com/travel-advisor/db"
@@ -130,6 +131,38 @@ func DeleteByItineraryIdTx(tx *sql.Tx, itineraryId int64) error {
 	_, err = stmt.Exec(itineraryId)
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+var ValidateItineraryDestinationsDates = func(destinations *[]ItineraryTravelDestination) error {
+	if len(*destinations) == 0 {
+		return fmt.Errorf("At least one destination is required")
+	}
+
+	if len(*destinations) > 20 {
+		return fmt.Errorf("The itinerary cannot have more than 20 destinations")
+	}
+
+	// Find oldest arrival and latest departure
+	var oldestArrival, latestDeparture time.Time
+	for i, dest := range *destinations {
+		if i == 0 {
+			oldestArrival = dest.ArrivalDate
+			latestDeparture = dest.DepartureDate
+		} else {
+			if dest.ArrivalDate.Before(oldestArrival) {
+				oldestArrival = dest.ArrivalDate
+			}
+			if dest.DepartureDate.After(latestDeparture) {
+				latestDeparture = dest.DepartureDate
+			}
+		}
+	}
+
+	if latestDeparture.Sub(oldestArrival).Hours()/24 > 30 {
+		return fmt.Errorf("The itinerary cannot span more than 30 days")
 	}
 
 	return nil

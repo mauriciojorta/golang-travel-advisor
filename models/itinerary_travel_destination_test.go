@@ -384,7 +384,7 @@ func TestDestinationDelete_ExecError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestDeleteByItineraryIdTx_Success(t *testing.T) {
+func TestDestinationDeleteByItineraryIdTx_Success(t *testing.T) {
 	// Arrange
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
@@ -421,7 +421,7 @@ func TestDeleteByItineraryIdTx_Success(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestDeleteByItineraryIdTx_PrepareError(t *testing.T) {
+func TestDestinationDeleteByItineraryIdTx_PrepareError(t *testing.T) {
 	// Arrange
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
@@ -457,7 +457,7 @@ func TestDeleteByItineraryIdTx_PrepareError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestDeleteByItineraryIdTx_ExecError(t *testing.T) {
+func TestDestinationDeleteByItineraryIdTx_ExecError(t *testing.T) {
 	// Arrange
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
@@ -494,4 +494,72 @@ func TestDeleteByItineraryIdTx_ExecError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, sql.ErrNoRows, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
+}
+func TestValidateItineraryDestinationsDates_EmptySlice(t *testing.T) {
+	destinations := []ItineraryTravelDestination{}
+	err := ValidateItineraryDestinationsDates(&destinations)
+	assert.Error(t, err)
+	assert.Equal(t, "At least one destination is required", err.Error())
+}
+
+func TestValidateItineraryDestinationsDates_TooManyDestinations(t *testing.T) {
+	destinations := make([]ItineraryTravelDestination, 21)
+	for i := range destinations {
+		destinations[i] = ItineraryTravelDestination{
+			ArrivalDate:   time.Now(),
+			DepartureDate: time.Now().Add(24 * time.Hour),
+		}
+	}
+	err := ValidateItineraryDestinationsDates(&destinations)
+	assert.Error(t, err)
+	assert.Equal(t, "The itinerary cannot have more than 20 destinations", err.Error())
+}
+
+func TestValidateItineraryDestinationsDates_Over30Days(t *testing.T) {
+	now := time.Now()
+	destinations := []ItineraryTravelDestination{
+		{
+			ArrivalDate:   now,
+			DepartureDate: now.Add(10 * 24 * time.Hour),
+		},
+		{
+			ArrivalDate:   now.Add(40 * 24 * time.Hour),
+			DepartureDate: now.Add(41 * 24 * time.Hour),
+		},
+	}
+	err := ValidateItineraryDestinationsDates(&destinations)
+	assert.Error(t, err)
+	assert.Equal(t, "The itinerary cannot span more than 30 days", err.Error())
+}
+
+func TestValidateItineraryDestinationsDates_ValidSingleDestination(t *testing.T) {
+	now := time.Now()
+	destinations := []ItineraryTravelDestination{
+		{
+			ArrivalDate:   now,
+			DepartureDate: now.Add(5 * 24 * time.Hour),
+		},
+	}
+	err := ValidateItineraryDestinationsDates(&destinations)
+	assert.NoError(t, err)
+}
+
+func TestValidateItineraryDestinationsDates_ValidMultipleDestinations(t *testing.T) {
+	now := time.Now()
+	destinations := []ItineraryTravelDestination{
+		{
+			ArrivalDate:   now,
+			DepartureDate: now.Add(5 * 24 * time.Hour),
+		},
+		{
+			ArrivalDate:   now.Add(2 * 24 * time.Hour),
+			DepartureDate: now.Add(10 * 24 * time.Hour),
+		},
+		{
+			ArrivalDate:   now.Add(8 * 24 * time.Hour),
+			DepartureDate: now.Add(15 * 24 * time.Hour),
+		},
+	}
+	err := ValidateItineraryDestinationsDates(&destinations)
+	assert.NoError(t, err)
 }

@@ -52,7 +52,7 @@ func InitLlmClient() error {
 	return err
 }
 
-func CallLlm(messages []llms.MessageContent) (*llms.ContentResponse, error) {
+var CallLlm = func(messages []llms.MessageContent) (*string, error) {
 
 	ctx := context.Background()
 	response, err := llmClient.GenerateContent(ctx, messages, llms.WithTemperature(0.8))
@@ -67,8 +67,9 @@ func CallLlm(messages []llms.MessageContent) (*llms.ContentResponse, error) {
 		log.Warn("LLM response contains no choices")
 	} else {
 		log.Debugf("LLM response: %s", response.Choices[0].Content)
+		return &response.Choices[0].Content, nil
 	}
 
-	return response, nil
+	return nil, nil
 
 }

@@ -13,10 +13,8 @@ type Itinerary struct {
 	CreationDate       time.Time                    `json:"creationDate"`
 	UpdateDate         time.Time                    `json:"updateDate"`
 	TravelDestinations []ItineraryTravelDestination `json:"travelDestinations"`
-	TravelStartDate    time.Time                    `json:"travelStartDate"`
-	TravelEndDate      time.Time                    `json:"travelEndDate"`
 	OwnerID            int64                        `json:"ownerId"`
-	ItineraryFilePath  string                       `json:"itineraryFilePath"`
+	FileJobs           []ItineraryFileJob           `json:"fileJobs"`
 
 	FindById      func() error                 `json:"-"`
 	FindByOwnerId func() (*[]Itinerary, error) `json:"-"`
@@ -25,12 +23,10 @@ type Itinerary struct {
 	Delete        func() error                 `json:"-"`
 }
 
-var NewItinerary = func(title string, description string, travelStartDate time.Time, travelEndDate time.Time, travelDestinations []ItineraryTravelDestination) *Itinerary {
+var NewItinerary = func(title string, description string, travelDestinations []ItineraryTravelDestination) *Itinerary {
 	itinerary := &Itinerary{
 		Title:              title,
 		Description:        description,
-		TravelStartDate:    travelStartDate,
-		TravelEndDate:      travelEndDate,
 		TravelDestinations: travelDestinations,
 	}
 
@@ -45,11 +41,11 @@ var NewItinerary = func(title string, description string, travelStartDate time.T
 }
 
 func (i *Itinerary) defaultFindById() error {
-	query := `SELECT id, title, description, travel_start_date, travel_end_date, owner_id
+	query := `SELECT id, title, description, owner_id
 	FROM itineraries WHERE id = ?`
 	row := db.DB.QueryRow(query, i.ID)
 
-	err := row.Scan(&i.ID, &i.Title, &i.Description, &i.TravelStartDate, &i.TravelEndDate, &i.OwnerID)
+	err := row.Scan(&i.ID, &i.Title, &i.Description, &i.OwnerID)
 	if err != nil {
 		return err
 	}
@@ -80,7 +76,7 @@ func (i *Itinerary) defaultFindById() error {
 }
 
 func (i *Itinerary) defaultFindByOwnerId() (*[]Itinerary, error) {
-	query := `SELECT id, title, description, travel_start_date, travel_end_date, owner_id
+	query := `SELECT id, title, description, owner_id
 	FROM itineraries WHERE owner_id = ?`
 	rows, err := db.DB.Query(query, i.OwnerID)
 	if err != nil {
@@ -92,7 +88,7 @@ func (i *Itinerary) defaultFindByOwnerId() (*[]Itinerary, error) {
 
 	for rows.Next() {
 		var itinerary Itinerary
-		err := rows.Scan(&itinerary.ID, &itinerary.Title, &itinerary.Description, &itinerary.TravelStartDate, &itinerary.TravelEndDate, &itinerary.OwnerID)
+		err := rows.Scan(&itinerary.ID, &itinerary.Title, &itinerary.Description, &itinerary.OwnerID)
 		if err != nil {
 			return nil, err
 		}
@@ -135,8 +131,8 @@ func (i *Itinerary) defaultCreate() error {
 		return err
 	}
 
-	queryItinerary := `INSERT INTO itineraries(title, description, travel_start_date, travel_end_date, owner_id, creation_date, update_date) 
-	VALUES (?, ?, ?, ?, ?, ?, ?)`
+	queryItinerary := `INSERT INTO itineraries(title, description, owner_id, creation_date, update_date) 
+	VALUES (?, ?, ?, ?, ?)`
 
 	stmt, err := tx.Prepare(queryItinerary)
 	if err != nil {
@@ -144,7 +140,7 @@ func (i *Itinerary) defaultCreate() error {
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(i.Title, i.Description, i.TravelStartDate, i.TravelEndDate, i.OwnerID, time.Now(), time.Now())
+	result, err := stmt.Exec(i.Title, i.Description, i.OwnerID, time.Now(), time.Now())
 	if err != nil {
 		return err
 	}
@@ -179,14 +175,14 @@ func (i *Itinerary) defaultUpdate() error {
 		return err
 	}
 
-	query := `UPDATE itineraries SET title = ?, description = ?, travel_start_date = ?, travel_end_date = ?, update_date = ? WHERE id = ?`
+	query := `UPDATE itineraries SET title = ?, description = ?, update_date = ? WHERE id = ?`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(i.Title, i.Description, i.TravelStartDate, i.TravelEndDate, time.Now(), i.ID)
+	_, err = stmt.Exec(i.Title, i.Description, time.Now(), i.ID)
 	if err != nil {
 		return err
 	}
