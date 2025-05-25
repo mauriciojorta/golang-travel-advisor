@@ -2,12 +2,31 @@ package utils
 
 import (
 	"errors"
+	"os"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-const secretKey = "supersecret"
+var (
+	secretKey     string
+	secretKeyOnce sync.Once
+)
+
+// Initialize the secret key once
+func InitJwtSecretKey() error {
+	var err error
+
+	secretKeyOnce.Do(func() {
+		secretKey := os.Getenv("JWT_SECRET_KEY")
+		if secretKey == "" {
+			err = errors.New("JWT_SECRET_KEY environment variable is not set")
+		}
+	})
+
+	return err
+}
 
 var GenerateToken = func(email string, userId int64) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{

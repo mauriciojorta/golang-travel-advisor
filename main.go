@@ -5,6 +5,7 @@ import (
 	"example.com/travel-advisor/db"
 	"example.com/travel-advisor/logger"
 	"example.com/travel-advisor/routes"
+	"example.com/travel-advisor/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	log "github.com/sirupsen/logrus"
@@ -18,6 +19,11 @@ func main() {
 	logger.SetupLogger()
 
 	log.Info("Environment variables loaded")
+
+	err = utils.InitJwtSecretKey()
+	if err != nil {
+		log.Fatalf("Error initializing JWT secret key: %v", err)
+	}
 
 	err = apis.InitLlmClient()
 	if err != nil {
