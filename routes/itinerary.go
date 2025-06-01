@@ -3,10 +3,13 @@ package routes
 import (
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
 
 	log "github.com/sirupsen/logrus"
 
 	"example.com/travel-advisor/models"
+	"example.com/travel-advisor/services"
 	"github.com/gin-gonic/gin"
 )
 
@@ -29,17 +32,19 @@ func createItinerary(context *gin.Context) {
 		return
 	}
 
+	itineraryService := services.GetItineraryService()
+
 	itinerary := models.NewItinerary(input.Title, input.Description, input.Destinations)
 
 	itinerary.OwnerID = userId.(int64)
 
-	err := models.ValidateItineraryDestinationsDates(&itinerary.TravelDestinations)
+	err := itineraryService.ValidateItineraryDestinationsDates(&itinerary.TravelDestinations)
 	if err != nil {
 		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	err = itinerary.Create()
+	err = itineraryService.Create(itinerary)
 	if err != nil {
 		fmt.Print(err)
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not create itinerary. Try again later."})
@@ -56,10 +61,9 @@ func getOwnersItineraries(context *gin.Context) {
 		return
 	}
 
-	itinerary := models.NewItinerary("", "", nil)
-	itinerary.OwnerID = userId.(int64)
+	itineraryService := services.GetItineraryService()
 
-	itineraries, err := itinerary.FindByOwnerId()
+	itineraries, err := itineraryService.FindByOwnerId(userId.(int64))
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve itineraries. Try again later."})
 		return
@@ -81,7 +85,7 @@ func getItinerary(context *gin.Context) {
 		return
 	}
 
-	itinerary := models.NewItinerary("", "", nil)
+	itineraryService := services.GetItineraryService()
 
 	// Convert itineraryId from string to int64
 	var id int64
@@ -90,9 +94,8 @@ func getItinerary(context *gin.Context) {
 		context.JSON(http.StatusBadRequest, gin.H{"message": "Invalid itinerary ID."})
 		return
 	}
-	itinerary.ID = id
 
-	err = itinerary.FindById()
+	itinerary, err := itineraryService.FindById(id)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve itinerary. Try again later."})
 		return
@@ -127,10 +130,9 @@ func runItineraryFileJob(context *gin.Context) {
 		return
 	}
 
-	itinerary := models.NewItinerary("", "", nil)
-	itinerary.ID = id
+	itineraryService := services.GetItineraryService()
 
-	err = itinerary.FindById()
+	itinerary, err := itineraryService.FindById(id)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve itinerary. Try again later."})
 		return
@@ -141,23 +143,62 @@ func runItineraryFileJob(context *gin.Context) {
 		return
 	}
 
-	job := models.NewItineraryFileJob(itinerary.ID)
+	jobsService := services.GetItineraryFileJobService()
 
 	// Check if there is already a job running for this itinerary
-	isRunning, err := job.HasItineraryAJobRunning()
+	jobsRunningCount, err := jobsService.GetJobsRunningOfUserCount(userId.(int64))
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not check job status. Try again later."})
 		return
 	}
-	if isRunning {
-		context.JSON(http.StatusConflict, gin.H{"message": "A job is already running for this itinerary."})
+
+	jobsRunningLimitStr := os.Getenv("JOBS_RUNNING_PER_USER_LIMIT")
+	jobsRunningLimit := 5 // Default limit if not set
+	if jobsRunningLimitStr != "" {
+		var convErr error
+		jobsRunningLimit, convErr = strconv.Atoi(jobsRunningLimitStr)
+		if convErr != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{"message": "Invalid jobs running limit configuration."})
+			return
+		}
+	}
+
+	if jobsRunningCount >= jobsRunningLimit {
+		context.JSON(http.StatusConflict, gin.H{"message": "Too many jobs running for your user. Please wait for existing jobs to complete."})
 		return
 	}
 
-	// Run the job
-	err = job.RunJob(itinerary)
+	// Prepare and run the job
+	itineraryFileJobTask, err := jobsService.PrepareJob(itinerary)
 	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not start job. Try again later."})
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not create job. Try again later."})
+		return
+	}
+
+	job := itineraryFileJobTask.ItineraryFileJob
+
+	asyncTaskQueue := services.NewAsyncqTaskQueue()
+	defer asyncTaskQueue.Close()
+
+	if asyncTaskQueue == nil {
+		log.Error("Async task queue is not initialized.")
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Internal server error. Try again later."})
+		return
+	}
+
+	asyncTaskId, err := asyncTaskQueue.EnqueueItineraryFileJob(*itineraryFileJobTask)
+	if err != nil {
+		log.Error("Error enqueuing itinerary file job: ", err)
+		jobsService.FailJob("Could not enqueue job", job)
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not enqueue job. Try again later."})
+		return
+	}
+
+	err = jobsService.AddAsyncTaskId(*asyncTaskId, job)
+	if err != nil {
+		log.Error("Error adding async task ID to job: ", err)
+		jobsService.FailJob("Could not add async task ID to job", job)
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not add async task ID to job. Try again later."})
 		return
 	}
 
@@ -185,9 +226,9 @@ func getAllItineraryFileJobs(context *gin.Context) {
 		return
 	}
 
-	itinerary := models.NewItinerary("", "", nil)
-	itinerary.ID = itineraryId
-	err = itinerary.FindById()
+	itineraryService := services.GetItineraryService()
+
+	itinerary, err := itineraryService.FindById(itineraryId)
 	if err != nil {
 		log.Error("Error retrieving itinerary: ", err)
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve itinerary. Try again later."})
@@ -199,9 +240,9 @@ func getAllItineraryFileJobs(context *gin.Context) {
 		return
 	}
 
-	job := models.NewItineraryFileJob(itineraryId)
+	jobsService := services.GetItineraryFileJobService()
 
-	itineraryFileJobs, err := job.FindByItineraryId()
+	itineraryFileJobs, err := jobsService.FindByItineraryId(itineraryId)
 	if err != nil {
 		log.Error("Error retrieving itinerary file jobs: ", err)
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve jobs. Try again later."})

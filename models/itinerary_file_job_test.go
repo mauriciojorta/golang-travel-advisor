@@ -1,16 +1,12 @@
 package models
 
 import (
-	"os"
 	"testing"
 	"time"
 
-	"example.com/travel-advisor/apis"
 	"example.com/travel-advisor/db"
-	"example.com/travel-advisor/utils"
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
-	"github.com/tmc/langchaingo/llms"
 )
 
 func TestFileJobDefaultFindByItineraryId(t *testing.T) {
@@ -20,11 +16,13 @@ func TestFileJobDefaultFindByItineraryId(t *testing.T) {
 	db.DB = dbMock
 
 	itineraryID := int64(1)
-	rows := sqlmock.NewRows([]string{"id", "status", "status_description", "start_date", "end_date", "file_path", "itinerary_id"}).
-		AddRow(1, "completed", "Job OK", time.Now(), time.Now().Add(24*time.Hour), "/path/to/file1", itineraryID).
-		AddRow(2, "running", "Job running", time.Now().Add(48*time.Hour), time.Now().Add(72*time.Hour), "/path/to/file2", itineraryID)
+	asyncTaskId1 := "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+	asyncTaskId2 := "952057c1-ac50-4014-972e-28ab65242ed6"
+	rows := sqlmock.NewRows([]string{"id", "status", "status_description", "creation_date", "start_date", "end_date", "file_path", "file_manager", "itinerary_id", "async_task_id"}).
+		AddRow(1, "completed", "Job OK", time.Now(), time.Now().Add(1*time.Minute), time.Now().Add(24*time.Hour), "/path/to/file1", "local", itineraryID, asyncTaskId1).
+		AddRow(2, "running", "Job running", time.Now().Add(48*time.Hour), time.Now().Add(49*time.Hour), time.Now().Add(72*time.Hour), "/path/to/file2", "local", itineraryID, asyncTaskId2)
 
-	mock.ExpectQuery("SELECT id, status, status_description, start_date, end_date, file_path, itinerary_id FROM itinerary_file_jobs WHERE itinerary_id = ?").
+	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE itinerary_id = ?").
 		WithArgs(itineraryID).
 		WillReturnRows(rows)
 
@@ -39,11 +37,17 @@ func TestFileJobDefaultFindByItineraryId(t *testing.T) {
 	assert.Equal(t, "completed", (*result)[0].Status)
 	assert.Equal(t, "Job OK", (*result)[0].StatusDescription)
 	assert.Equal(t, "/path/to/file1", (*result)[0].Filepath)
+	assert.Equal(t, "local", (*result)[0].Filemanager)
+	assert.Equal(t, int64(1), (*result)[0].ItineraryID)
+	assert.Equal(t, asyncTaskId1, (*result)[0].AsyncTaskID)
 
 	assert.Equal(t, int64(2), (*result)[1].ID)
 	assert.Equal(t, "running", (*result)[1].Status)
 	assert.Equal(t, "Job running", (*result)[1].StatusDescription)
 	assert.Equal(t, "/path/to/file2", (*result)[1].Filepath)
+	assert.Equal(t, "local", (*result)[1].Filemanager)
+	assert.Equal(t, int64(1), (*result)[1].ItineraryID)
+	assert.Equal(t, asyncTaskId2, (*result)[1].AsyncTaskID)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -58,7 +62,7 @@ func TestFileJobDefaultFindByItineraryIdError(t *testing.T) {
 
 	itineraryID := int64(1)
 
-	mock.ExpectQuery("SELECT id, status, status_description, start_date, end_date, file_path, itinerary_id FROM itinerary_file_jobs WHERE itinerary_id = ?").
+	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE itinerary_id = ?").
 		WithArgs(itineraryID).
 		WillReturnError(sqlmock.ErrCancelled)
 
@@ -80,10 +84,11 @@ func TestFileJobDefaultFindById(t *testing.T) {
 	db.DB = dbMock
 
 	jobID := int64(1)
-	row := sqlmock.NewRows([]string{"id", "status", "status_description", "start_date", "end_date", "file_path", "itinerary_id"}).
-		AddRow(jobID, "completed", "Job OK", time.Now(), time.Now().Add(24*time.Hour), "/path/to/file", 1)
+	asyncTaskId := "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+	row := sqlmock.NewRows([]string{"id", "status", "status_description", "creation_date", "start_date", "end_date", "file_path", "file_manager", "itinerary_id", "async_task_id"}).
+		AddRow(jobID, "completed", "Job OK", time.Now(), time.Now().Add(1*time.Minute), time.Now().Add(24*time.Hour), "/path/to/file", "local", 1, asyncTaskId)
 
-	mock.ExpectQuery("SELECT id, status, status_description, start_date, end_date, file_path, itinerary_id FROM itinerary_file_jobs WHERE id = ?").
+	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE id = ?").
 		WithArgs(jobID).
 		WillReturnRows(row)
 
@@ -94,6 +99,10 @@ func TestFileJobDefaultFindById(t *testing.T) {
 	assert.Equal(t, jobID, job.ID)
 	assert.Equal(t, "completed", job.Status)
 	assert.Equal(t, "/path/to/file", job.Filepath)
+	assert.Equal(t, "local", job.Filemanager)
+	assert.Equal(t, "Job OK", job.StatusDescription)
+	assert.Equal(t, int64(1), job.ItineraryID)
+	assert.Equal(t, asyncTaskId, job.AsyncTaskID)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -107,8 +116,7 @@ func TestFileJobDefaultIdError(t *testing.T) {
 	db.DB = dbMock
 
 	itineraryID := int64(1)
-
-	mock.ExpectQuery("SELECT id, status, status_description, start_date, end_date, file_path, itinerary_id FROM itinerary_file_jobs WHERE itinerary_id = ?").
+	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE itinerary_id = ?").
 		WithArgs(itineraryID).
 		WillReturnError(sqlmock.ErrCancelled)
 
@@ -123,66 +131,69 @@ func TestFileJobDefaultIdError(t *testing.T) {
 	}
 }
 
-func TestDefaultHasItineraryAJobRunning_True(t *testing.T) {
+func TestDefaultGetJobsRunningOfUserCount(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
 	db.DB = dbMock
 
-	itineraryID := int64(123)
-	mock.ExpectQuery("SELECT COUNT\\(id\\) FROM itinerary_file_jobs WHERE itinerary_id = \\? AND status = 'running'").
-		WithArgs(itineraryID).
+	userId := int64(1)
+
+	mock.ExpectQuery("SELECT COUNT\\(itinerary_file_jobs.id\\) FROM itinerary_file_jobs WHERE status = 'running' AND itinerary_id IN \\(SELECT itineraries.id FROM itineraries WHERE owner_id = \\?\\)").
+		WithArgs(userId).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
 
-	job := &ItineraryFileJob{ItineraryID: itineraryID}
-	running, err := job.defaultHasItineraryAJobRunning()
+	job := &ItineraryFileJob{}
+	count, err := job.defaultGetJobsRunningOfUserCount(userId)
 
 	assert.NoError(t, err)
-	assert.True(t, running)
+	assert.Equal(t, 2, count)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 }
 
-func TestDefaultHasItineraryAJobRunning_False(t *testing.T) {
+func TestDefaultGetJobsRunningOfUserCount_Zero(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
 	db.DB = dbMock
 
-	itineraryID := int64(456)
-	mock.ExpectQuery("SELECT COUNT\\(id\\) FROM itinerary_file_jobs WHERE itinerary_id = \\? AND status = 'running'").
-		WithArgs(itineraryID).
+	userId := int64(1)
+
+	mock.ExpectQuery("SELECT COUNT\\(itinerary_file_jobs.id\\) FROM itinerary_file_jobs WHERE status = 'running' AND itinerary_id IN \\(SELECT itineraries.id FROM itineraries WHERE owner_id = \\?\\)").
+		WithArgs(userId).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 
-	job := &ItineraryFileJob{ItineraryID: itineraryID}
-	running, err := job.defaultHasItineraryAJobRunning()
+	job := &ItineraryFileJob{}
+	count, err := job.defaultGetJobsRunningOfUserCount(userId)
 
 	assert.NoError(t, err)
-	assert.False(t, running)
+	assert.Equal(t, 0, count)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 }
 
-func TestDefaultHasItineraryAJobRunning_Error(t *testing.T) {
+func TestDefaultGetJobsRunningOfUserCount_Error(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
 	db.DB = dbMock
 
-	itineraryID := int64(789)
-	mock.ExpectQuery("SELECT COUNT\\(id\\) FROM itinerary_file_jobs WHERE itinerary_id = \\? AND status = 'running'").
-		WithArgs(itineraryID).
+	userId := int64(1)
+
+	mock.ExpectQuery("SELECT COUNT\\(itinerary_file_jobs.id\\) FROM itinerary_file_jobs WHERE status = 'running' AND itinerary_id IN \\(SELECT itineraries.id FROM itineraries WHERE owner_id = \\?\\)").
+		WithArgs(userId).
 		WillReturnError(sqlmock.ErrCancelled)
 
-	job := &ItineraryFileJob{ItineraryID: itineraryID}
-	running, err := job.defaultHasItineraryAJobRunning()
+	job := &ItineraryFileJob{}
+	count, err := job.defaultGetJobsRunningOfUserCount(userId)
 
 	assert.Error(t, err)
-	assert.False(t, running)
+	assert.Equal(t, 0, count)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -240,7 +251,7 @@ func TestFileJobDefaultStopJobError(t *testing.T) {
 	}
 }
 
-func TestDefaultDelete(t *testing.T) {
+func TestDefaultDeleteJob(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -254,7 +265,7 @@ func TestDefaultDelete(t *testing.T) {
 		WithArgs(job.ID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	err = job.defaultDelete()
+	err = job.defaultDeleteJob()
 
 	assert.NoError(t, err)
 
@@ -263,7 +274,7 @@ func TestDefaultDelete(t *testing.T) {
 	}
 }
 
-func TestDefaultDeleteError(t *testing.T) {
+func TestDefaultDeleteJobError(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -277,7 +288,7 @@ func TestDefaultDeleteError(t *testing.T) {
 		WithArgs(job.ID).
 		WillReturnError(sqlmock.ErrCancelled)
 
-	err = job.defaultDelete()
+	err = job.defaultDeleteJob()
 
 	assert.Error(t, err)
 
@@ -285,215 +296,285 @@ func TestDefaultDeleteError(t *testing.T) {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 }
-func TestDefaultRunJob_Success(t *testing.T) {
-	// Patch dependencies
+func TestDefaultPrepareJob_SuccessDefaultFileManager(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
 	db.DB = dbMock
 
-	// Patch apis.CallLlm and os.WriteFile
-	origCallLlm := apis.CallLlm
-	origWriteFile := utils.WriteFile
-	defer func() {
-		apis.CallLlm = origCallLlm
-		utils.WriteFile = origWriteFile
-	}()
+	itinerary := &Itinerary{
+		ID:          42,
+		Title:       "Test Trip",
+		Description: "A test trip",
+		OwnerID:     7,
+	}
+	job := &ItineraryFileJob{
+		ItineraryID: itinerary.ID,
+	}
 
-	apis.CallLlm = func(_ []llms.MessageContent) (*string, error) {
-		resp := "LLM itinerary"
-		return &resp, nil
+	mock.ExpectExec(`INSERT INTO itinerary_file_jobs \(status, creation_date, file_manager, itinerary_id\) VALUES \(\?, \?, \?, \?\)`).
+		WithArgs("pending", sqlmock.AnyArg(), "local", itinerary.ID).
+		WillReturnResult(sqlmock.NewResult(123, 1))
+
+	err = job.defaultPrepareJob(itinerary)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(123), job.ID)
+	assert.Equal(t, "pending", job.Status)
+	assert.Equal(t, "local", job.Filemanager)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
-	utils.WriteFile = func(name string, data []byte, perm os.FileMode) error {
-		return nil
-	}
+}
+
+func TestDefaultPrepareJob_SuccessEnvironmentVariableFileManager(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
 
 	itinerary := &Itinerary{
-		ID:          10,
-		OwnerID:     20,
-		Title:       "Trip",
-		Description: "Desc",
-		TravelDestinations: []ItineraryTravelDestination{
-			{Country: "Country", City: "City", ArrivalDate: time.Now(), DepartureDate: time.Now().Add(2 * 24 * time.Hour)},
-		},
+		ID:          42,
+		Title:       "Test Trip",
+		Description: "A test trip",
+		OwnerID:     7,
+	}
+	job := &ItineraryFileJob{
+		ItineraryID: itinerary.ID,
 	}
 
-	job := &ItineraryFileJob{ItineraryID: itinerary.ID}
+	// Set the environment variable for file manager
+	t.Setenv("FILE_MANAGER", "s3")
 
-	// Expect INSERT
-	mock.ExpectExec("INSERT INTO itinerary_file_jobs").
-		WithArgs("running", sqlmock.AnyArg(), itinerary.ID).
+	mock.ExpectExec(`INSERT INTO itinerary_file_jobs \(status, creation_date, file_manager, itinerary_id\) VALUES \(\?, \?, \?, \?\)`).
+		WithArgs("pending", sqlmock.AnyArg(), "s3", itinerary.ID).
+		WillReturnResult(sqlmock.NewResult(123, 1))
+
+	err = job.defaultPrepareJob(itinerary)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(123), job.ID)
+	assert.Equal(t, "pending", job.Status)
+	assert.Equal(t, "s3", job.Filemanager)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultPrepareJob_InsertError(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	itinerary := &Itinerary{
+		ID:          42,
+		Title:       "Test Trip",
+		Description: "A test trip",
+		OwnerID:     7,
+	}
+	job := &ItineraryFileJob{
+		ItineraryID: itinerary.ID,
+	}
+
+	mock.ExpectExec(`INSERT INTO itinerary_file_jobs \(status, creation_date, file_manager, itinerary_id\) VALUES \(\?, \?, \?. \?\)`).
+		WithArgs("pending", sqlmock.AnyArg(), "local", itinerary.ID).
+		WillReturnError(sqlmock.ErrCancelled)
+
+	err = job.defaultPrepareJob(itinerary)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "could not insert job into database")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultStartJob_Success(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	job := &ItineraryFileJob{
+		ID: 1,
+	}
+
+	mock.ExpectExec(`UPDATE itinerary_file_jobs SET status = \?, start_date = \? WHERE id = \?`).
+		WithArgs("running", sqlmock.AnyArg(), job.ID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	// Expect UPDATEs (could be more, but at least the last one)
-	mock.ExpectExec("UPDATE itinerary_file_jobs SET status = \\?, status_description = \\?, end_date = \\?, file_path = \\? WHERE id = \\?").
-		WithArgs("completed", "Itinerary generated successfully", sqlmock.AnyArg(), sqlmock.AnyArg(), int64(1)).
+	err = job.defaultStartJob()
+	assert.NoError(t, err)
+	assert.Equal(t, "running", job.Status)
+	assert.False(t, job.StartDate.IsZero())
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultStartJob_Error(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	job := &ItineraryFileJob{
+		ID: 1,
+	}
+
+	mock.ExpectExec(`UPDATE itinerary_file_jobs SET status = \?, start_date = \? WHERE id = \?`).
+		WithArgs("running", sqlmock.AnyArg(), job.ID).
+		WillReturnError(sqlmock.ErrCancelled)
+
+	err = job.defaultStartJob()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to update job status in database")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultFailJob_Success(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	job := &ItineraryFileJob{
+		ID: 1,
+	}
+
+	mock.ExpectExec(`UPDATE itinerary_file_jobs SET status = \?, status_description = \?, end_date = \? WHERE id = \?`).
+		WithArgs("failed", "some error", sqlmock.AnyArg(), job.ID).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	// Run
-	job.defaultRunJob(itinerary)
+	err = job.defaultFailJob("some error")
+	assert.NoError(t, err)
+	assert.Equal(t, "failed", job.Status)
+	assert.Equal(t, "some error", job.StatusDescription)
+	assert.False(t, job.EndDate.IsZero())
 
-	// Wait for goroutine to finish (not ideal, but works for this async test)
-	time.Sleep(200 * time.Millisecond)
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
 
+func TestDefaultFailJob_Error(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	job := &ItineraryFileJob{
+		ID: 1,
+	}
+
+	mock.ExpectExec(`UPDATE itinerary_file_jobs SET status = \?, status_description = \?, end_date = \? WHERE id = \?`).
+		WithArgs("failed", "fail reason", sqlmock.AnyArg(), job.ID).
+		WillReturnError(sqlmock.ErrCancelled)
+
+	err = job.defaultFailJob("fail reason")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to update job status in database")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultAddAsyncTaskId_Success(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	job := &ItineraryFileJob{
+		ID: 1,
+	}
+
+	asyncTaskId := "task-uuid"
+	mock.ExpectExec(`UPDATE itinerary_file_jobs SET async_task_id = \? WHERE id = \?`).
+		WithArgs(asyncTaskId, job.ID).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err = job.defaultAddAsyncTaskId(asyncTaskId)
+	assert.NoError(t, err)
+	assert.Equal(t, asyncTaskId, job.AsyncTaskID)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultAddAsyncTaskId_Error(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	job := &ItineraryFileJob{
+		ID: 1,
+	}
+
+	asyncTaskId := "task-uuid"
+	mock.ExpectExec(`UPDATE itinerary_file_jobs SET async_task_id = \? WHERE id = \?`).
+		WithArgs(asyncTaskId, job.ID).
+		WillReturnError(sqlmock.ErrCancelled)
+
+	err = job.defaultAddAsyncTaskId(asyncTaskId)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to update async task ID in database")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultCompleteJob_Success(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	job := &ItineraryFileJob{
+		ID: 1,
+	}
+
+	mock.ExpectExec(`UPDATE itinerary_file_jobs SET status = \?, status_description = \?, file_path = \?, end_date = \? WHERE id = \?`).
+		WithArgs("completed", "Job completed successfully", sqlmock.AnyArg(), sqlmock.AnyArg(), job.ID).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err = job.defaultCompleteJob()
+	assert.NoError(t, err)
 	assert.Equal(t, "completed", job.Status)
-	assert.Equal(t, "Itinerary generated successfully", job.StatusDescription)
-	assert.NotEmpty(t, job.Filepath)
-	assert.Equal(t, int64(1), job.ID)
+	assert.Equal(t, "Job completed successfully", job.StatusDescription)
+	assert.False(t, job.EndDate.IsZero())
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
 }
 
-func TestDefaultRunJob_InsertError(t *testing.T) {
+func TestDefaultCompleteJob_Error(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
 	db.DB = dbMock
 
-	itinerary := &Itinerary{ID: 1, OwnerID: 2}
-	job := &ItineraryFileJob{ItineraryID: itinerary.ID}
+	job := &ItineraryFileJob{
+		ID: 1,
+	}
 
-	mock.ExpectExec("INSERT INTO itinerary_file_jobs").
-		WithArgs("running", sqlmock.AnyArg(), itinerary.ID).
+	mock.ExpectExec(`UPDATE itinerary_file_jobs SET status = \?, status_description = \?, file_path = \?, end_date = \? WHERE id = \?`).
+		WithArgs("completed", "Job completed successfully", sqlmock.AnyArg(), sqlmock.AnyArg(), job.ID).
 		WillReturnError(sqlmock.ErrCancelled)
 
-	err = job.defaultRunJob(itinerary)
-
+	err = job.defaultCompleteJob()
 	assert.Error(t, err)
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
-	}
-}
-
-func TestDefaultRunJob_PromptError(t *testing.T) {
-	dbMock, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer dbMock.Close()
-	db.DB = dbMock
-
-	origBuildPrompt := buildItineraryLlmPrompt
-	defer func() { buildItineraryLlmPrompt = origBuildPrompt }()
-	buildItineraryLlmPrompt = func(_ *Itinerary) (*string, error) {
-		return nil, assert.AnError
-	}
-
-	itinerary := &Itinerary{ID: 1, OwnerID: 2}
-	job := &ItineraryFileJob{ItineraryID: itinerary.ID}
-
-	mock.ExpectExec("INSERT INTO itinerary_file_jobs").
-		WithArgs("running", sqlmock.AnyArg(), itinerary.ID).
-		WillReturnResult(sqlmock.NewResult(2, 1))
-
-	mock.ExpectExec("UPDATE itinerary_file_jobs SET status = \\?, status_description = \\?, end_date = \\? WHERE id = \\?").
-		WithArgs("failed", sqlmock.AnyArg(), sqlmock.AnyArg(), int64(2)).
-		WillReturnResult(sqlmock.NewResult(2, 1))
-
-	err = job.defaultRunJob(itinerary)
-	assert.NoError(t, err)
-
-	time.Sleep(100 * time.Millisecond)
-
-	assert.Equal(t, "failed", job.Status)
-	assert.Contains(t, job.StatusDescription, "Failed to build itinerary prompt")
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
-	}
-}
-
-func TestDefaultRunJob_LlmError(t *testing.T) {
-	dbMock, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer dbMock.Close()
-	db.DB = dbMock
-
-	origCallLlm := apis.CallLlm
-	defer func() { apis.CallLlm = origCallLlm }()
-	apis.CallLlm = func(_ []llms.MessageContent) (*string, error) {
-		return nil, assert.AnError
-	}
-
-	itinerary := &Itinerary{
-		ID:          3,
-		OwnerID:     4,
-		Title:       "Trip",
-		Description: "Desc",
-		TravelDestinations: []ItineraryTravelDestination{
-			{Country: "Country", City: "City", ArrivalDate: time.Now(), DepartureDate: time.Now().Add(2 * 24 * time.Hour)},
-		},
-	}
-	job := &ItineraryFileJob{ItineraryID: itinerary.ID}
-
-	mock.ExpectExec("INSERT INTO itinerary_file_jobs").
-		WithArgs("running", sqlmock.AnyArg(), itinerary.ID).
-		WillReturnResult(sqlmock.NewResult(3, 1))
-
-	mock.ExpectExec("UPDATE itinerary_file_jobs SET status = \\?, status_description = \\?, end_date = \\? WHERE id = \\?").
-		WithArgs("failed", sqlmock.AnyArg(), sqlmock.AnyArg(), int64(3)).
-		WillReturnResult(sqlmock.NewResult(3, 1))
-
-	err = job.defaultRunJob(itinerary)
-	assert.NoError(t, err)
-
-	time.Sleep(100 * time.Millisecond)
-
-	assert.Equal(t, "failed", job.Status)
-	assert.Contains(t, job.StatusDescription, "Failed to generate itinerary")
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
-	}
-}
-
-func TestDefaultRunJob_WriteFileError(t *testing.T) {
-	dbMock, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer dbMock.Close()
-	db.DB = dbMock
-
-	origCallLlm := apis.CallLlm
-	origWriteFile := utils.WriteFile
-	defer func() {
-		apis.CallLlm = origCallLlm
-		utils.WriteFile = origWriteFile
-	}()
-
-	apis.CallLlm = func(_ []llms.MessageContent) (*string, error) {
-		resp := "LLM itinerary"
-		return &resp, nil
-	}
-	utils.WriteFile = func(name string, data []byte, perm os.FileMode) error {
-		return assert.AnError
-	}
-
-	itinerary := &Itinerary{
-		ID:          5,
-		OwnerID:     6,
-		Title:       "Trip",
-		Description: "Desc",
-		TravelDestinations: []ItineraryTravelDestination{
-			{Country: "Country", City: "City", ArrivalDate: time.Now(), DepartureDate: time.Now().Add(2 * 24 * time.Hour)},
-		},
-	}
-	job := &ItineraryFileJob{ItineraryID: itinerary.ID}
-
-	mock.ExpectExec("INSERT INTO itinerary_file_jobs").
-		WithArgs("running", sqlmock.AnyArg(), itinerary.ID).
-		WillReturnResult(sqlmock.NewResult(4, 1))
-
-	mock.ExpectExec("UPDATE itinerary_file_jobs SET status = \\?, status_description = \\?, end_date = \\?, file_path = \\? WHERE id = \\?").
-		WithArgs("failed", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), int64(4)).
-		WillReturnResult(sqlmock.NewResult(4, 1))
-
-	err = job.defaultRunJob(itinerary)
-	assert.NoError(t, err)
-	time.Sleep(100 * time.Millisecond)
-
-	assert.Equal(t, "failed", job.Status)
-	assert.Contains(t, job.StatusDescription, "Failed to write itinerary to file")
+	assert.Contains(t, err.Error(), "failed to update job status in database")
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)

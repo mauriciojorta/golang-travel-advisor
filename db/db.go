@@ -81,9 +81,12 @@ func createTables() {
 		itinerary_id INTEGER NOT NULL,
 		status TEXT NOT NULL,
 		status_description TEXT,
-		start_date DATETIME NOT NULL,
+		creation_date DATETIME NOT NULL,
+		start_date DATETIME,
 		end_date DATETIME,
 		file_path TEXT,
+		file_manager VARCHAR(64) NOT NULL,
+		async_task_id VARCHAR(64),
 		FOREIGN KEY (itinerary_id) REFERENCES itineraries(id)
 	)
 	`

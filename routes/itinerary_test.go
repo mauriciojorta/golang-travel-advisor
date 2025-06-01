@@ -3,734 +3,587 @@ package routes
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"example.com/travel-advisor/models"
+	"example.com/travel-advisor/services"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCreateItinerary_Success(t *testing.T) {
-	// Arrange
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/itineraries", func(c *gin.Context) {
-		c.Set("userId", int64(1)) // Mock userId
+// --- Mocks ---
 
-		// Mock the Create method
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.Create = func() error {
-			return nil // Simulate successful creation
-		}
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
+type mockItineraryService struct {
+	ValidateErr    error
+	CreateErr      error
+	FindByIdIt     *models.Itinerary
+	FindByIdErr    error
+	FindByOwner    *[]models.Itinerary
+	FindByOwnerErr error
+}
 
-		models.ValidateItineraryDestinationsDates = func(destinations *[]models.ItineraryTravelDestination) error {
-			return nil // Simulate successful validation
-		}
+func (m *mockItineraryService) ValidateItineraryDestinationsDates(_ *[]models.ItineraryTravelDestination) error {
+	return m.ValidateErr
+}
+func (m *mockItineraryService) Create(_ *models.Itinerary) error {
+	return m.CreateErr
+}
+func (m *mockItineraryService) FindById(_ int64) (*models.Itinerary, error) {
+	return m.FindByIdIt, m.FindByIdErr
+}
+func (m *mockItineraryService) FindByOwnerId(_ int64) (*[]models.Itinerary, error) {
+	return m.FindByOwner, m.FindByOwnerErr
+}
 
-		createItinerary(c)
-	})
+func (m *mockItineraryService) Update(_ *models.Itinerary) error {
+	return nil // Not used in tests
+}
 
-	input := map[string]interface{}{
-		"title":       "Test Itinerary",
-		"description": "Test Description",
-		"destinations": []models.ItineraryTravelDestination{
-			{Country: "Country 1", City: "City 1", ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
-		},
+func (m *mockItineraryService) Delete(_ *models.Itinerary) error {
+	return nil // Not used in tests
+}
+
+// For runItineraryFileJob
+type mockJobsService struct {
+	GetJobsRunningOfUserCountVal int
+	GetJobsRunningOfUserCountErr error
+	PrepareJobTask               *services.ItineraryFileAsyncTaskPayload
+	PrepareJobErr                error
+	AddAsyncTaskIdErr            error
+	FindByItineraryIdResult      *[]models.ItineraryFileJob
+	FindByItineraryIdErr         error
+}
+
+func (m *mockJobsService) GetJobsRunningOfUserCount(_ int64) (int, error) {
+	return m.GetJobsRunningOfUserCountVal, m.GetJobsRunningOfUserCountErr
+}
+func (m *mockJobsService) PrepareJob(_ *models.Itinerary) (*services.ItineraryFileAsyncTaskPayload, error) {
+	return m.PrepareJobTask, m.PrepareJobErr
+}
+func (m *mockJobsService) AddAsyncTaskId(_ string, _ *models.ItineraryFileJob) error {
+	return m.AddAsyncTaskIdErr
+}
+
+func (m *mockJobsService) FindById(_ int64) (*models.ItineraryFileJob, error) {
+	return nil, nil // Not used in tests
+}
+
+func (m *mockJobsService) FindByItineraryId(_ int64) (*[]models.ItineraryFileJob, error) {
+	return m.FindByItineraryIdResult, m.FindByItineraryIdErr
+}
+
+func (m *mockJobsService) StopJob(_ *models.ItineraryFileJob) error {
+	return nil // Not used in tests
+}
+
+func (m *mockJobsService) FailJob(_ string, _ *models.ItineraryFileJob) error {
+	return nil // Not used in tests
+}
+
+func (m *mockJobsService) DeleteJob(_ *models.ItineraryFileJob) error {
+	return nil // Not used in tests
+}
+
+// For runItineraryFileJob
+type mockAsyncqTaskQueue struct {
+	EnqueueErr error
+	EnqueueId  string
+}
+
+func (m *mockAsyncqTaskQueue) EnqueueItineraryFileJob(_ services.ItineraryFileAsyncTaskPayload) (*string, error) {
+	if m.EnqueueErr != nil {
+		return nil, m.EnqueueErr
+	}
+	return &m.EnqueueId, nil
+}
+
+func (m *mockAsyncqTaskQueue) Close() {
+	// No-op for mock
+}
+
+// --- Helpers ---
+
+func setUserId(ctx *gin.Context, id int64) {
+	ctx.Set("userId", id)
+}
+
+// --- Tests ---
+
+func Test_createItinerary_Unauthorized(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	createItinerary(c)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func Test_createItinerary_BadRequest_BindJSON(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer([]byte("{bad json")))
+	createItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func Test_createItinerary_ValidateItineraryDestinationsDates_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ValidateErr: errors.New("validation error")}
 	}
 
-	body, err := json.Marshal(input)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":        "Test",
+		"description":  "Desc",
+		"destinations": []models.ItineraryTravelDestination{},
 	}
-	req, err := http.NewRequest(http.MethodPost, "/itineraries", bytes.NewBuffer(body))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-
-	// Act
-	router.ServeHTTP(rec, req)
-
-	// Assert
-	assert.Equal(t, http.StatusCreated, rec.Code)
-	var response map[string]interface{}
-	err = json.Unmarshal(rec.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Equal(t, "Itinerary created.", response["message"])
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestCreateItinerary_Unauthorized(t *testing.T) {
-	// Arrange
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/itineraries", createItinerary)
-
-	req, _ := http.NewRequest(http.MethodPost, "/itineraries", nil)
-	rec := httptest.NewRecorder()
-
-	// Act
-	router.ServeHTTP(rec, req)
-
-	// Assert
-	assert.Equal(t, http.StatusUnauthorized, rec.Code)
-}
-
-func TestCreateItinerary_BadRequest(t *testing.T) {
-	// Arrange
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/itineraries", func(c *gin.Context) {
-		c.Set("userId", int64(1)) // Mock userId
-		createItinerary(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodPost, "/itineraries", bytes.NewBuffer([]byte(`invalid json`)))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-
-	// Act
-	router.ServeHTTP(rec, req)
-
-	// Assert
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-}
-
-func TestCreateItinerary_DestinationDateValidationError(t *testing.T) {
-	// Arrange
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/itineraries", func(c *gin.Context) {
-		c.Set("userId", int64(1)) // Mock userId
-
-		// Mock the Create method
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.Create = func() error {
-			return nil // Simulate successful creation
-		}
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-
-		models.ValidateItineraryDestinationsDates = func(destinations *[]models.ItineraryTravelDestination) error {
-			return fmt.Errorf("Arrival date must be before departure date") // Simulate validation error
-		}
-
-		createItinerary(c)
-	})
-
-	input := map[string]interface{}{
-		"title":       "Test Itinerary",
-		"description": "Test Description",
-		"destinations": []models.ItineraryTravelDestination{
-			{Country: "Country 1", City: "City 1", ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
-		},
+func Test_createItinerary_Create_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{CreateErr: errors.New("create error")}
 	}
 
-	body, err := json.Marshal(input)
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":        "Test",
+		"description":  "Desc",
+		"destinations": []models.ItineraryTravelDestination{},
 	}
-	req, err := http.NewRequest(http.MethodPost, "/itineraries", bytes.NewBuffer(body))
-	if err != nil {
-		t.Fatalf("Failed to create request: %v", err)
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_createItinerary_Success(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
 	}
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
 
-	// Act
-	router.ServeHTTP(rec, req)
-
-	// Assert
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":        "Test",
+		"description":  "Desc",
+		"destinations": []models.ItineraryTravelDestination{},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
-func TestGetOwnersItineraries_Success(t *testing.T) {
-	// Arrange
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries", func(c *gin.Context) {
-		c.Set("userId", int64(1)) // Mock userId
-
-		// Mock the FindByOwnerId method
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindByOwnerId = func() (*[]models.Itinerary, error) {
-			mockItinerary.ID = 1
-			mockItinerary.Title = "Mock Itinerary"
-			mockItinerary.Description = "Mock Description"
-			mockItinerary.OwnerID = 1
-			return &[]models.Itinerary{*mockItinerary}, nil // Simulate successful retrieval
-		}
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-
-		getOwnersItineraries(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries", nil)
-	rec := httptest.NewRecorder()
-
-	// Act
-	router.ServeHTTP(rec, req)
-
-	// Assert
-	assert.Equal(t, http.StatusOK, rec.Code)
-	var response map[string]interface{}
-	err := json.Unmarshal(rec.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.NotNil(t, response["itineraries"])
+func Test_getOwnersItineraries_Unauthorized(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	getOwnersItineraries(c)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestGetOwnersItineraries_Unauthorized(t *testing.T) {
-	// Arrange
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries", getOwnersItineraries)
-
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries", nil)
-	rec := httptest.NewRecorder()
-
-	// Act
-	router.ServeHTTP(rec, req)
-
-	// Assert
-	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+func Test_getOwnersItineraries_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByOwnerErr: errors.New("find error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	getOwnersItineraries(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestGetItinerary_InvalidID(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries/:itineraryId", func(c *gin.Context) {
-		c.Set("userId", int64(1)) // Mock userId
-
-		getItinerary(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries/abc", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "Invalid itinerary ID.", resp["message"])
+func Test_getOwnersItineraries_Success(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		itineraries := []models.Itinerary{{ID: 1}}
+		return &mockItineraryService{FindByOwner: &itineraries}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	getOwnersItineraries(c)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestGetItinerary_DBError(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries/:itineraryId", func(c *gin.Context) {
-		// Mock FindById to return error
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error {
-			return fmt.Errorf("db error")
-		}
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-		c.Set("userId", int64(1))
-		getItinerary(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries/1", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "Could not retrieve itinerary. Try again later.", resp["message"])
+func Test_getItinerary_Unauthorized(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	getItinerary(c)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestGetItinerary_Unauthorized(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries/:itineraryId", func(c *gin.Context) {
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error { return nil }
-		mockItinerary.OwnerID = 1
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-		getItinerary(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries/1", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusUnauthorized, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "Not authorized.", resp["message"])
+func Test_getItinerary_BadRequest_NoParam(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	getItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestGetItinerary_Forbidden(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries/:itineraryId", func(c *gin.Context) {
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error { return nil }
-		mockItinerary.OwnerID = 2 // Not matching userId
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-		c.Set("userId", int64(1))
-		getItinerary(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries/1", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusForbidden, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "You do not have permission to access this itinerary.", resp["message"])
+func Test_getItinerary_BadRequest_InvalidId(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "abc"}}
+	getItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestGetItinerary_Success(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries/:itineraryId", func(c *gin.Context) {
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error { return nil }
-		mockItinerary.OwnerID = 1
-		mockItinerary.ID = 1
-		mockItinerary.Title = "Test"
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-		c.Set("userId", int64(1))
-		getItinerary(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries/1", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusOK, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.NotNil(t, resp["itinerary"])
+func Test_getItinerary_FindById_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdErr: errors.New("find error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	getItinerary(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestRunItineraryFileJob_InvalidItineraryID(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/itineraries/:itineraryId/job", func(c *gin.Context) {
-		c.Set("userId", int64(1))
-
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error {
-			return nil
-		}
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-		runItineraryFileJob(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodPost, "/itineraries/abc/job", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "Invalid itinerary ID.", resp["message"])
+func Test_getItinerary_Forbidden(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 2}}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	getItinerary(c)
+	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
-func TestRunItineraryFileJob_ItineraryNotFound(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/itineraries/:itineraryId/job", func(c *gin.Context) {
-		c.Set("userId", int64(1))
-
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error {
-			return fmt.Errorf("not found")
-		}
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-		runItineraryFileJob(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodPost, "/itineraries/1/job", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "Could not retrieve itinerary. Try again later.", resp["message"])
+func Test_getItinerary_Success(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	getItinerary(c)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
-func TestRunItineraryFileJob_Unauthorized(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/itineraries/:itineraryId/job", runItineraryFileJob)
-
-	req, _ := http.NewRequest(http.MethodPost, "/itineraries/1/job", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusUnauthorized, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "Not authorized.", resp["message"])
+func Test_runItineraryFileJob_Unauthorized(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
 }
 
-func TestRunItineraryFileJob_Forbidden(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/itineraries/:itineraryId/job", func(c *gin.Context) {
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error { return nil }
-		mockItinerary.OwnerID = 2 // Not matching userId
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-		c.Set("userId", int64(1))
-		runItineraryFileJob(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodPost, "/itineraries/1/job", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusForbidden, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "You do not have permission to run this job.", resp["message"])
+func Test_runItineraryFileJob_BadRequest_NoParam(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestRunItineraryFileJob_JobAlreadyRunning(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/itineraries/:itineraryId/job", func(c *gin.Context) {
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error { return nil }
-		mockItinerary.OwnerID = 1
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-		mockJob := models.NewItineraryFileJob(1)
-		mockJob.HasItineraryAJobRunning = func() (bool, error) {
-			return true, nil // Simulate job already running
-		}
-		models.NewItineraryFileJob = func(itineraryID int64) *models.ItineraryFileJob {
-			return mockJob
-		}
-		c.Set("userId", int64(1))
-		runItineraryFileJob(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodPost, "/itineraries/1/job", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusConflict, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "A job is already running for this itinerary.", resp["message"])
+func Test_runItineraryFileJob_BadRequest_InvalidId(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "abc"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func TestRunItineraryFileJob_RunJobError(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/itineraries/:itineraryId/job", func(c *gin.Context) {
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error { return nil }
-		mockItinerary.OwnerID = 1
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-		mockJob := models.NewItineraryFileJob(1)
-		mockJob.HasItineraryAJobRunning = func() (bool, error) {
-			return false, nil // No job running
-		}
-		mockJob.RunJob = func(itinerary *models.Itinerary) error {
-			return fmt.Errorf("job run error") // Simulate job run error
-		}
-		models.NewItineraryFileJob = func(itineraryID int64) *models.ItineraryFileJob {
-			return mockJob
-		}
-		c.Set("userId", int64(1))
-		runItineraryFileJob(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodPost, "/itineraries/1/job", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "Could not start job. Try again later.", resp["message"])
+func Test_runItineraryFileJob_FindById_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdErr: errors.New("find error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestRunItineraryFileJob_Success(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/itineraries/:itineraryId/job", func(c *gin.Context) {
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error { return nil }
-		mockItinerary.OwnerID = 1
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-		mockJob := models.NewItineraryFileJob(1)
-		mockJob.HasItineraryAJobRunning = func() (bool, error) {
-			return false, nil // No job running
-		}
-		mockJob.RunJob = func(itinerary *models.Itinerary) error {
-			return nil
-		}
-		models.NewItineraryFileJob = func(itineraryID int64) *models.ItineraryFileJob {
-			return mockJob
-		}
-		c.Set("userId", int64(1))
-		runItineraryFileJob(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodPost, "/itineraries/1/job", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusAccepted, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "Job started successfully.", resp["message"])
+func Test_runItineraryFileJob_Forbidden(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 2}}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
-func TestGetAllItineraryFileJobs_Unauthorized(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries/:itineraryId/jobs", getAllItineraryFileJobs)
-
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries/1/jobs", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusUnauthorized, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "Not authorized.", resp["message"])
+func Test_runItineraryFileJob_GetJobsRunningOfUserCount_Error(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{GetJobsRunningOfUserCountErr: errors.New("count error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestGetAllItineraryFileJobs_InvalidItineraryID(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries/:itineraryId/jobs", func(c *gin.Context) {
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error { return nil }
-		mockItinerary.OwnerID = 1
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-		mockJob := models.NewItineraryFileJob(1)
-		mockJob.FindByItineraryId = func() (*[]models.ItineraryFileJob, error) {
-			jobs := []models.ItineraryFileJob{
-				{ID: 1, Status: "Completed"},
-				{ID: 2, Status: "Running"},
-			}
-			return &jobs, nil
-		}
-		models.NewItineraryFileJob = func(itineraryID int64) *models.ItineraryFileJob {
-			return mockJob
-		}
-		c.Set("userId", int64(1))
-		getAllItineraryFileJobs(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries/abc/jobs", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "Invalid itinerary ID.", resp["message"])
+func Test_runItineraryFileJob_TooManyJobsRunning(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{GetJobsRunningOfUserCountVal: 5}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusConflict, w.Code)
 }
 
-func TestGetAllItineraryFileJobs_MissingItineraryID(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries/:itineraryId/jobs", func(c *gin.Context) {
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error { return nil }
-		mockItinerary.OwnerID = 1
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
+func Test_runItineraryFileJob_PrepareJob_Error(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{
+			GetJobsRunningOfUserCountVal: 0,
+			PrepareJobErr:                errors.New("prepare error"),
 		}
-		mockJob := models.NewItineraryFileJob(1)
-		mockJob.FindByItineraryId = func() (*[]models.ItineraryFileJob, error) {
-			jobs := []models.ItineraryFileJob{
-				{ID: 1, Status: "Completed"},
-				{ID: 2, Status: "Running"},
-			}
-			return &jobs, nil
-		}
-		models.NewItineraryFileJob = func(itineraryID int64) *models.ItineraryFileJob {
-			return mockJob
-		}
-		c.Set("userId", int64(1))
-		getAllItineraryFileJobs(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries//jobs", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "Itinerary ID is required.", resp["message"])
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestGetAllItineraryFileJobs_ItineraryNotFound(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries/:itineraryId/jobs", func(c *gin.Context) {
-		c.Set("userId", int64(1))
-
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error {
-			return fmt.Errorf("not found")
+func Test_runItineraryFileJob_Enqueue_Error(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{
+			GetJobsRunningOfUserCountVal: 0,
+			PrepareJobTask: &services.ItineraryFileAsyncTaskPayload{
+				Itinerary:        &models.Itinerary{OwnerID: 1},
+				ItineraryFileJob: &models.ItineraryFileJob{},
+			},
 		}
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-		getAllItineraryFileJobs(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries/1/jobs", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "Could not retrieve itinerary. Try again later.", resp["message"])
+	}
+	origQueue := services.NewAsyncqTaskQueue
+	defer func() { services.NewAsyncqTaskQueue = origQueue }()
+	services.NewAsyncqTaskQueue = func() services.AsyncqTaskQueueInterface {
+		return &mockAsyncqTaskQueue{EnqueueErr: errors.New("enqueue error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestGetAllItineraryFileJobs_Forbidden(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries/:itineraryId/jobs", func(c *gin.Context) {
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error { return nil }
-		mockItinerary.OwnerID = 2 // Not matching userId
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
+func Test_runItineraryFileJob_AddAsyncTaskId_Error(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{
+			GetJobsRunningOfUserCountVal: 0,
+			PrepareJobTask: &services.ItineraryFileAsyncTaskPayload{
+				Itinerary:        &models.Itinerary{OwnerID: 1},
+				ItineraryFileJob: &models.ItineraryFileJob{},
+			},
+			AddAsyncTaskIdErr: errors.New("add async id error"),
 		}
-		c.Set("userId", int64(1))
-		getAllItineraryFileJobs(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries/1/jobs", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusForbidden, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "You do not have permission to run this job.", resp["message"])
+	}
+	origQueue := services.NewAsyncqTaskQueue
+	defer func() { services.NewAsyncqTaskQueue = origQueue }()
+	services.NewAsyncqTaskQueue = func() services.AsyncqTaskQueueInterface {
+		return &mockAsyncqTaskQueue{EnqueueId: "taskid"}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func TestGetAllItineraryFileJobs_RetrieveJobsError(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries/:itineraryId/jobs", func(c *gin.Context) {
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error { return nil }
-		mockItinerary.OwnerID = 1
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
+func Test_runItineraryFileJob_Success(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{
+			GetJobsRunningOfUserCountVal: 0,
+			PrepareJobTask: &services.ItineraryFileAsyncTaskPayload{
+				Itinerary:        &models.Itinerary{OwnerID: 1},
+				ItineraryFileJob: &models.ItineraryFileJob{},
+			},
 		}
-		mockJob := models.NewItineraryFileJob(1)
-		mockJob.FindByItineraryId = func() (*[]models.ItineraryFileJob, error) {
-			return nil, fmt.Errorf("db error")
-		}
-		models.NewItineraryFileJob = func(itineraryID int64) *models.ItineraryFileJob {
-			return mockJob
-		}
-		c.Set("userId", int64(1))
-		getAllItineraryFileJobs(c)
-	})
-
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries/1/jobs", nil)
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.Equal(t, "Could not retrieve jobs. Try again later.", resp["message"])
+	}
+	origQueue := services.NewAsyncqTaskQueue
+	defer func() { services.NewAsyncqTaskQueue = origQueue }()
+	services.NewAsyncqTaskQueue = func() services.AsyncqTaskQueueInterface {
+		return &mockAsyncqTaskQueue{EnqueueId: "taskid"}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusAccepted, w.Code)
 }
 
-func TestGetAllItineraryFileJobs_Success(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.GET("/itineraries/:itineraryId/jobs", func(c *gin.Context) {
-		mockItinerary := models.NewItinerary("", "", nil)
-		mockItinerary.FindById = func() error { return nil }
-		mockItinerary.OwnerID = 1
-		models.NewItinerary = func(title string, description string, travelDestinations []models.ItineraryTravelDestination) *models.Itinerary {
-			return mockItinerary
-		}
-		mockJob := models.NewItineraryFileJob(1)
-		mockJob.FindByItineraryId = func() (*[]models.ItineraryFileJob, error) {
-			jobs := []models.ItineraryFileJob{
-				{ID: 1, Status: "Completed"},
-				{ID: 2, Status: "Running"},
-			}
-			return &jobs, nil
-		}
-		models.NewItineraryFileJob = func(itineraryID int64) *models.ItineraryFileJob {
-			return mockJob
-		}
-		c.Set("userId", int64(1))
-		getAllItineraryFileJobs(c)
-	})
+func Test_getAllItineraryFileJobs_Unauthorized(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	getAllItineraryFileJobs(c)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
 
-	req, _ := http.NewRequest(http.MethodGet, "/itineraries/1/jobs", nil)
-	rec := httptest.NewRecorder()
+func Test_getAllItineraryFileJobs_BadRequest_NoParam(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	getAllItineraryFileJobs(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
 
-	router.ServeHTTP(rec, req)
+func Test_getAllItineraryFileJobs_BadRequest_InvalidId(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "abc"}}
+	getAllItineraryFileJobs(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
 
-	assert.Equal(t, http.StatusOK, rec.Code)
-	var resp map[string]interface{}
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	assert.NotNil(t, resp["jobs"])
-	assert.Len(t, resp["jobs"], 2)
+func Test_getAllItineraryFileJobs_FindById_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdErr: errors.New("find error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	getAllItineraryFileJobs(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_getAllItineraryFileJobs_Forbidden(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 2}}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	getAllItineraryFileJobs(c)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func Test_getAllItineraryFileJobs_FindByItineraryId_Error(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{FindByItineraryIdResult: nil, FindByItineraryIdErr: errors.New("find jobs error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	getAllItineraryFileJobs(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_getAllItineraryFileJobs_Success(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	jobs := []models.ItineraryFileJob{{ID: 1}, {ID: 2}}
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{FindByItineraryIdResult: &jobs}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	getAllItineraryFileJobs(c)
+	assert.Equal(t, http.StatusOK, w.Code)
 }
