@@ -9,7 +9,6 @@ import (
 
 	"example.com/travel-advisor/apis"
 	"example.com/travel-advisor/models"
-	"example.com/travel-advisor/utils"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	log "github.com/sirupsen/logrus"
@@ -189,7 +188,7 @@ func HandleItineraryFileJob(ctx context.Context, t *asynq.Task) error {
 	job.Status = itineraryFileJobTask.ItineraryFileJob.Status
 	job.StatusDescription = itineraryFileJobTask.ItineraryFileJob.StatusDescription
 	job.CreationDate = itineraryFileJobTask.ItineraryFileJob.CreationDate
-	job.Filemanager = itineraryFileJobTask.ItineraryFileJob.Filemanager
+	job.FileManager = itineraryFileJobTask.ItineraryFileJob.FileManager
 
 	err := job.StartJob()
 	if err != nil {
@@ -226,15 +225,17 @@ func HandleItineraryFileJob(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
+	//Get file manager to save the file specified in the configuration settings
+	fileManager := GetFileManager(job.FileManager)
+
 	// Generate a unique filename using UUID
 	uuidStr := uuid.New().String()
 	job.Filepath = "files/users/" + fmt.Sprintf("%d", itinerary.OwnerID) +
 		"/itineraries/" + fmt.Sprintf("%d", itinerary.ID) +
 		"/" + uuidStr + ".txt"
 
-	// Save the generated itinerary to the specified file
-	// Write the LLM response to the specified file
-	err = utils.WriteLocalFile(job.Filepath, []byte(*response), 0644)
+	// Write the LLM response to the specified file path using the file manager set in configuration
+	err = fileManager.SaveContentInFile(job.Filepath, response)
 	if err != nil {
 		job.FailJob("Failed to write itinerary to file: " + err.Error())
 		return err

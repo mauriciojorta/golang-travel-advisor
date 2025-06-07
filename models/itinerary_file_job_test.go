@@ -37,7 +37,7 @@ func TestFileJobDefaultFindByItineraryId(t *testing.T) {
 	assert.Equal(t, "completed", (*result)[0].Status)
 	assert.Equal(t, "Job OK", (*result)[0].StatusDescription)
 	assert.Equal(t, "/path/to/file1", (*result)[0].Filepath)
-	assert.Equal(t, "local", (*result)[0].Filemanager)
+	assert.Equal(t, "local", (*result)[0].FileManager)
 	assert.Equal(t, int64(1), (*result)[0].ItineraryID)
 	assert.Equal(t, asyncTaskId1, (*result)[0].AsyncTaskID)
 
@@ -45,7 +45,7 @@ func TestFileJobDefaultFindByItineraryId(t *testing.T) {
 	assert.Equal(t, "running", (*result)[1].Status)
 	assert.Equal(t, "Job running", (*result)[1].StatusDescription)
 	assert.Equal(t, "/path/to/file2", (*result)[1].Filepath)
-	assert.Equal(t, "local", (*result)[1].Filemanager)
+	assert.Equal(t, "local", (*result)[1].FileManager)
 	assert.Equal(t, int64(1), (*result)[1].ItineraryID)
 	assert.Equal(t, asyncTaskId2, (*result)[1].AsyncTaskID)
 
@@ -99,7 +99,7 @@ func TestFileJobDefaultFindById(t *testing.T) {
 	assert.Equal(t, jobID, job.ID)
 	assert.Equal(t, "completed", job.Status)
 	assert.Equal(t, "/path/to/file", job.Filepath)
-	assert.Equal(t, "local", job.Filemanager)
+	assert.Equal(t, "local", job.FileManager)
 	assert.Equal(t, "Job OK", job.StatusDescription)
 	assert.Equal(t, int64(1), job.ItineraryID)
 	assert.Equal(t, asyncTaskId, job.AsyncTaskID)
@@ -320,7 +320,7 @@ func TestDefaultPrepareJob_SuccessDefaultFileManager(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(123), job.ID)
 	assert.Equal(t, "pending", job.Status)
-	assert.Equal(t, "local", job.Filemanager)
+	assert.Equal(t, "local", job.FileManager)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -354,7 +354,7 @@ func TestDefaultPrepareJob_SuccessEnvironmentVariableFileManager(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(123), job.ID)
 	assert.Equal(t, "pending", job.Status)
-	assert.Equal(t, "s3", job.Filemanager)
+	assert.Equal(t, "s3", job.FileManager)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)

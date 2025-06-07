@@ -21,7 +21,7 @@ type ItineraryFileJob struct {
 	StartDate   time.Time `json:"startDate"`
 	EndDate     time.Time `json:"endDate"`
 	Filepath    string    `json:"filepath"`
-	Filemanager string    `json:"fileManager,omitempty"` // Optional, used for file management
+	FileManager string    `json:"fileManager,omitempty"` // Optional, used for file management
 	ItineraryID int64     `json:"itineraryId"`
 	AsyncTaskID string    `json:"asyncTaskId,omitempty"` // Optional, used for tracking async tasks
 
@@ -86,7 +86,7 @@ func (ifj *ItineraryFileJob) defaultFindById() error {
 		ifj.Filepath = ""
 	}
 	if fileManager.Valid {
-		ifj.Filemanager = fileManager.String
+		ifj.FileManager = fileManager.String
 	} else {
 		ifj.Filepath = ""
 	}
@@ -136,9 +136,9 @@ func (ifj *ItineraryFileJob) defaultFindByItineraryId() (*[]ItineraryFileJob, er
 			job.Filepath = ""
 		}
 		if fileManager.Valid {
-			job.Filemanager = fileManager.String
+			job.FileManager = fileManager.String
 		} else {
-			job.Filemanager = ""
+			job.FileManager = ""
 		}
 		if asyncTaskId.Valid {
 			job.AsyncTaskID = asyncTaskId.String
@@ -174,11 +174,11 @@ func (ifj *ItineraryFileJob) defaultPrepareJob(itinerary *Itinerary) error {
 		filemanager = "local" // Local file manager if not set
 	}
 
-	ifj.Filemanager = filemanager
+	ifj.FileManager = filemanager
 
 	// Insert the job into the database
 	query := `INSERT INTO itinerary_file_jobs (status, creation_date, file_manager, itinerary_id) VALUES (?, ?, ?, ?)`
-	res, err := db.DB.Exec(query, ifj.Status, time.Now(), ifj.Filemanager, ifj.ItineraryID)
+	res, err := db.DB.Exec(query, ifj.Status, time.Now(), ifj.FileManager, ifj.ItineraryID)
 	if err == nil {
 		id, err := res.LastInsertId()
 		if err == nil {
