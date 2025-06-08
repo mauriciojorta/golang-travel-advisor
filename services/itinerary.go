@@ -33,8 +33,8 @@ func (is *ItineraryService) FindById(id int64) (*models.Itinerary, error) {
 	if id <= 0 {
 		return nil, errors.New("invalid itinerary ID")
 	}
-	itinerary := models.NewItinerary("", "", nil) // Create a new Itinerary instance
-	itinerary.ID = id                             // Set the ID for the itinerary instance
+	itinerary := models.NewItinerary("", "", nil, nil) // Create a new Itinerary instance
+	itinerary.ID = id                                  // Set the ID for the itinerary instance
 	err := itinerary.FindById()
 	if err != nil {
 		return nil, err
@@ -47,8 +47,8 @@ func (is *ItineraryService) FindByOwnerId(ownerId int64) (*[]models.Itinerary, e
 	if ownerId <= 0 {
 		return nil, errors.New("invalid owner ID")
 	}
-	itinerary := models.NewItinerary("", "", nil) // Create a new Itinerary instance
-	itinerary.OwnerID = ownerId                   // Set the owner ID for the itinerary instance
+	itinerary := models.NewItinerary("", "", nil, nil) // Create a new Itinerary instance
+	itinerary.OwnerID = ownerId                        // Set the owner ID for the itinerary instance
 	return itinerary.FindByOwnerId()
 }
 

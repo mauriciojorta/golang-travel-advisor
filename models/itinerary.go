@@ -15,6 +15,7 @@ type Itinerary struct {
 	TravelDestinations []ItineraryTravelDestination `json:"travelDestinations"`
 	OwnerID            int64                        `json:"ownerId"`
 	FileJobs           []ItineraryFileJob           `json:"fileJobs"`
+	Notes              *string                      `json:"notes"`
 
 	FindById      func() error                 `json:"-"`
 	FindByOwnerId func() (*[]Itinerary, error) `json:"-"`
@@ -23,10 +24,11 @@ type Itinerary struct {
 	Delete        func() error                 `json:"-"`
 }
 
-var NewItinerary = func(title string, description string, travelDestinations []ItineraryTravelDestination) *Itinerary {
+var NewItinerary = func(title string, description string, notes *string, travelDestinations []ItineraryTravelDestination) *Itinerary {
 	itinerary := &Itinerary{
 		Title:              title,
 		Description:        description,
+		Notes:              notes,
 		TravelDestinations: travelDestinations,
 	}
 
@@ -41,11 +43,11 @@ var NewItinerary = func(title string, description string, travelDestinations []I
 }
 
 func (i *Itinerary) defaultFindById() error {
-	query := `SELECT id, title, description, owner_id
+	query := `SELECT id, title, description, notes, owner_id
 	FROM itineraries WHERE id = ?`
 	row := db.DB.QueryRow(query, i.ID)
 
-	err := row.Scan(&i.ID, &i.Title, &i.Description, &i.OwnerID)
+	err := row.Scan(&i.ID, &i.Title, &i.Description, &i.Notes, &i.OwnerID)
 	if err != nil {
 		return err
 	}
@@ -76,8 +78,9 @@ func (i *Itinerary) defaultFindById() error {
 }
 
 func (i *Itinerary) defaultFindByOwnerId() (*[]Itinerary, error) {
-	query := `SELECT id, title, description, owner_id
+	query := `SELECT id, title, description, notes, owner_id
 	FROM itineraries WHERE owner_id = ?`
+
 	rows, err := db.DB.Query(query, i.OwnerID)
 	if err != nil {
 		return nil, err
@@ -88,7 +91,7 @@ func (i *Itinerary) defaultFindByOwnerId() (*[]Itinerary, error) {
 
 	for rows.Next() {
 		var itinerary Itinerary
-		err := rows.Scan(&itinerary.ID, &itinerary.Title, &itinerary.Description, &itinerary.OwnerID)
+		err := rows.Scan(&itinerary.ID, &itinerary.Title, &itinerary.Description, &itinerary.Notes, &itinerary.OwnerID)
 		if err != nil {
 			return nil, err
 		}
@@ -131,8 +134,8 @@ func (i *Itinerary) defaultCreate() error {
 		return err
 	}
 
-	queryItinerary := `INSERT INTO itineraries(title, description, owner_id, creation_date, update_date) 
-	VALUES (?, ?, ?, ?, ?)`
+	queryItinerary := `INSERT INTO itineraries(title, description, notes, owner_id, creation_date, update_date) 
+	VALUES (?, ?, ?, ?, ?, ?)`
 
 	stmt, err := tx.Prepare(queryItinerary)
 	if err != nil {
@@ -140,7 +143,7 @@ func (i *Itinerary) defaultCreate() error {
 	}
 	defer stmt.Close()
 
-	result, err := stmt.Exec(i.Title, i.Description, i.OwnerID, time.Now(), time.Now())
+	result, err := stmt.Exec(i.Title, i.Description, i.Notes, i.OwnerID, time.Now(), time.Now())
 	if err != nil {
 		return err
 	}
@@ -175,14 +178,14 @@ func (i *Itinerary) defaultUpdate() error {
 		return err
 	}
 
-	query := `UPDATE itineraries SET title = ?, description = ?, update_date = ? WHERE id = ?`
+	query := `UPDATE itineraries SET title = ?, description = ?, notes = ?, update_date = ? WHERE id = ?`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 
-	_, err = stmt.Exec(i.Title, i.Description, time.Now(), i.ID)
+	_, err = stmt.Exec(i.Title, i.Description, i.Notes, time.Now(), i.ID)
 	if err != nil {
 		return err
 	}

@@ -21,11 +21,11 @@ func TestItineraryDefaultFindById_Success(t *testing.T) {
 	itinerary := &Itinerary{ID: 1}
 
 	// Mock main itinerary row
-	mock.ExpectQuery("SELECT id, title, description, owner_id FROM itineraries WHERE id = ?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE id = ?").
 		WithArgs(itinerary.ID).
 		WillReturnRows(
-			sqlmock.NewRows([]string{"id", "title", "description", "owner_id"}).
-				AddRow(1, "Test Title", "Test Description", 2),
+			sqlmock.NewRows([]string{"id", "title", "description", "owner_id", "notes"}).
+				AddRow(1, "Test Title", "Test Description", "A test trip", 2),
 		)
 
 	// Mock travel destinations rows
@@ -42,6 +42,47 @@ func TestItineraryDefaultFindById_Success(t *testing.T) {
 	assert.Equal(t, int64(1), itinerary.ID)
 	assert.Equal(t, "Test Title", itinerary.Title)
 	assert.Equal(t, "Test Description", itinerary.Description)
+	assert.Equal(t, "A test trip", *itinerary.Notes)
+	assert.Equal(t, int64(2), itinerary.OwnerID)
+	assert.Len(t, itinerary.TravelDestinations, 2)
+	assert.Equal(t, int64(10), itinerary.TravelDestinations[0].ID)
+	assert.Equal(t, "Country1", itinerary.TravelDestinations[0].Country)
+	assert.Equal(t, "City1", itinerary.TravelDestinations[0].City)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestItineraryDefaultFindById_SuccessNullNotes(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	now := time.Now()
+	itinerary := &Itinerary{ID: 1}
+
+	// Mock main itinerary row
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE id = ?").
+		WithArgs(itinerary.ID).
+		WillReturnRows(
+			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
+				AddRow(1, "Test Title", "Test Description", nil, 2),
+		)
+
+	// Mock travel destinations rows
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = ?").
+		WithArgs(itinerary.ID).
+		WillReturnRows(
+			sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date"}).
+				AddRow(10, "Country1", "City1", 1, now, now.Add(12*time.Hour)).
+				AddRow(11, "Country2", "City2", 1, now.Add(12*time.Hour), now.Add(24*time.Hour)),
+		)
+
+	err = itinerary.defaultFindById()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), itinerary.ID)
+	assert.Equal(t, "Test Title", itinerary.Title)
+	assert.Equal(t, "Test Description", itinerary.Description)
+	assert.Nil(t, itinerary.Notes)
 	assert.Equal(t, int64(2), itinerary.OwnerID)
 	assert.Len(t, itinerary.TravelDestinations, 2)
 	assert.Equal(t, int64(10), itinerary.TravelDestinations[0].ID)
@@ -58,7 +99,7 @@ func TestItineraryDefaultFindById_RowScanError(t *testing.T) {
 
 	itinerary := &Itinerary{ID: 1}
 
-	mock.ExpectQuery("SELECT id, title, description, owner_id FROM itineraries WHERE id = ?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE id = ?").
 		WithArgs(itinerary.ID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -76,11 +117,11 @@ func TestItineraryDefaultFindById_DestinationsQueryError(t *testing.T) {
 
 	itinerary := &Itinerary{ID: 1}
 
-	mock.ExpectQuery("SELECT id, title, description, owner_id FROM itineraries WHERE id = ?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE id = ?").
 		WithArgs(itinerary.ID).
 		WillReturnRows(
-			sqlmock.NewRows([]string{"id", "title", "description", "owner_id"}).
-				AddRow(1, "Test Title", "Test Description", 2),
+			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
+				AddRow(1, "Test Title", "Test Description", nil, 2),
 		)
 
 	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = ?").
@@ -102,11 +143,11 @@ func TestItineraryDefaultFindById_DestinationScanError(t *testing.T) {
 	now := time.Now()
 	itinerary := &Itinerary{ID: 1}
 
-	mock.ExpectQuery("SELECT id, title, description, owner_id FROM itineraries WHERE id = ?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE id = ?").
 		WithArgs(itinerary.ID).
 		WillReturnRows(
-			sqlmock.NewRows([]string{"id", "title", "description", "owner_id"}).
-				AddRow(1, "Test Title", "Test Description", 2),
+			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
+				AddRow(1, "Test Title", "Test Description", nil, 2),
 		)
 
 	// Return a row with a wrong type to force scan error
@@ -134,10 +175,10 @@ func TestItineraryFindByOwnerId_Success(t *testing.T) {
 		OwnerID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, title, description, owner_id FROM itineraries WHERE owner_id = ?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE owner_id = ?").
 		WithArgs(itinerary.OwnerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "owner_id"}).
-			AddRow(1, "Test Title", "Test Description", 1))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
+			AddRow(1, "Test Title", "Test Description", "A test trip", 1))
 
 	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = ?").
 		WithArgs(int64(1)).
@@ -152,6 +193,41 @@ func TestItineraryFindByOwnerId_Success(t *testing.T) {
 	assert.Equal(t, int64(1), (*itineraries)[0].ID)
 	assert.Equal(t, "Test Title", (*itineraries)[0].Title)
 	assert.Equal(t, "Test Description", (*itineraries)[0].Description)
+	assert.Equal(t, "A test trip", *(*itineraries)[0].Notes)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestItineraryFindByOwnerId_SuccessNullNotes(t *testing.T) {
+	// Arrange
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+
+	db.DB = dbMock
+
+	itinerary := &Itinerary{
+		OwnerID: 1,
+	}
+
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE owner_id = ?").
+		WithArgs(itinerary.OwnerID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
+			AddRow(1, "Test Title", "Test Description", nil, 1))
+
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = ?").
+		WithArgs(int64(1)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date"}))
+
+	// Act
+	itineraries, err := itinerary.defaultFindByOwnerId()
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Len(t, *itineraries, 1)
+	assert.Equal(t, int64(1), (*itineraries)[0].ID)
+	assert.Equal(t, "Test Title", (*itineraries)[0].Title)
+	assert.Equal(t, "Test Description", (*itineraries)[0].Description)
+	assert.Nil(t, (*itineraries)[0].Notes)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -167,7 +243,7 @@ func TestItineraryFindByOwnerId_NoRows(t *testing.T) {
 		OwnerID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, title, description, owner_id FROM itineraries WHERE owner_id = ?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE owner_id = ?").
 		WithArgs(itinerary.OwnerID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -192,7 +268,7 @@ func TestItineraryFindByOwnerId_QueryError(t *testing.T) {
 		OwnerID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, title, description, owner_id FROM itineraries WHERE owner_id = ?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE owner_id = ?").
 		WithArgs(itinerary.OwnerID).
 		WillReturnError(assert.AnError)
 
@@ -217,10 +293,10 @@ func TestItineraryDefaultFindByOwnerId_DestinationQueryError(t *testing.T) {
 		OwnerID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, title, description, owner_id FROM itineraries WHERE owner_id = ?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE owner_id = ?").
 		WithArgs(itinerary.OwnerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "owner_id"}).
-			AddRow(1, "Test Title", "Test Description", 1))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
+			AddRow(1, "Test Title", "Test Description", nil, 1))
 
 	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = ?").
 		WithArgs(int64(1)).
@@ -248,10 +324,10 @@ func TestItineraryDefaultFindByOwnerId_DestinationScanError(t *testing.T) {
 		OwnerID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, title, description, owner_id FROM itineraries WHERE owner_id = ?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE owner_id = ?").
 		WithArgs(itinerary.OwnerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "owner_id"}).
-			AddRow(1, "Test Title", "Test Description", 1))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
+			AddRow(1, "Test Title", "Test Description", nil, 1))
 
 	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = ?").
 		WithArgs(int64(1)).
@@ -274,9 +350,11 @@ func TestItineraryItinerary_Create_Success(t *testing.T) {
 
 	db.DB = dbMock
 
+	testNotes := "A test trip"
 	itinerary := &Itinerary{
 		Title:       "Test Title",
 		Description: "Test Description",
+		Notes:       &testNotes,
 		OwnerID:     1,
 		TravelDestinations: []ItineraryTravelDestination{
 			{ID: 1, Country: "Country 1", City: "City 1", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
@@ -288,7 +366,46 @@ func TestItineraryItinerary_Create_Success(t *testing.T) {
 
 	mock.ExpectPrepare("INSERT INTO itineraries").
 		ExpectExec().
-		WithArgs("Test Title", "Test Description", int64(1), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs("Test Title", "Test Description", "A test trip", int64(1), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	for _, destination := range itinerary.TravelDestinations {
+		mock.ExpectPrepare(`INSERT INTO itinerary_travel_destinations`).ExpectExec().
+			WithArgs(destination.Country, destination.City, destination.ItineraryID, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+	}
+
+	mock.ExpectCommit()
+
+	err = itinerary.defaultCreate()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), itinerary.ID)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestItineraryItinerary_Create_SuccessNullNotes(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+
+	db.DB = dbMock
+
+	itinerary := &Itinerary{
+		Title:       "Test Title",
+		Description: "Test Description",
+		Notes:       nil,
+		OwnerID:     1,
+		TravelDestinations: []ItineraryTravelDestination{
+			{ID: 1, Country: "Country 1", City: "City 1", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
+			{ID: 2, Country: "Country 2", City: "City 2", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
+		},
+	}
+
+	mock.ExpectBegin()
+
+	mock.ExpectPrepare("INSERT INTO itineraries").
+		ExpectExec().
+		WithArgs("Test Title", "Test Description", sqlmock.AnyArg(), int64(1), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	for _, destination := range itinerary.TravelDestinations {
@@ -363,14 +480,16 @@ func TestItineraryItinerary_Create_ExecError(t *testing.T) {
 
 	mock.ExpectPrepare("INSERT INTO itineraries").
 		ExpectExec().
-		WithArgs("Test Title", "Test Description", int64(1), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs("Test Title", "Test Description", "A test trip", int64(1), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnError(errors.New("exec error"))
 
 	mock.ExpectRollback()
 
+	testNotes := "A test trip"
 	itinerary := &Itinerary{
 		Title:       "Test Title",
 		Description: "Test Description",
+		Notes:       &testNotes,
 		OwnerID:     1,
 	}
 
@@ -401,7 +520,7 @@ func TestItineraryItinerary_Create_TravelDestinationError(t *testing.T) {
 
 	mock.ExpectPrepare("INSERT INTO itineraries").
 		ExpectExec().
-		WithArgs("Test Title", "Test Description", int64(1), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WithArgs("Test Title", "Test Description", nil, int64(1), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	mock.ExpectPrepare(`INSERT INTO itinerary_travel_destinations`).ExpectExec().
@@ -424,10 +543,12 @@ func TestItineraryUpdate_Success(t *testing.T) {
 
 	db.DB = dbMock
 
+	testNotes := "A test trip"
 	itinerary := &Itinerary{
 		ID:          1,
 		Title:       "Updated Title",
 		Description: "Updated Description",
+		Notes:       &testNotes,
 		TravelDestinations: []ItineraryTravelDestination{
 			{ID: 1, Country: "Country 1", City: "City 1", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
 			{ID: 2, Country: "Country 2", City: "City 2", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
@@ -436,9 +557,55 @@ func TestItineraryUpdate_Success(t *testing.T) {
 
 	mock.ExpectBegin()
 
-	mock.ExpectPrepare(`UPDATE itineraries SET title = \?, description = \?, update_date = \? WHERE id = \?`).
+	mock.ExpectPrepare(`UPDATE itineraries SET title = \?, description = \?, notes = \?, update_date = \? WHERE id = \?`).
 		ExpectExec().
-		WithArgs(itinerary.Title, itinerary.Description, sqlmock.AnyArg(), itinerary.ID).
+		WithArgs(itinerary.Title, itinerary.Description, itinerary.Notes, sqlmock.AnyArg(), itinerary.ID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	mock.ExpectPrepare(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = ?`).ExpectExec().
+		WithArgs(itinerary.ID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	for _, destination := range itinerary.TravelDestinations {
+		mock.ExpectPrepare(`INSERT INTO itinerary_travel_destinations`).ExpectExec().
+			WithArgs(destination.Country, destination.City, destination.ItineraryID, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+			WillReturnResult(sqlmock.NewResult(0, 1))
+	}
+
+	mock.ExpectCommit()
+
+	// Act
+	err = itinerary.defaultUpdate()
+
+	// Assert
+	assert.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestItineraryUpdate_SuccessNullNotes(t *testing.T) {
+	// Arrange
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+
+	db.DB = dbMock
+
+	itinerary := &Itinerary{
+		ID:          1,
+		Title:       "Updated Title",
+		Description: "Updated Description",
+		Notes:       nil,
+		TravelDestinations: []ItineraryTravelDestination{
+			{ID: 1, Country: "Country 1", City: "City 1", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
+			{ID: 2, Country: "Country 2", City: "City 2", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
+		},
+	}
+
+	mock.ExpectBegin()
+
+	mock.ExpectPrepare(`UPDATE itineraries SET title = \?, description = \?, notes = \?, update_date = \? WHERE id = \?`).
+		ExpectExec().
+		WithArgs(itinerary.Title, itinerary.Description, itinerary.Notes, sqlmock.AnyArg(), itinerary.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	mock.ExpectPrepare(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = ?`).ExpectExec().
@@ -475,7 +642,7 @@ func TestItineraryUpdate_PrepareStatementError(t *testing.T) {
 
 	mock.ExpectBegin()
 
-	mock.ExpectPrepare(`UPDATE itineraries SET title = \?, description = \?, update_date = \? WHERE id = \?`).
+	mock.ExpectPrepare(`UPDATE itineraries SET title = \?, description = \?, notes = \?, update_date = \? WHERE id = \?`).
 		WillReturnError(errors.New("prepare statement error"))
 
 	mock.ExpectRollback()
@@ -503,9 +670,9 @@ func TestItineraryUpdate_DeleteDestinationsError(t *testing.T) {
 
 	mock.ExpectBegin()
 
-	mock.ExpectPrepare(`UPDATE itineraries SET title = \?, description = \?, update_date = \? WHERE id = \?`).
+	mock.ExpectPrepare(`UPDATE itineraries SET title = \?, description = \?, notes = \?, update_date = \? WHERE id = \?`).
 		ExpectExec().
-		WithArgs(itinerary.Title, itinerary.Description, sqlmock.AnyArg(), itinerary.ID).
+		WithArgs(itinerary.Title, itinerary.Description, sqlmock.AnyArg(), sqlmock.AnyArg(), itinerary.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	mock.ExpectPrepare(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`).ExpectExec().
@@ -543,9 +710,9 @@ func TestItineraryUpdate_InsertDestinationsError(t *testing.T) {
 
 	mock.ExpectBegin()
 
-	mock.ExpectPrepare(`UPDATE itineraries SET title = \?, description = \?, update_date = \? WHERE id = \?`).
+	mock.ExpectPrepare(`UPDATE itineraries SET title = \?, description = \?, notes = \?, update_date = \? WHERE id = \?`).
 		ExpectExec().
-		WithArgs(itinerary.Title, itinerary.Description, sqlmock.AnyArg(), itinerary.ID).
+		WithArgs(itinerary.Title, itinerary.Description, sqlmock.AnyArg(), sqlmock.AnyArg(), itinerary.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	mock.ExpectPrepare(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`).ExpectExec().

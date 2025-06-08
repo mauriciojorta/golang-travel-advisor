@@ -17,6 +17,7 @@ func createItinerary(context *gin.Context) {
 	var input struct {
 		Title        string                              `json:"title" binding:"required"`
 		Description  string                              `json:"description"`
+		Notes        *string                             `json:"notes"`
 		Destinations []models.ItineraryTravelDestination `json:"destinations" binding:"required,dive"`
 	}
 
@@ -34,7 +35,7 @@ func createItinerary(context *gin.Context) {
 
 	itineraryService := services.GetItineraryService()
 
-	itinerary := models.NewItinerary(input.Title, input.Description, input.Destinations)
+	itinerary := models.NewItinerary(input.Title, input.Description, input.Notes, input.Destinations)
 
 	itinerary.OwnerID = userId.(int64)
 

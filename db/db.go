@@ -45,6 +45,7 @@ func createTables() {
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		title TEXT NOT NULL,
 		description TEXT NOT NULL,
+		notes TEXT,
 		owner_id INTEGER NOT NULL,
 		creation_date DATETIME NOT NULL,
 		update_date DATETIME NOT NULL,

@@ -49,7 +49,8 @@ type ItineraryFileAsyncTaskPayload struct {
 const itineraryPromptTemplate = `Create a detailed travel itinerary based on the following information:
 Title: {{.title}}
 Description: {{.description}}
-
+{{if .notes}}Notes: {{.notes}}
+{{end}}
 Destinations:
 {{range .travelDestinations}}
 - Country: {{.country}}, City: {{.city}}, Arrival: {{.arrivalDate}}, Departure: {{.departureDate}}
@@ -259,7 +260,7 @@ var buildItineraryLlmPrompt = func(itinerary *models.Itinerary) (*string, error)
 	prompt := prompts.NewChatPromptTemplate([]prompts.MessageFormatter{
 		prompts.NewHumanMessagePromptTemplate(
 			itineraryPromptTemplate,
-			[]string{"title", "description", "travelStartDate", "travelEndDate", "ownerId", "travelDestinations"},
+			[]string{"title", "description", "notes", "travelStartDate", "travelEndDate", "ownerId", "travelDestinations"},
 		),
 	})
 
@@ -278,6 +279,7 @@ var buildItineraryLlmPrompt = func(itinerary *models.Itinerary) (*string, error)
 	inputMap := map[string]any{
 		"title":              itinerary.Title,
 		"description":        itinerary.Description,
+		"notes":              itinerary.Notes,
 		"ownerId":            itinerary.OwnerID,
 		"travelDestinations": travelDestinations,
 	}
