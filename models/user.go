@@ -9,12 +9,12 @@ import (
 )
 
 type User struct {
-	ID            int64     `json:"id"`
-	Email         string    `json:"email" binding:"required"`
-	Password      string    `json:"password"`
-	CreationDate  time.Time `json:"creationDate"`
-	UpdateDate    time.Time `json:"updateDate"`
-	LastLoginDate time.Time `json:"lastLoginDate"`
+	ID            int64      `json:"id"`
+	Email         string     `json:"email" binding:"required"`
+	Password      string     `json:"password"`
+	CreationDate  *time.Time `json:"creationDate"`
+	UpdateDate    *time.Time `json:"updateDate"`
+	LastLoginDate *time.Time `json:"lastLoginDate"`
 
 	FindByEmail         func() error `json:"-"`
 	Create              func() error `json:"-"`

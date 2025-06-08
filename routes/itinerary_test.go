@@ -185,6 +185,29 @@ func Test_createItinerary_Success(t *testing.T) {
 	body := map[string]interface{}{
 		"title":        "Test",
 		"description":  "Desc",
+		"notes":        "Test notes",
+		"destinations": []models.ItineraryTravelDestination{},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusCreated, w.Code)
+}
+
+func Test_createItinerary_SuccessNullNotes(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":        "Test",
+		"description":  "Desc",
 		"destinations": []models.ItineraryTravelDestination{},
 	}
 	b, _ := json.Marshal(body)

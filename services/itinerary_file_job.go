@@ -266,7 +266,7 @@ var buildItineraryLlmPrompt = func(itinerary *models.Itinerary) (*string, error)
 
 	// Prepare travelDestinations for the template
 	var travelDestinations []map[string]any
-	for _, dest := range itinerary.TravelDestinations {
+	for _, dest := range *itinerary.TravelDestinations {
 		travelDestinations = append(travelDestinations, map[string]any{
 			"country":       dest.Country,
 			"city":          dest.City,

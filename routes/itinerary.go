@@ -15,10 +15,10 @@ import (
 
 func createItinerary(context *gin.Context) {
 	var input struct {
-		Title        string                              `json:"title" binding:"required"`
-		Description  string                              `json:"description"`
-		Notes        *string                             `json:"notes"`
-		Destinations []models.ItineraryTravelDestination `json:"destinations" binding:"required,dive"`
+		Title        string                               `json:"title" binding:"required"`
+		Description  string                               `json:"description"`
+		Notes        *string                              `json:"notes"`
+		Destinations *[]models.ItineraryTravelDestination `json:"destinations" binding:"required,dive"`
 	}
 
 	userId, exists := context.Get("userId")
@@ -39,7 +39,7 @@ func createItinerary(context *gin.Context) {
 
 	itinerary.OwnerID = userId.(int64)
 
-	err := itineraryService.ValidateItineraryDestinationsDates(&itinerary.TravelDestinations)
+	err := itineraryService.ValidateItineraryDestinationsDates(itinerary.TravelDestinations)
 	if err != nil {
 		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

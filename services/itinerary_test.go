@@ -29,7 +29,7 @@ func TestFindById_Success(t *testing.T) {
 	it := mockItinerary()
 	called := false
 	it.FindById = func() error { called = true; return nil }
-	models.NewItinerary = func(title, desc string, notes *string, dest []models.ItineraryTravelDestination) *models.Itinerary {
+	models.NewItinerary = func(title, desc string, notes *string, dest *[]models.ItineraryTravelDestination) *models.Itinerary {
 		return it
 	}
 	got, err := svc.FindById(1)
@@ -50,7 +50,7 @@ func TestFindById_ErrorFromModel(t *testing.T) {
 	svc := &ItineraryService{}
 	it := mockItinerary()
 	it.FindById = func() error { return errors.New("fail") }
-	models.NewItinerary = func(title, desc string, notes *string, dest []models.ItineraryTravelDestination) *models.Itinerary {
+	models.NewItinerary = func(title, desc string, notes *string, dest *[]models.ItineraryTravelDestination) *models.Itinerary {
 		return it
 	}
 	got, err := svc.FindById(1)
@@ -65,7 +65,7 @@ func TestFindByOwnerId_Success(t *testing.T) {
 
 	called := false
 	it.FindByOwnerId = func() (*[]models.Itinerary, error) { called = true; arr := []models.Itinerary{*it}; return &arr, nil }
-	models.NewItinerary = func(title, desc string, notes *string, dest []models.ItineraryTravelDestination) *models.Itinerary {
+	models.NewItinerary = func(title, desc string, notes *string, dest *[]models.ItineraryTravelDestination) *models.Itinerary {
 		return it
 	}
 	got, err := svc.FindByOwnerId(2)
@@ -87,7 +87,7 @@ func TestFindByOwnerId_ErrorFromModel(t *testing.T) {
 	it := mockItinerary()
 
 	it.FindByOwnerId = func() (*[]models.Itinerary, error) { return nil, errors.New("fail") }
-	models.NewItinerary = func(title, desc string, notes *string, dest []models.ItineraryTravelDestination) *models.Itinerary {
+	models.NewItinerary = func(title, desc string, notes *string, dest *[]models.ItineraryTravelDestination) *models.Itinerary {
 		return it
 	}
 	got, err := svc.FindByOwnerId(2)

@@ -26,18 +26,19 @@ func TestDestinationTravelDestination_Find_Success(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date"}).
 		AddRow(1, "Test Country", "Test City", 1, time.Now(), time.Now().Add(48*time.Hour))
 
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = ?").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(destination.ItineraryID).
 		WillReturnRows(rows)
 
 	// Act
-	err = destination.defaultFind()
+	destinations, err := destination.defaultFindByItineraryId()
 
 	// Assert
 	assert.NoError(t, err)
-	assert.Equal(t, int64(1), destination.ID)
-	assert.Equal(t, "Test Country", destination.Country)
-	assert.Equal(t, "Test City", destination.City)
+	assert.Len(t, *destinations, 1)
+	assert.Equal(t, int64(1), (*destinations)[0].ID)
+	assert.Equal(t, "Test Country", (*destinations)[0].Country)
+	assert.Equal(t, "Test City", (*destinations)[0].City)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -53,15 +54,16 @@ func TestDestinationTravelDestination_Find_NoRows(t *testing.T) {
 		ItineraryID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = ?").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(destination.ItineraryID).
 		WillReturnError(sql.ErrNoRows)
 
 	// Act
-	err = destination.defaultFind()
+	destinations, err := destination.defaultFindByItineraryId()
 
 	// Assert
 	assert.Error(t, err)
+	assert.Nil(t, destinations)
 	assert.Equal(t, sql.ErrNoRows, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
@@ -78,15 +80,16 @@ func TestDestinationTravelDestination_Find_QueryError(t *testing.T) {
 		ItineraryID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = ?").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(destination.ItineraryID).
 		WillReturnError(errors.New("query error"))
 
 	// Act
-	err = destination.defaultFind()
+	destinations, err := destination.defaultFindByItineraryId()
 
 	// Assert
 	assert.Error(t, err)
+	assert.Nil(t, destinations)
 	assert.Equal(t, "query error", err.Error())
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
@@ -408,13 +411,17 @@ func TestDestinationDeleteByItineraryIdTx_Success(t *testing.T) {
 
 	itineraryId := int64(1)
 
+	destination := &ItineraryTravelDestination{
+		ItineraryID: itineraryId,
+	}
+
 	query := `DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`
 	mock.ExpectPrepare(query).ExpectExec().
-		WithArgs(itineraryId).
+		WithArgs(destination.ItineraryID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	// Act
-	err = DeleteByItineraryIdTx(tx, itineraryId)
+	err = destination.defaultDeleteByItineraryIdTx(tx)
 
 	// Assert
 	assert.NoError(t, err)
@@ -445,11 +452,15 @@ func TestDestinationDeleteByItineraryIdTx_PrepareError(t *testing.T) {
 
 	itineraryId := int64(1)
 
+	destination := &ItineraryTravelDestination{
+		ItineraryID: itineraryId,
+	}
+
 	query := `DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`
 	mock.ExpectPrepare(query).WillReturnError(sql.ErrConnDone)
 
 	// Act
-	err = DeleteByItineraryIdTx(tx, itineraryId)
+	err = destination.defaultDeleteByItineraryIdTx(tx)
 
 	// Assert
 	assert.Error(t, err)
@@ -481,6 +492,10 @@ func TestDestinationDeleteByItineraryIdTx_ExecError(t *testing.T) {
 
 	itineraryId := int64(1)
 
+	destination := &ItineraryTravelDestination{
+		ItineraryID: itineraryId,
+	}
+
 	query := `DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`
 	mock.ExpectPrepare(query)
 	mock.ExpectExec(query).
@@ -488,7 +503,7 @@ func TestDestinationDeleteByItineraryIdTx_ExecError(t *testing.T) {
 		WillReturnError(sql.ErrNoRows)
 
 	// Act
-	err = DeleteByItineraryIdTx(tx, itineraryId)
+	err = destination.defaultDeleteByItineraryIdTx(tx)
 
 	// Assert
 	assert.Error(t, err)

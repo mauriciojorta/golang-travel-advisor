@@ -8,19 +8,20 @@ import (
 )
 
 type ItineraryTravelDestination struct {
-	ID            int64     `json:"id"`
-	Country       string    `json:"country" binding:"required"`
-	City          string    `json:"city" binding:"required"`
-	ItineraryID   int64     `json:"itineraryId"`
-	ArrivalDate   time.Time `json:"arrivalDate" binding:"required"`
-	DepartureDate time.Time `json:"departureDate" binding:"required"`
-	CreationDate  time.Time `json:"creationDate"`
-	UpdateDate    time.Time `json:"updateDate"`
+	ID            int64      `json:"id"`
+	Country       string     `json:"country" binding:"required"`
+	City          string     `json:"city" binding:"required"`
+	ItineraryID   int64      `json:"itineraryId"`
+	ArrivalDate   time.Time  `json:"arrivalDate" binding:"required"`
+	DepartureDate time.Time  `json:"departureDate" binding:"required"`
+	CreationDate  *time.Time `json:"creationDate"`
+	UpdateDate    *time.Time `json:"updateDate"`
 
-	Find   func() error        `json:"-"`
-	Create func(*sql.Tx) error `json:"-"`
-	Update func() error        `json:"-"`
-	Delete func() error        `json:"-"`
+	FindByItineraryId     func() (*[]ItineraryTravelDestination, error) `json:"-"`
+	Create                func(*sql.Tx) error                           `json:"-"`
+	Update                func() error                                  `json:"-"`
+	Delete                func() error                                  `json:"-"`
+	DeleteByItineraryIdTx func(*sql.Tx) error                           `json:"-"`
 }
 
 var NewItineraryTravelDestination = func(country string, city string, itineraryId int64, arrivalDate time.Time, departureDate time.Time) *ItineraryTravelDestination {
@@ -33,26 +34,38 @@ var NewItineraryTravelDestination = func(country string, city string, itineraryI
 	}
 
 	// Set default implementations for Find, Create, Update, and Delete
-	destination.Find = destination.defaultFind
+	destination.FindByItineraryId = destination.defaultFindByItineraryId
 	destination.Create = destination.defaultCreate
 	destination.Update = destination.defaultUpdate
 	destination.Delete = destination.defaultDelete
+	destination.DeleteByItineraryIdTx = destination.defaultDeleteByItineraryIdTx
 
 	return destination
 }
 
-func (d *ItineraryTravelDestination) defaultFind() error {
+func (d *ItineraryTravelDestination) defaultFindByItineraryId() (*[]ItineraryTravelDestination, error) {
 
 	query := `SELECT id, country, city, itinerary_id, arrival_date, departure_date
-	FROM itinerary_travel_destinations WHERE itinerary_id = ?`
-	row := db.DB.QueryRow(query, d.ItineraryID)
-
-	err := row.Scan(&d.ID, &d.Country, &d.City, &d.ItineraryID, &d.ArrivalDate, &d.DepartureDate)
+	FROM itinerary_travel_destinations WHERE itinerary_id = ? ORDER BY arrival_date ASC`
+	destRows, err := db.DB.Query(query, d.ItineraryID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	var travelDestinations []ItineraryTravelDestination
+
+	for destRows.Next() {
+		var destination ItineraryTravelDestination
+		err := destRows.Scan(&destination.ID, &destination.Country, &destination.City, &destination.ItineraryID, &destination.ArrivalDate, &destination.DepartureDate)
+		if err != nil {
+			destRows.Close()
+			return nil, err
+		}
+		travelDestinations = append(travelDestinations, destination)
+	}
+	destRows.Close()
+
+	return &travelDestinations, nil
 }
 
 func (d *ItineraryTravelDestination) defaultCreate(tx *sql.Tx) error {
@@ -117,7 +130,7 @@ func (d *ItineraryTravelDestination) defaultDelete() error {
 	return nil
 }
 
-func DeleteByItineraryIdTx(tx *sql.Tx, itineraryId int64) error {
+func (d *ItineraryTravelDestination) defaultDeleteByItineraryIdTx(tx *sql.Tx) error {
 	query := `DELETE FROM itinerary_travel_destinations WHERE itinerary_id = ?`
 
 	stmt, err := tx.Prepare(query)
@@ -127,7 +140,7 @@ func DeleteByItineraryIdTx(tx *sql.Tx, itineraryId int64) error {
 
 	defer stmt.Close()
 
-	_, err = stmt.Exec(itineraryId)
+	_, err = stmt.Exec(d.ItineraryID)
 	if err != nil {
 		return err
 	}

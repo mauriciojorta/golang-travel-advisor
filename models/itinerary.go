@@ -7,15 +7,15 @@ import (
 )
 
 type Itinerary struct {
-	ID                 int64                        `json:"id"`
-	Title              string                       `json:"title" binding:"required"`
-	Description        string                       `json:"description"`
-	CreationDate       time.Time                    `json:"creationDate"`
-	UpdateDate         time.Time                    `json:"updateDate"`
-	TravelDestinations []ItineraryTravelDestination `json:"travelDestinations"`
-	OwnerID            int64                        `json:"ownerId"`
-	FileJobs           []ItineraryFileJob           `json:"fileJobs"`
-	Notes              *string                      `json:"notes"`
+	ID                 int64                         `json:"id"`
+	Title              string                        `json:"title" binding:"required"`
+	Description        string                        `json:"description"`
+	CreationDate       *time.Time                    `json:"creationDate"`
+	UpdateDate         *time.Time                    `json:"updateDate"`
+	TravelDestinations *[]ItineraryTravelDestination `json:"travelDestinations"`
+	OwnerID            int64                         `json:"ownerId"`
+	FileJobs           []ItineraryFileJob            `json:"fileJobs"`
+	Notes              *string                       `json:"notes"`
 
 	FindById      func() error                 `json:"-"`
 	FindByOwnerId func() (*[]Itinerary, error) `json:"-"`
@@ -24,7 +24,7 @@ type Itinerary struct {
 	Delete        func() error                 `json:"-"`
 }
 
-var NewItinerary = func(title string, description string, notes *string, travelDestinations []ItineraryTravelDestination) *Itinerary {
+var NewItinerary = func(title string, description string, notes *string, travelDestinations *[]ItineraryTravelDestination) *Itinerary {
 	itinerary := &Itinerary{
 		Title:              title,
 		Description:        description,
@@ -53,22 +53,11 @@ func (i *Itinerary) defaultFindById() error {
 	}
 
 	// Fetch travel destinations for the itinerary
-	destinationsQuery := `SELECT id, country, city, itinerary_id, arrival_date, departure_date
-    FROM itinerary_travel_destinations WHERE itinerary_id = ?`
-	rows, err := db.DB.Query(destinationsQuery, i.ID)
+	destinationEntity := NewItineraryTravelDestination("", "", i.ID, time.Now(), time.Now())
+
+	travelDestinations, err := destinationEntity.FindByItineraryId()
 	if err != nil {
 		return err
-	}
-	defer rows.Close()
-
-	var travelDestinations []ItineraryTravelDestination
-	for rows.Next() {
-		var destination ItineraryTravelDestination
-		err := rows.Scan(&destination.ID, &destination.Country, &destination.City, &destination.ItineraryID, &destination.ArrivalDate, &destination.DepartureDate)
-		if err != nil {
-			return err
-		}
-		travelDestinations = append(travelDestinations, destination)
 	}
 
 	i.TravelDestinations = travelDestinations
@@ -97,26 +86,15 @@ func (i *Itinerary) defaultFindByOwnerId() (*[]Itinerary, error) {
 		}
 
 		// Fetch travel destinations for the itinerary
-		destinationsQuery := `SELECT id, country, city, itinerary_id, arrival_date, departure_date
-		FROM itinerary_travel_destinations WHERE itinerary_id = ?`
-		destRows, err := db.DB.Query(destinationsQuery, itinerary.ID)
+		destinationEntity := NewItineraryTravelDestination("", "", itinerary.ID, time.Now(), time.Now())
+
+		travelDestinations, err := destinationEntity.FindByItineraryId()
 		if err != nil {
 			return nil, err
 		}
 
-		var travelDestinations []ItineraryTravelDestination
-		for destRows.Next() {
-			var destination ItineraryTravelDestination
-			err := destRows.Scan(&destination.ID, &destination.Country, &destination.City, &destination.ItineraryID, &destination.ArrivalDate, &destination.DepartureDate)
-			if err != nil {
-				destRows.Close()
-				return nil, err
-			}
-			travelDestinations = append(travelDestinations, destination)
-		}
-		destRows.Close()
-
 		itinerary.TravelDestinations = travelDestinations
+
 		itineraries = append(itineraries, itinerary)
 	}
 
@@ -155,7 +133,7 @@ func (i *Itinerary) defaultCreate() error {
 
 	i.ID = itineraryId
 
-	for _, travelDestination := range i.TravelDestinations {
+	for _, travelDestination := range *i.TravelDestinations {
 		travelDestination.ItineraryID = itineraryId
 		travelDestination = *NewItineraryTravelDestination(travelDestination.Country, travelDestination.City, travelDestination.ItineraryID, travelDestination.ArrivalDate, travelDestination.DepartureDate)
 		err = travelDestination.Create(tx)
@@ -190,14 +168,16 @@ func (i *Itinerary) defaultUpdate() error {
 		return err
 	}
 
+	destination := NewItineraryTravelDestination("", "", i.ID, time.Now(), time.Now())
+
 	// Clear existing travel destinations for this itinerary
-	err = DeleteByItineraryIdTx(tx, i.ID)
+	err = destination.DeleteByItineraryIdTx(tx)
 	if err != nil {
 		return err
 	}
 
 	// Insert new travel destinations
-	for _, travelDestination := range i.TravelDestinations {
+	for _, travelDestination := range *i.TravelDestinations {
 		travelDestination = *NewItineraryTravelDestination(travelDestination.Country, travelDestination.City, travelDestination.ItineraryID, travelDestination.ArrivalDate, travelDestination.DepartureDate)
 		err = travelDestination.Create(tx)
 		if err != nil {
