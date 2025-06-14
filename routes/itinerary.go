@@ -178,7 +178,11 @@ func runItineraryFileJob(context *gin.Context) {
 
 	job := itineraryFileJobTask.ItineraryFileJob
 
-	asyncTaskQueue := services.NewAsyncqTaskQueue()
+	asyncTaskQueue, err := services.NewAsyncqTaskQueue()
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not create job. Try again later."})
+		return
+	}
 	defer asyncTaskQueue.Close()
 
 	if asyncTaskQueue == nil {

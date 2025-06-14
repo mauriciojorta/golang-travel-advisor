@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"time"
 
@@ -23,16 +24,22 @@ type ItineraryFileTaskQueue interface {
 	EnqueueItineraryFileJob(itineraryTaskPayload ItineraryFileAsyncTaskPayload) error
 }
 
-var NewAsyncqTaskQueue = func() AsyncqTaskQueueInterface {
+var NewAsyncqTaskQueue = func() (AsyncqTaskQueueInterface, error) {
 	redisClientAddr := os.Getenv("REDIS_ADDR")
+	redisPasswr := os.Getenv("REDIS_PASSWORD")
 	if redisClientAddr == "" {
 		log.Warn("REDIS_ADDR environment variable not set, using default address")
 		redisClientAddr = "127.0.0.1:6379"
 	}
-	queueClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisClientAddr})
+	if redisPasswr == "" {
+		errorMsg := "REDIS_PASSWORD environment variable is not set"
+		log.Error(errorMsg)
+		return nil, errors.New(errorMsg)
+	}
+	queueClient := asynq.NewClient(asynq.RedisClientOpt{Addr: redisClientAddr, Password: redisPasswr})
 	return &AsyncqTaskQueue{
 		Client: queueClient,
-	}
+	}, nil
 }
 
 func (q *AsyncqTaskQueue) Close() {
@@ -55,10 +62,7 @@ func (q *AsyncqTaskQueue) EnqueueItineraryFileJob(itineraryTaskPayload Itinerary
 
 	asyncTask := asynq.NewTask(TypeItineraryFileGeneration, asyncTaskPayloadJson, asynq.Timeout(10*time.Minute))
 
-	client := asynq.NewClient(asynq.RedisClientOpt{Addr: "127.0.0.1:6379"})
-	defer client.Close()
-
-	info, err := client.Enqueue(asyncTask)
+	info, err := q.Client.Enqueue(asyncTask)
 	if err != nil {
 		log.Errorf("could not enqueue itinerary file job task: %v", err)
 		return nil, err

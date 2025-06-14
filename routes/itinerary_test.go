@@ -429,6 +429,36 @@ func Test_runItineraryFileJob_PrepareJob_Error(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
+func Test_runItineraryFileJob_InitAsyncTaskQueueClient_Error(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{
+			GetJobsRunningOfUserCountVal: 0,
+			PrepareJobTask: &services.ItineraryFileAsyncTaskPayload{
+				Itinerary:        &models.Itinerary{OwnerID: 1},
+				ItineraryFileJob: &models.ItineraryFileJob{},
+			},
+		}
+	}
+	origQueue := services.NewAsyncqTaskQueue
+	defer func() { services.NewAsyncqTaskQueue = origQueue }()
+	services.NewAsyncqTaskQueue = func() (services.AsyncqTaskQueueInterface, error) {
+		return nil, errors.New("REDIS_PASSWORD environment variable is not set")
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
 func Test_runItineraryFileJob_Enqueue_Error(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
@@ -448,8 +478,8 @@ func Test_runItineraryFileJob_Enqueue_Error(t *testing.T) {
 	}
 	origQueue := services.NewAsyncqTaskQueue
 	defer func() { services.NewAsyncqTaskQueue = origQueue }()
-	services.NewAsyncqTaskQueue = func() services.AsyncqTaskQueueInterface {
-		return &mockAsyncqTaskQueue{EnqueueErr: errors.New("enqueue error")}
+	services.NewAsyncqTaskQueue = func() (services.AsyncqTaskQueueInterface, error) {
+		return &mockAsyncqTaskQueue{EnqueueErr: errors.New("enqueue error")}, nil
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -479,8 +509,8 @@ func Test_runItineraryFileJob_AddAsyncTaskId_Error(t *testing.T) {
 	}
 	origQueue := services.NewAsyncqTaskQueue
 	defer func() { services.NewAsyncqTaskQueue = origQueue }()
-	services.NewAsyncqTaskQueue = func() services.AsyncqTaskQueueInterface {
-		return &mockAsyncqTaskQueue{EnqueueId: "taskid"}
+	services.NewAsyncqTaskQueue = func() (services.AsyncqTaskQueueInterface, error) {
+		return &mockAsyncqTaskQueue{EnqueueId: "taskid"}, nil
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -509,8 +539,8 @@ func Test_runItineraryFileJob_Success(t *testing.T) {
 	}
 	origQueue := services.NewAsyncqTaskQueue
 	defer func() { services.NewAsyncqTaskQueue = origQueue }()
-	services.NewAsyncqTaskQueue = func() services.AsyncqTaskQueueInterface {
-		return &mockAsyncqTaskQueue{EnqueueId: "taskid"}
+	services.NewAsyncqTaskQueue = func() (services.AsyncqTaskQueueInterface, error) {
+		return &mockAsyncqTaskQueue{EnqueueId: "taskid"}, nil
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)

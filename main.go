@@ -42,12 +42,16 @@ func main() {
 
 	// Initialize Asyncq Server
 	redisClientAddr := os.Getenv("REDIS_ADDR")
+	redisPasswr := os.Getenv("REDIS_PASSWORD")
 	if redisClientAddr == "" {
 		log.Warn("REDIS_ADDR environment variable not set, using default address")
 		redisClientAddr = "127.0.0.1:6379"
 	}
+	if redisPasswr == "" {
+		log.Fatal("REDIS_PASSWORD environment variable is not set")
+	}
 	asyncqSrv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: redisClientAddr},
+		asynq.RedisClientOpt{Addr: redisClientAddr, Password: redisPasswr},
 		asynq.Config{
 			// Specify how many concurrent workers to use
 			Concurrency: 10,
