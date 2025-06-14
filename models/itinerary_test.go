@@ -21,20 +21,20 @@ func TestItineraryDefaultFindById_Success(t *testing.T) {
 	itinerary := &Itinerary{ID: 1}
 
 	// Mock main itinerary row
-	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE id = \\?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE id = \\?").
 		WithArgs(itinerary.ID).
 		WillReturnRows(
-			sqlmock.NewRows([]string{"id", "title", "description", "owner_id", "notes"}).
-				AddRow(1, "Test Title", "Test Description", "A test trip", 2),
+			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
+				AddRow(1, "Test Title", "Test Description", "A test trip", 2, time.Now(), time.Now().Add(2*time.Hour)),
 		)
 
 	// Mock travel destinations rows
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(itinerary.ID).
 		WillReturnRows(
-			sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date"}).
-				AddRow(10, "Country1", "City1", 1, now, now.Add(12*time.Hour)).
-				AddRow(11, "Country2", "City2", 1, now.Add(12*time.Hour), now.Add(24*time.Hour)),
+			sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date", "creation_date", "update_date"}).
+				AddRow(10, "Country1", "City1", 1, now, now.Add(12*time.Hour), time.Now(), time.Now().Add(2*time.Hour)).
+				AddRow(11, "Country2", "City2", 1, now.Add(12*time.Hour), now.Add(24*time.Hour), time.Now(), time.Now().Add(2*time.Hour)),
 		)
 
 	err = itinerary.defaultFindById()
@@ -61,20 +61,20 @@ func TestItineraryDefaultFindById_SuccessNullNotes(t *testing.T) {
 	itinerary := &Itinerary{ID: 1}
 
 	// Mock main itinerary row
-	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE id = \\?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE id = \\?").
 		WithArgs(itinerary.ID).
 		WillReturnRows(
-			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
-				AddRow(1, "Test Title", "Test Description", nil, 2),
+			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
+				AddRow(1, "Test Title", "Test Description", nil, 2, time.Now(), time.Now().Add(2*time.Hour)),
 		)
 
 	// Mock travel destinations rows
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(itinerary.ID).
 		WillReturnRows(
-			sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date"}).
-				AddRow(10, "Country1", "City1", 1, now, now.Add(12*time.Hour)).
-				AddRow(11, "Country2", "City2", 1, now.Add(12*time.Hour), now.Add(24*time.Hour)),
+			sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date", "creation_date", "update_date"}).
+				AddRow(10, "Country1", "City1", 1, now, now.Add(12*time.Hour), time.Now(), time.Now().Add(2*time.Hour)).
+				AddRow(11, "Country2", "City2", 1, now.Add(12*time.Hour), now.Add(24*time.Hour), time.Now(), time.Now().Add(2*time.Hour)),
 		)
 
 	err = itinerary.defaultFindById()
@@ -99,7 +99,7 @@ func TestItineraryDefaultFindById_RowScanError(t *testing.T) {
 
 	itinerary := &Itinerary{ID: 1}
 
-	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE id = \\?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE id = \\?").
 		WithArgs(itinerary.ID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -117,14 +117,14 @@ func TestItineraryDefaultFindById_DestinationsQueryError(t *testing.T) {
 
 	itinerary := &Itinerary{ID: 1}
 
-	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE id = \\?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE id = \\?").
 		WithArgs(itinerary.ID).
 		WillReturnRows(
-			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
-				AddRow(1, "Test Title", "Test Description", nil, 2),
+			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
+				AddRow(1, "Test Title", "Test Description", nil, 2, time.Now(), time.Now().Add(2*time.Hour)),
 		)
 
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(itinerary.ID).
 		WillReturnError(sql.ErrConnDone)
 
@@ -143,19 +143,20 @@ func TestItineraryDefaultFindById_DestinationScanError(t *testing.T) {
 	now := time.Now()
 	itinerary := &Itinerary{ID: 1}
 
-	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE id = \\?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE id = \\?").
 		WithArgs(itinerary.ID).
 		WillReturnRows(
-			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
-				AddRow(1, "Test Title", "Test Description", nil, 2),
+			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
+				AddRow(1, "Test Title", "Test Description", nil, 2, time.Now(), time.Now().Add(2*time.Hour)),
 		)
 
 	// Return a row with a wrong type to force scan error
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(itinerary.ID).
 		WillReturnRows(
-			sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date"}).
-				AddRow("not-an-int", "Country1", "City1", 1, now, now.Add(12*time.Hour)),
+			sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date", "creation_date", "update_date"}).
+				AddRow(10, "Country1", "City1", 1, now, now.Add(12*time.Hour), time.Now(), time.Now().Add(2*time.Hour)).
+				AddRow("not-an-int", "Country2", "City2", 1, now.Add(12*time.Hour), now.Add(24*time.Hour), time.Now(), time.Now().Add(2*time.Hour)),
 		)
 
 	err = itinerary.defaultFindById()
@@ -175,14 +176,14 @@ func TestItineraryFindByOwnerId_Success(t *testing.T) {
 		OwnerID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE owner_id = \\?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE owner_id = \\?").
 		WithArgs(itinerary.OwnerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
-			AddRow(1, "Test Title", "Test Description", "A test trip", 1))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
+			AddRow(1, "Test Title", "Test Description", "A test trip", 1, time.Now(), time.Now().Add(2*time.Hour)))
 
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(int64(1)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date"}))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date", "creation_date", "update_date"}))
 
 	// Act
 	itineraries, err := itinerary.defaultFindByOwnerId()
@@ -194,6 +195,8 @@ func TestItineraryFindByOwnerId_Success(t *testing.T) {
 	assert.Equal(t, "Test Title", (*itineraries)[0].Title)
 	assert.Equal(t, "Test Description", (*itineraries)[0].Description)
 	assert.Equal(t, "A test trip", *(*itineraries)[0].Notes)
+	assert.NotNil(t, *(*itineraries)[0].CreationDate)
+	assert.NotNil(t, *(*itineraries)[0].UpdateDate)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -209,14 +212,14 @@ func TestItineraryFindByOwnerId_SuccessNullNotes(t *testing.T) {
 		OwnerID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE owner_id = \\?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE owner_id = \\?").
 		WithArgs(itinerary.OwnerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
-			AddRow(1, "Test Title", "Test Description", nil, 1))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
+			AddRow(1, "Test Title", "Test Description", nil, 1, time.Now(), time.Now().Add(2*time.Hour)))
 
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(int64(1)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date"}))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date", "creation_date", "update_date"}))
 
 	// Act
 	itineraries, err := itinerary.defaultFindByOwnerId()
@@ -243,7 +246,7 @@ func TestItineraryFindByOwnerId_NoRows(t *testing.T) {
 		OwnerID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE owner_id = \\?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE owner_id = \\?").
 		WithArgs(itinerary.OwnerID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -268,7 +271,7 @@ func TestItineraryFindByOwnerId_QueryError(t *testing.T) {
 		OwnerID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE owner_id = \\?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE owner_id = \\?").
 		WithArgs(itinerary.OwnerID).
 		WillReturnError(assert.AnError)
 
@@ -293,12 +296,12 @@ func TestItineraryDefaultFindByOwnerId_DestinationQueryError(t *testing.T) {
 		OwnerID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE owner_id = \\?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE owner_id = \\?").
 		WithArgs(itinerary.OwnerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
-			AddRow(1, "Test Title", "Test Description", nil, 1))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
+			AddRow(1, "Test Title", "Test Description", nil, 1, time.Now(), time.Now().Add(2*time.Hour)))
 
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(int64(1)).
 		WillReturnError(sql.ErrConnDone)
 
@@ -324,12 +327,12 @@ func TestItineraryDefaultFindByOwnerId_DestinationScanError(t *testing.T) {
 		OwnerID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, title, description, notes, owner_id FROM itineraries WHERE owner_id = \\?").
+	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE owner_id = \\?").
 		WithArgs(itinerary.OwnerID).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id"}).
-			AddRow(1, "Test Title", "Test Description", nil, 1))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
+			AddRow(1, "Test Title", "Test Description", nil, 1, time.Now(), time.Now().Add(2*time.Hour)))
 
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(int64(1)).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date"}).
 			AddRow("not-an-int", "Country1", "City1", 1, time.Now(), time.Now().Add(12*time.Hour)))

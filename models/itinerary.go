@@ -43,11 +43,11 @@ var NewItinerary = func(title string, description string, notes *string, travelD
 }
 
 func (i *Itinerary) defaultFindById() error {
-	query := `SELECT id, title, description, notes, owner_id
+	query := `SELECT id, title, description, notes, owner_id, creation_date, update_date
 	FROM itineraries WHERE id = ?`
 	row := db.DB.QueryRow(query, i.ID)
 
-	err := row.Scan(&i.ID, &i.Title, &i.Description, &i.Notes, &i.OwnerID)
+	err := row.Scan(&i.ID, &i.Title, &i.Description, &i.Notes, &i.OwnerID, &i.CreationDate, &i.UpdateDate)
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func (i *Itinerary) defaultFindById() error {
 }
 
 func (i *Itinerary) defaultFindByOwnerId() (*[]Itinerary, error) {
-	query := `SELECT id, title, description, notes, owner_id
+	query := `SELECT id, title, description, notes, owner_id, creation_date, update_date
 	FROM itineraries WHERE owner_id = ?`
 
 	rows, err := db.DB.Query(query, i.OwnerID)
@@ -80,7 +80,7 @@ func (i *Itinerary) defaultFindByOwnerId() (*[]Itinerary, error) {
 
 	for rows.Next() {
 		var itinerary Itinerary
-		err := rows.Scan(&itinerary.ID, &itinerary.Title, &itinerary.Description, &itinerary.Notes, &itinerary.OwnerID)
+		err := rows.Scan(&itinerary.ID, &itinerary.Title, &itinerary.Description, &itinerary.Notes, &itinerary.OwnerID, &itinerary.CreationDate, &itinerary.UpdateDate)
 		if err != nil {
 			return nil, err
 		}

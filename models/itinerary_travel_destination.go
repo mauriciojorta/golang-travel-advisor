@@ -45,7 +45,7 @@ var NewItineraryTravelDestination = func(country string, city string, itineraryI
 
 func (d *ItineraryTravelDestination) defaultFindByItineraryId() (*[]ItineraryTravelDestination, error) {
 
-	query := `SELECT id, country, city, itinerary_id, arrival_date, departure_date
+	query := `SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date
 	FROM itinerary_travel_destinations WHERE itinerary_id = ? ORDER BY arrival_date ASC`
 	destRows, err := db.DB.Query(query, d.ItineraryID)
 	if err != nil {
@@ -56,7 +56,7 @@ func (d *ItineraryTravelDestination) defaultFindByItineraryId() (*[]ItineraryTra
 
 	for destRows.Next() {
 		var destination ItineraryTravelDestination
-		err := destRows.Scan(&destination.ID, &destination.Country, &destination.City, &destination.ItineraryID, &destination.ArrivalDate, &destination.DepartureDate)
+		err := destRows.Scan(&destination.ID, &destination.Country, &destination.City, &destination.ItineraryID, &destination.ArrivalDate, &destination.DepartureDate, &destination.CreationDate, &destination.UpdateDate)
 		if err != nil {
 			destRows.Close()
 			return nil, err

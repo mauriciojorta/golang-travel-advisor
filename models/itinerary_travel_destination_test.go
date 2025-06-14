@@ -23,10 +23,10 @@ func TestDestinationTravelDestination_Find_Success(t *testing.T) {
 		ItineraryID: 1,
 	}
 
-	rows := sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date"}).
-		AddRow(1, "Test Country", "Test City", 1, time.Now(), time.Now().Add(48*time.Hour))
+	rows := sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date", "creation_date", "update_date"}).
+		AddRow(1, "Test Country", "Test City", 1, time.Now(), time.Now().Add(48*time.Hour), time.Now(), time.Now().Add(2*time.Hour))
 
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(destination.ItineraryID).
 		WillReturnRows(rows)
 
@@ -54,7 +54,7 @@ func TestDestinationTravelDestination_Find_NoRows(t *testing.T) {
 		ItineraryID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(destination.ItineraryID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -80,7 +80,7 @@ func TestDestinationTravelDestination_Find_QueryError(t *testing.T) {
 		ItineraryID: 1,
 	}
 
-	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
 		WithArgs(destination.ItineraryID).
 		WillReturnError(errors.New("query error"))
 
