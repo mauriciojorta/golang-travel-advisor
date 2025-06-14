@@ -190,9 +190,27 @@ func (i *Itinerary) defaultUpdate() error {
 }
 
 func (i *Itinerary) defaultDelete() error {
+	tx, err := db.DB.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer db.HandleTransaction(tx, &err)
+	if err != nil {
+		return err
+	}
+
+	destination := NewItineraryTravelDestination("", "", i.ID, time.Now(), time.Now())
+
+	// Clear existing travel destinations for this itinerary
+	err = destination.DeleteByItineraryIdTx(tx)
+	if err != nil {
+		return err
+	}
+
 	query := `DELETE FROM itineraries WHERE id = ?`
 
-	stmt, err := db.DB.Prepare(query)
+	stmt, err := tx.Prepare(query)
 	if err != nil {
 		return err
 	}

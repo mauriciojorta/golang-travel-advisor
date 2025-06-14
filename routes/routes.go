@@ -16,6 +16,7 @@ func RegisterRoutes(server *gin.Engine) {
 	authenticated.PUT("/itineraries", updateItinerary)
 	authenticated.GET("/itineraries", getOwnersItineraries)
 	authenticated.GET("/itineraries/:itineraryId", getItinerary)
+	authenticated.DELETE("/itineraries/:itineraryId", deleteItinerary)
 	authenticated.POST("/itineraries/:itineraryId/jobs", runItineraryFileJob)
 	authenticated.GET("/itineraries/:itineraryId/jobs", getAllItineraryFileJobs)
 

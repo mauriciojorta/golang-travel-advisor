@@ -80,7 +80,7 @@ func updateItinerary(context *gin.Context) {
 
 	itinerary, err := itineraryService.FindById(input.ID)
 	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve itinerary. Try again later."})
+		context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary not found. Try again later."})
 		return
 	}
 
@@ -108,6 +108,48 @@ func updateItinerary(context *gin.Context) {
 	}
 
 	context.JSON(http.StatusOK, gin.H{"message": "Itinerary updated."})
+}
+
+func deleteItinerary(context *gin.Context) {
+	userId, exists := context.Get("userId")
+	if !exists {
+		context.JSON(http.StatusUnauthorized, gin.H{"message": "Not authorized."})
+		return
+	}
+
+	itineraryId := context.Param("itineraryId")
+	if itineraryId == "" {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Itinerary ID is required."})
+		return
+	}
+
+	var id int64
+	_, err := fmt.Sscan(itineraryId, &id)
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Invalid itinerary ID."})
+		return
+	}
+
+	itineraryService := services.GetItineraryService()
+
+	itinerary, err := itineraryService.FindById(id)
+	if err != nil {
+		context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary not found."})
+		return
+	}
+
+	if itinerary.OwnerID != userId.(int64) {
+		context.JSON(http.StatusForbidden, gin.H{"message": "You do not have permission to delete this itinerary."})
+		return
+	}
+
+	err = itineraryService.Delete(itinerary)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not delete itinerary. Try again later."})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{"message": "Itinerary deleted."})
 }
 
 func getOwnersItineraries(context *gin.Context) {
@@ -153,7 +195,7 @@ func getItinerary(context *gin.Context) {
 
 	itinerary, err := itineraryService.FindById(id)
 	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve itinerary. Try again later."})
+		context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary not found."})
 		return
 	}
 
@@ -190,7 +232,7 @@ func runItineraryFileJob(context *gin.Context) {
 
 	itinerary, err := itineraryService.FindById(id)
 	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve itinerary. Try again later."})
+		context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary not found."})
 		return
 	}
 
@@ -291,7 +333,7 @@ func getAllItineraryFileJobs(context *gin.Context) {
 	itinerary, err := itineraryService.FindById(itineraryId)
 	if err != nil {
 		log.Error("Error retrieving itinerary: ", err)
-		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve itinerary. Try again later."})
+		context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary not found."})
 		return
 	}
 
