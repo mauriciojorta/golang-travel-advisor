@@ -19,6 +19,7 @@ import (
 type mockItineraryService struct {
 	ValidateErr    error
 	CreateErr      error
+	UpdateErr      error
 	FindByIdIt     *models.Itinerary
 	FindByIdErr    error
 	FindByOwner    *[]models.Itinerary
@@ -39,7 +40,7 @@ func (m *mockItineraryService) FindByOwnerId(_ int64) (*[]models.Itinerary, erro
 }
 
 func (m *mockItineraryService) Update(_ *models.Itinerary) error {
-	return nil // Not used in tests
+	return m.UpdateErr
 }
 
 func (m *mockItineraryService) Delete(_ *models.Itinerary) error {
@@ -638,5 +639,165 @@ func Test_getAllItineraryFileJobs_Success(t *testing.T) {
 	setUserId(c, 1)
 	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
 	getAllItineraryFileJobs(c)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+func Test_updateItinerary_Unauthorized(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	updateItinerary(c)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func Test_updateItinerary_BadRequest_NoParam(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	updateItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func Test_updateItinerary_BadRequest_InvalidIdBindJSON(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":        "Test",
+		"description":  "Desc",
+		"destinations": []models.ItineraryTravelDestination{},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
+	updateItinerary(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_updateItinerary_BadRequest_BindJSON(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer([]byte("{bad json")))
+	updateItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func Test_updateItinerary_FindById_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdErr: errors.New("find error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":           1,
+		"title":        "Test",
+		"description":  "Desc",
+		"destinations": []models.ItineraryTravelDestination{},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_updateItinerary_Forbidden(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 2}}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":           1,
+		"title":        "Test",
+		"description":  "Desc",
+		"destinations": []models.ItineraryTravelDestination{},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func Test_updateItinerary_ValidateItineraryDestinationsDates_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{
+			FindByIdIt:  &models.Itinerary{OwnerID: 1},
+			ValidateErr: errors.New("validation error"),
+		}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":           1,
+		"title":        "Test",
+		"description":  "Desc",
+		"destinations": []models.ItineraryTravelDestination{},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func Test_updateItinerary_Update_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	mock := &mockItineraryService{
+		FindByIdIt: &models.Itinerary{OwnerID: 1},
+		UpdateErr:  errors.New("update error"),
+	}
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return mock
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":           1,
+		"title":        "Test",
+		"description":  "Desc",
+		"destinations": []models.ItineraryTravelDestination{},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_updateItinerary_Success(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	mock := &mockItineraryService{
+		FindByIdIt: &models.Itinerary{OwnerID: 1},
+		UpdateErr:  nil,
+	}
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return mock
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":           1,
+		"title":        "Test",
+		"description":  "Desc",
+		"notes":        "Test notes",
+		"destinations": []models.ItineraryTravelDestination{},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
 	assert.Equal(t, http.StatusOK, w.Code)
 }

@@ -178,6 +178,7 @@ func (i *Itinerary) defaultUpdate() error {
 
 	// Insert new travel destinations
 	for _, travelDestination := range *i.TravelDestinations {
+		travelDestination.ItineraryID = i.ID
 		travelDestination = *NewItineraryTravelDestination(travelDestination.Country, travelDestination.City, travelDestination.ItineraryID, travelDestination.ArrivalDate, travelDestination.DepartureDate)
 		err = travelDestination.Create(tx)
 		if err != nil {

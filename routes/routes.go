@@ -13,6 +13,7 @@ func RegisterRoutes(server *gin.Engine) {
 	authenticated := server.Group("/")
 	authenticated.Use(middlewares.Authenticate)
 	authenticated.POST("/itineraries", createItinerary)
+	authenticated.PUT("/itineraries", updateItinerary)
 	authenticated.GET("/itineraries", getOwnersItineraries)
 	authenticated.GET("/itineraries/:itineraryId", getItinerary)
 	authenticated.POST("/itineraries/:itineraryId/jobs", runItineraryFileJob)

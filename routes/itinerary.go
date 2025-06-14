@@ -55,6 +55,61 @@ func createItinerary(context *gin.Context) {
 	context.JSON(http.StatusCreated, gin.H{"message": "Itinerary created."})
 }
 
+func updateItinerary(context *gin.Context) {
+	var input struct {
+		ID           int64                                `json:"id"`
+		Title        string                               `json:"title" binding:"required"`
+		Description  string                               `json:"description"`
+		Notes        *string                              `json:"notes"`
+		Destinations *[]models.ItineraryTravelDestination `json:"destinations" binding:"required,dive"`
+	}
+
+	userId, exists := context.Get("userId")
+	if !exists {
+		context.JSON(http.StatusUnauthorized, gin.H{"message": "Not authorized."})
+		return
+	}
+
+	if err := context.ShouldBindJSON(&input); err != nil {
+		log.Errorf("Error parsing JSON %v", err)
+		context.JSON(http.StatusBadRequest, gin.H{"error": "Could not parse request data."})
+		return
+	}
+
+	itineraryService := services.GetItineraryService()
+
+	itinerary, err := itineraryService.FindById(input.ID)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve itinerary. Try again later."})
+		return
+	}
+
+	if itinerary.OwnerID != userId.(int64) {
+		context.JSON(http.StatusForbidden, gin.H{"message": "You do not have permission to update this itinerary."})
+		return
+	}
+
+	itinerary.Title = input.Title
+	itinerary.Description = input.Description
+	itinerary.Notes = input.Notes
+	itinerary.TravelDestinations = input.Destinations
+
+	err = itineraryService.ValidateItineraryDestinationsDates(itinerary.TravelDestinations)
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = itineraryService.Update(itinerary)
+	if err != nil {
+		log.Errorf("Error updating itinerary %v", err)
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not update itinerary. Try again later."})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{"message": "Itinerary updated."})
+}
+
 func getOwnersItineraries(context *gin.Context) {
 	userId, exists := context.Get("userId")
 	if !exists {
