@@ -307,6 +307,67 @@ func runItineraryFileJob(context *gin.Context) {
 	context.JSON(http.StatusAccepted, gin.H{"message": "Job started successfully."})
 }
 
+func getItineraryJob(context *gin.Context) {
+	userId, exists := context.Get("userId")
+	if !exists {
+		context.JSON(http.StatusUnauthorized, gin.H{"message": "Not authorized."})
+		return
+	}
+
+	itineraryIdStr := context.Param("itineraryId")
+	if itineraryIdStr == "" {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Itinerary ID is required."})
+		return
+	}
+
+	itineraryJobIdStr := context.Param("itineraryJobId")
+	if itineraryJobIdStr == "" {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Itinerary Job ID is required."})
+		return
+	}
+
+	// Convert itineraryId from string to int64
+	var itineraryId int64
+	_, err := fmt.Sscan(itineraryIdStr, &itineraryId)
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Invalid itinerary ID."})
+		return
+	}
+
+	itineraryService := services.GetItineraryService()
+
+	itinerary, err := itineraryService.FindById(itineraryId)
+	if err != nil {
+		log.Error("Error retrieving itinerary: ", err)
+		context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary not found."})
+		return
+	}
+
+	if itinerary.OwnerID != userId.(int64) {
+		context.JSON(http.StatusForbidden, gin.H{"message": "You do not have permission to run this job."})
+		return
+	}
+
+	// Convert itineraryJobId from string to int64
+	var itineraryJobId int64
+	_, err = fmt.Sscan(itineraryJobIdStr, &itineraryJobId)
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Invalid itinerary job ID."})
+		return
+	}
+
+	jobsService := services.GetItineraryFileJobService()
+
+	itineraryJob, err := jobsService.FindById(itineraryJobId)
+	if err != nil {
+		context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary job not found."})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{"job": *itineraryJob})
+
+}
+
 func getAllItineraryFileJobs(context *gin.Context) {
 	userId, exists := context.Get("userId")
 	if !exists {
