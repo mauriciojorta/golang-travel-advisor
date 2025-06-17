@@ -13,7 +13,7 @@ func mockItinerary() *models.Itinerary {
 	it := models.NewItinerary("Test", "Desc", nil, nil)
 	it.ID = 1
 	it.OwnerID = 2
-	it.FindById = func() error { return nil }
+	it.FindById = func(_ bool) error { return nil }
 	it.FindByOwnerId = func() (*[]models.Itinerary, error) {
 		arr := []models.Itinerary{*it}
 		return &arr, nil
@@ -28,11 +28,11 @@ func TestFindById_Success(t *testing.T) {
 	svc := &ItineraryService{}
 	it := mockItinerary()
 	called := false
-	it.FindById = func() error { called = true; return nil }
+	it.FindById = func(_ bool) error { called = true; return nil }
 	models.NewItinerary = func(title, desc string, notes *string, dest *[]models.ItineraryTravelDestination) *models.Itinerary {
 		return it
 	}
-	got, err := svc.FindById(1)
+	got, err := svc.FindById(1, true)
 	if err != nil || got == nil || !called {
 		t.Errorf("expected success, got err=%v, called=%v", err, called)
 	}
@@ -40,7 +40,7 @@ func TestFindById_Success(t *testing.T) {
 
 func TestFindById_InvalidID(t *testing.T) {
 	svc := &ItineraryService{}
-	got, err := svc.FindById(0)
+	got, err := svc.FindById(0, true)
 	if err == nil || got != nil {
 		t.Errorf("expected error for invalid id")
 	}
@@ -49,11 +49,11 @@ func TestFindById_InvalidID(t *testing.T) {
 func TestFindById_ErrorFromModel(t *testing.T) {
 	svc := &ItineraryService{}
 	it := mockItinerary()
-	it.FindById = func() error { return errors.New("fail") }
+	it.FindById = func(_ bool) error { return errors.New("fail") }
 	models.NewItinerary = func(title, desc string, notes *string, dest *[]models.ItineraryTravelDestination) *models.Itinerary {
 		return it
 	}
-	got, err := svc.FindById(1)
+	got, err := svc.FindById(1, true)
 	if err == nil || got != nil {
 		t.Errorf("expected error from model")
 	}
@@ -156,15 +156,15 @@ func TestDelete_Success(t *testing.T) {
 	svc := &ItineraryService{}
 	it := mockItinerary()
 	it.Delete = func() error { return nil }
-	err := svc.Delete(it)
+	err := svc.Delete(1)
 	if err != nil {
 		t.Errorf("expected success, got err=%v", err)
 	}
 }
 
-func TestDelete_NilItinerary(t *testing.T) {
+func TestDelete_InvalidItineraryId(t *testing.T) {
 	svc := &ItineraryService{}
-	err := svc.Delete(nil)
+	err := svc.Delete(-1)
 	if err == nil {
 		t.Errorf("expected error for nil itinerary")
 	}
@@ -174,7 +174,7 @@ func TestDelete_ErrorFromModel(t *testing.T) {
 	svc := &ItineraryService{}
 	it := mockItinerary()
 	it.Delete = func() error { return errors.New("fail") }
-	err := svc.Delete(it)
+	err := svc.Delete(1)
 	if err == nil {
 		t.Errorf("expected error from model")
 	}

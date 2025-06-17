@@ -17,14 +17,18 @@ import (
 // --- Mocks ---
 
 type mockItineraryService struct {
-	ValidateErr    error
-	CreateErr      error
-	UpdateErr      error
-	DeleteErr      error
-	FindByIdIt     *models.Itinerary
-	FindByIdErr    error
-	FindByOwner    *[]models.Itinerary
-	FindByOwnerErr error
+	ValidateErr             error
+	CreateErr               error
+	UpdateErr               error
+	DeleteErr               error
+	FindByIdIt              *models.Itinerary
+	FindByIdErr             error
+	ExistByIdResult         bool
+	ExistByIdErr            error
+	ValidateOwnershipResult bool
+	ValidateOwnershipErr    error
+	FindByOwner             *[]models.Itinerary
+	FindByOwnerErr          error
 }
 
 func (m *mockItineraryService) ValidateItineraryDestinationsDates(_ *[]models.ItineraryTravelDestination) error {
@@ -33,9 +37,18 @@ func (m *mockItineraryService) ValidateItineraryDestinationsDates(_ *[]models.It
 func (m *mockItineraryService) Create(_ *models.Itinerary) error {
 	return m.CreateErr
 }
-func (m *mockItineraryService) FindById(_ int64) (*models.Itinerary, error) {
+func (m *mockItineraryService) FindById(_ int64, _ bool) (*models.Itinerary, error) {
 	return m.FindByIdIt, m.FindByIdErr
 }
+
+func (m *mockItineraryService) ExistById(_ int64) (bool, error) {
+	return m.ExistByIdResult, m.ExistByIdErr
+}
+
+func (m *mockItineraryService) ValidateOwnership(_ int64, _ int64) (bool, error) {
+	return m.ValidateOwnershipResult, m.ValidateOwnershipErr
+}
+
 func (m *mockItineraryService) FindByOwnerId(_ int64) (*[]models.Itinerary, error) {
 	return m.FindByOwner, m.FindByOwnerErr
 }
@@ -44,7 +57,7 @@ func (m *mockItineraryService) Update(_ *models.Itinerary) error {
 	return m.UpdateErr
 }
 
-func (m *mockItineraryService) Delete(_ *models.Itinerary) error {
+func (m *mockItineraryService) Delete(_ int64) error {
 	return m.DeleteErr
 }
 
@@ -279,11 +292,11 @@ func Test_getItinerary_BadRequest_InvalidId(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func Test_getItinerary_FindById_Error(t *testing.T) {
+func Test_getItinerary_ExistById_NotFound(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdErr: errors.New("find error")}
+		return &mockItineraryService{ExistByIdResult: false}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -293,11 +306,25 @@ func Test_getItinerary_FindById_Error(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
-func Test_getItinerary_Forbidden(t *testing.T) {
+func Test_getItinerary_ExistById_Error(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 2}}
+		return &mockItineraryService{ExistByIdErr: errors.New("exist error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	getItinerary(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_getItinerary_ValidateOwnership_Forbidden(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: false}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -307,11 +334,39 @@ func Test_getItinerary_Forbidden(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
+func Test_getItinerary_ValidateOwnership_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipErr: errors.New("validate ownership error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	getItinerary(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_getItinerary_FindById_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdErr: errors.New("find error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	getItinerary(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
 func Test_getItinerary_Success(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{OwnerID: 1}}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -345,11 +400,11 @@ func Test_runItineraryFileJob_BadRequest_InvalidId(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func Test_runItineraryFileJob_FindById_Error(t *testing.T) {
+func Test_runItineraryFileJob_ExistById_NotFound(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdErr: errors.New("find error")}
+		return &mockItineraryService{ExistByIdResult: false}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -359,11 +414,25 @@ func Test_runItineraryFileJob_FindById_Error(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
-func Test_runItineraryFileJob_Forbidden(t *testing.T) {
+func Test_runItineraryFileJob_ExistById_Error(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 2}}
+		return &mockItineraryService{ExistByIdErr: errors.New("exist error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_runItineraryFileJob_ValidateOwnership_Forbidden(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: false}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -373,11 +442,39 @@ func Test_runItineraryFileJob_Forbidden(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
+func Test_runItineraryFileJob_ValidateOwnership_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipErr: errors.New("validate ownership error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_runItineraryFileJob_FindById_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdErr: errors.New("find error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
 func Test_runItineraryFileJob_GetJobsRunningOfUserCount_Error(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{OwnerID: 1}}
 	}
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
@@ -396,7 +493,7 @@ func Test_runItineraryFileJob_TooManyJobsRunning(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{OwnerID: 1}}
 	}
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
@@ -415,7 +512,7 @@ func Test_runItineraryFileJob_PrepareJob_Error(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{OwnerID: 1}}
 	}
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
@@ -437,7 +534,7 @@ func Test_runItineraryFileJob_InitAsyncTaskQueueClient_Error(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{OwnerID: 1}}
 	}
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
@@ -467,7 +564,7 @@ func Test_runItineraryFileJob_Enqueue_Error(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{OwnerID: 1}}
 	}
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
@@ -497,7 +594,7 @@ func Test_runItineraryFileJob_AddAsyncTaskId_Error(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{OwnerID: 1}}
 	}
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
@@ -528,7 +625,7 @@ func Test_runItineraryFileJob_Success(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{OwnerID: 1}}
 	}
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
@@ -578,11 +675,11 @@ func Test_getAllItineraryFileJobs_BadRequest_InvalidId(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func Test_getAllItineraryFileJobs_FindById_Error(t *testing.T) {
+func Test_getAllItineraryFileJobs_ExistById_NotFound(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdErr: errors.New("find error")}
+		return &mockItineraryService{ExistByIdResult: false}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -592,11 +689,25 @@ func Test_getAllItineraryFileJobs_FindById_Error(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
-func Test_getAllItineraryFileJobs_Forbidden(t *testing.T) {
+func Test_getAllItineraryFileJobs_ExistById_Error(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 2}}
+		return &mockItineraryService{ExistByIdErr: errors.New("exist error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	getAllItineraryFileJobs(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_getAllItineraryFileJobs_ValidateOwnership_Forbidden(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: false}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -606,11 +717,25 @@ func Test_getAllItineraryFileJobs_Forbidden(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
+func Test_getAllItineraryFileJobs_ValidateOwnership_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipErr: errors.New("validate ownership error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	getAllItineraryFileJobs(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
 func Test_getAllItineraryFileJobs_FindByItineraryId_Error(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{OwnerID: 1}}
 	}
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
@@ -629,7 +754,7 @@ func Test_getAllItineraryFileJobs_Success(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{OwnerID: 1}}
 	}
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
@@ -684,11 +809,11 @@ func Test_updateItinerary_BadRequest_BindJSON(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func Test_updateItinerary_FindById_Error(t *testing.T) {
+func Test_updateItinerary_ExistById_NotFound(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdErr: errors.New("find error")}
+		return &mockItineraryService{ExistByIdResult: false}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -706,11 +831,55 @@ func Test_updateItinerary_FindById_Error(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
+func Test_updateItinerary_ExistById_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdErr: errors.New("exist error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":           1,
+		"title":        "Test",
+		"description":  "Desc",
+		"destinations": []models.ItineraryTravelDestination{},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_updateItinerary_FindById_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, FindByIdErr: errors.New("find error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":           1,
+		"title":        "Test",
+		"description":  "Desc",
+		"destinations": []models.ItineraryTravelDestination{},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
 func Test_updateItinerary_Forbidden(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 2}}
+		return &mockItineraryService{ExistByIdResult: true, FindByIdIt: &models.Itinerary{OwnerID: 2}}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -733,8 +902,9 @@ func Test_updateItinerary_ValidateItineraryDestinationsDates_Error(t *testing.T)
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
 		return &mockItineraryService{
-			FindByIdIt:  &models.Itinerary{OwnerID: 1},
-			ValidateErr: errors.New("validation error"),
+			ExistByIdResult: true,
+			FindByIdIt:      &models.Itinerary{OwnerID: 1},
+			ValidateErr:     errors.New("validation error"),
 		}
 	}
 	w := httptest.NewRecorder()
@@ -757,8 +927,9 @@ func Test_updateItinerary_Update_Error(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	mock := &mockItineraryService{
-		FindByIdIt: &models.Itinerary{OwnerID: 1},
-		UpdateErr:  errors.New("update error"),
+		ExistByIdResult: true,
+		FindByIdIt:      &models.Itinerary{OwnerID: 1},
+		UpdateErr:       errors.New("update error"),
 	}
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
 		return mock
@@ -783,8 +954,9 @@ func Test_updateItinerary_Success(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	mock := &mockItineraryService{
-		FindByIdIt: &models.Itinerary{OwnerID: 1},
-		UpdateErr:  nil,
+		ExistByIdResult: true,
+		FindByIdIt:      &models.Itinerary{OwnerID: 1},
+		UpdateErr:       nil,
 	}
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
 		return mock
@@ -829,11 +1001,11 @@ func Test_deleteItinerary_BadRequest_InvalidId(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func Test_deleteItinerary_FindById_Error(t *testing.T) {
+func Test_deleteItinerary_ExistById_NotFound(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdErr: errors.New("find error")}
+		return &mockItineraryService{ExistByIdResult: false}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -843,11 +1015,25 @@ func Test_deleteItinerary_FindById_Error(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
-func Test_deleteItinerary_Forbidden(t *testing.T) {
+func Test_deleteItinerary_ExistById_Error(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 2}}
+		return &mockItineraryService{ExistByIdErr: errors.New("exist error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	deleteItinerary(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_deleteItinerary_ValidateOwnership_Forbidden(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: false}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -857,12 +1043,27 @@ func Test_deleteItinerary_Forbidden(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
+func Test_deleteItinerary_ValidateOwnership_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipErr: errors.New("validate ownership error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	deleteItinerary(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
 func Test_deleteItinerary_Delete_Error(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	mock := &mockItineraryService{
-		FindByIdIt: &models.Itinerary{OwnerID: 1},
-		DeleteErr:  errors.New("delete error"),
+		ExistByIdResult:         true,
+		ValidateOwnershipResult: true,
+		DeleteErr:               errors.New("delete error"),
 	}
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
 		return mock
@@ -879,7 +1080,7 @@ func Test_deleteItinerary_Success(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -906,6 +1107,11 @@ func Test_getItineraryJob_BadRequest_NoItineraryId(t *testing.T) {
 func Test_getItineraryJob_BadRequest_NoItineraryJobId(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true}
+	}
 	setUserId(c, 1)
 	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
 	getItineraryJob(c)
@@ -924,11 +1130,11 @@ func Test_getItineraryJob_BadRequest_InvalidItineraryId(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
-func Test_getItineraryJob_FindById_Error(t *testing.T) {
+func Test_getItineraryJob_ExistItineraryById_NotFound(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdErr: errors.New("find error")}
+		return &mockItineraryService{ExistByIdResult: false}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -941,18 +1147,77 @@ func Test_getItineraryJob_FindById_Error(t *testing.T) {
 	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
-func Test_getItineraryJob_Forbidden(t *testing.T) {
+func Test_getItineraryJob_ExistItineraryById_Error(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 2}}
+		return &mockItineraryService{ExistByIdErr: errors.New("exist error")}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	setUserId(c, 1)
 	c.Params = gin.Params{
 		{Key: "itineraryId", Value: "1"},
-		{Key: "itineraryJobId", Value: "2"},
+		{Key: "itineraryJobId", Value: "1"},
+	}
+	getItineraryJob(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_getItineraryJob_ValidateItineraryOwnership_Forbidden(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: false}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{
+		{Key: "itineraryId", Value: "1"},
+		{Key: "itineraryJobId", Value: "1"},
+	}
+	getItineraryJob(c)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func Test_getItineraryJob_ValidateItineraryOwnership_Error(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipErr: errors.New("validate ownership error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{
+		{Key: "itineraryId", Value: "1"},
+		{Key: "itineraryJobId", Value: "1"},
+	}
+	getItineraryJob(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_getItineraryJob_ForbiddenItineraryJob(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{ID: 1, OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{
+			FindByIdResult:       &models.ItineraryFileJob{ID: 1, ItineraryID: 2},
+			FindByItineraryIdErr: nil,
+		}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{
+		{Key: "itineraryId", Value: "1"},
+		{Key: "itineraryJobId", Value: "1"},
 	}
 	getItineraryJob(c)
 	assert.Equal(t, http.StatusForbidden, w.Code)
@@ -962,7 +1227,7 @@ func Test_getItineraryJob_BadRequest_InvalidItineraryJobId(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{OwnerID: 1}}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -979,7 +1244,7 @@ func Test_getItineraryJob_FindByJobId_Error(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{OwnerID: 1}}
 	}
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
@@ -1005,13 +1270,13 @@ func Test_getItineraryJob_Success(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+		return &mockItineraryService{ExistByIdResult: true, ValidateOwnershipResult: true, FindByIdIt: &models.Itinerary{ID: 1, OwnerID: 1}}
 	}
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
 		return &mockJobsService{
-			FindByIdResult:       &models.ItineraryFileJob{ID: 1},
+			FindByIdResult:       &models.ItineraryFileJob{ID: 1, ItineraryID: 1},
 			FindByItineraryIdErr: nil,
 		}
 	}

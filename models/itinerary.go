@@ -17,11 +17,13 @@ type Itinerary struct {
 	FileJobs           []ItineraryFileJob            `json:"fileJobs"`
 	Notes              *string                       `json:"notes"`
 
-	FindById      func() error                 `json:"-"`
-	FindByOwnerId func() (*[]Itinerary, error) `json:"-"`
-	Create        func() error                 `json:"-"`
-	Update        func() error                 `json:"-"`
-	Delete        func() error                 `json:"-"`
+	FindById          func(includeDestinations bool) error    `json:"-"`
+	ExistById         func() (bool, error)                    `json:"-"`
+	ValidateOwnership func(currentUserId int64) (bool, error) `json:"-"`
+	FindByOwnerId     func() (*[]Itinerary, error)            `json:"-"`
+	Create            func() error                            `json:"-"`
+	Update            func() error                            `json:"-"`
+	Delete            func() error                            `json:"-"`
 }
 
 var NewItinerary = func(title string, description string, notes *string, travelDestinations *[]ItineraryTravelDestination) *Itinerary {
@@ -34,6 +36,8 @@ var NewItinerary = func(title string, description string, notes *string, travelD
 
 	// Set default implementations for FindById, FindByOwnerId, Create, Update, Delete, and GenerateItineraryFile
 	itinerary.FindById = itinerary.defaultFindById
+	itinerary.ExistById = itinerary.defaultExistById
+	itinerary.ValidateOwnership = itinerary.defaultValidateOwnership
 	itinerary.FindByOwnerId = itinerary.defaultFindByOwnerId
 	itinerary.Create = itinerary.defaultCreate
 	itinerary.Update = itinerary.defaultUpdate
@@ -42,7 +46,7 @@ var NewItinerary = func(title string, description string, notes *string, travelD
 	return itinerary
 }
 
-func (i *Itinerary) defaultFindById() error {
+func (i *Itinerary) defaultFindById(includeDestinations bool) error {
 	query := `SELECT id, title, description, notes, owner_id, creation_date, update_date
 	FROM itineraries WHERE id = ?`
 	row := db.DB.QueryRow(query, i.ID)
@@ -52,18 +56,52 @@ func (i *Itinerary) defaultFindById() error {
 		return err
 	}
 
-	// Fetch travel destinations for the itinerary
-	destinationEntity := NewItineraryTravelDestination("", "", i.ID, time.Now(), time.Now())
+	if includeDestinations {
+		// Fetch travel destinations for the itinerary
+		destinationEntity := NewItineraryTravelDestination("", "", i.ID, time.Now(), time.Now())
 
-	travelDestinations, err := destinationEntity.FindByItineraryId()
-	if err != nil {
-		return err
+		travelDestinations, err := destinationEntity.FindByItineraryId()
+		if err != nil {
+			return err
+		}
+
+		i.TravelDestinations = travelDestinations
 	}
-
-	i.TravelDestinations = travelDestinations
 
 	return nil
 
+}
+
+func (i *Itinerary) defaultExistById() (bool, error) {
+	query := `SELECT 1 FROM itineraries WHERE id = ? LIMIT 1`
+	row := db.DB.QueryRow(query, i.ID)
+
+	var exists int
+	err := row.Scan(&exists)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
+}
+
+func (i *Itinerary) defaultValidateOwnership(currentUserId int64) (bool, error) {
+	query := `SELECT 1 FROM itineraries WHERE id = ? AND owner_id = ? LIMIT 1`
+	row := db.DB.QueryRow(query, i.ID, currentUserId)
+
+	var exists int
+	err := row.Scan(&exists)
+	if err != nil {
+		if err.Error() == "sql: no rows in result set" {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
 }
 
 func (i *Itinerary) defaultFindByOwnerId() (*[]Itinerary, error) {

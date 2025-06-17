@@ -9,11 +9,13 @@ import (
 )
 
 type ItineraryServiceInterface interface {
-	FindById(id int64) (*models.Itinerary, error)
+	ValidateOwnership(itineraryId int64, currentUserId int64) (bool, error)
+	ExistById(id int64) (bool, error)
+	FindById(id int64, includeDestinations bool) (*models.Itinerary, error)
 	FindByOwnerId(ownerId int64) (*[]models.Itinerary, error)
 	Create(itinerary *models.Itinerary) error
 	Update(itinerary *models.Itinerary) error
-	Delete(itinerary *models.Itinerary) error
+	Delete(id int64) error
 	ValidateItineraryDestinationsDates(destinations *[]models.ItineraryTravelDestination) error
 }
 
@@ -28,14 +30,40 @@ var GetItineraryService = func() ItineraryServiceInterface {
 	return itineraryServiceInstance
 }
 
+func (is *ItineraryService) ValidateOwnership(itineraryId int64, currentUserId int64) (bool, error) {
+	if itineraryId <= 0 {
+		return false, errors.New("invalid itinerary ID")
+	}
+	itinerary := models.NewItinerary("", "", nil, nil) // Create a new Itinerary instance
+	itinerary.ID = itineraryId                         // Set the ID for the itinerary instance
+	exists, err := itinerary.ValidateOwnership(currentUserId)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func (is *ItineraryService) ExistById(itineraryId int64) (bool, error) {
+	if itineraryId <= 0 {
+		return false, errors.New("invalid itinerary ID")
+	}
+	itinerary := models.NewItinerary("", "", nil, nil) // Create a new Itinerary instance
+	itinerary.ID = itineraryId                         // Set the ID for the itinerary instance
+	exists, err := itinerary.ExistById()
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 // FindById retrieves the itinerary by its ID
-func (is *ItineraryService) FindById(id int64) (*models.Itinerary, error) {
+func (is *ItineraryService) FindById(id int64, includeDestinations bool) (*models.Itinerary, error) {
 	if id <= 0 {
 		return nil, errors.New("invalid itinerary ID")
 	}
 	itinerary := models.NewItinerary("", "", nil, nil) // Create a new Itinerary instance
 	itinerary.ID = id                                  // Set the ID for the itinerary instance
-	err := itinerary.FindById()
+	err := itinerary.FindById(includeDestinations)
 	if err != nil {
 		return nil, err
 	}
@@ -69,10 +97,12 @@ func (is *ItineraryService) Update(itinerary *models.Itinerary) error {
 }
 
 // Delete deletes the itinerary
-func (is *ItineraryService) Delete(itinerary *models.Itinerary) error {
-	if itinerary == nil {
-		return errors.New("itinerary instance is nil")
+func (is *ItineraryService) Delete(id int64) error {
+	if id <= 0 {
+		return errors.New("invalid itinerary ID")
 	}
+	itinerary := models.NewItinerary("", "", nil, nil) // Create a new Itinerary instance
+	itinerary.ID = id                                  // Set the ID for the itinerary instance
 	return itinerary.Delete()
 }
 func (is *ItineraryService) ValidateItineraryDestinationsDates(destinations *[]models.ItineraryTravelDestination) error {
