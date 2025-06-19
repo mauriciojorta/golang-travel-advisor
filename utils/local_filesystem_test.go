@@ -34,3 +34,33 @@ func TestWriteFile_PermissionDenied(t *testing.T) {
 	err := WriteLocalFile(tmpDir, []byte("data"), 0o644)
 	assert.Error(t, err, "expected an error when writing to a directory")
 }
+func TestDeleteLocalFile_DeletesExistingFile(t *testing.T) {
+	tmpDir := t.TempDir()
+	filePath := filepath.Join(tmpDir, "testfile.txt")
+	content := []byte("to be deleted")
+
+	// Create the file first
+	err := os.WriteFile(filePath, content, 0o644)
+	assert.NoError(t, err, "setup: should be able to create file")
+
+	// Delete the file
+	err = DeleteLocalFile(filePath)
+	assert.NoError(t, err, "DeleteLocalFile should not return an error for existing file")
+	assert.NoFileExists(t, filePath, "file should not exist after DeleteLocalFile")
+}
+
+func TestDeleteLocalFile_FileDoesNotExist(t *testing.T) {
+	tmpDir := t.TempDir()
+	nonExistentFile := filepath.Join(tmpDir, "doesnotexist.txt")
+
+	err := DeleteLocalFile(nonExistentFile)
+	assert.Error(t, err, "expected error when deleting non-existent file")
+	assert.Contains(t, err.Error(), "does not exist", "error message should mention file does not exist")
+}
+
+func TestDeleteLocalFile_PathIsDirectory(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	err := DeleteLocalFile(tmpDir)
+	assert.Error(t, err, "expected error when trying to delete a directory as a file")
+}

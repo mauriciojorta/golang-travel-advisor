@@ -764,23 +764,42 @@ func TestItineraryUpdate_InsertDestinationsError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestItineraryDelete_Success(t *testing.T) {
-	// Arrange
+func TestItineraryDefaultDelete_Success_WithJobs(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
-
 	db.DB = dbMock
 
-	itinerary := &Itinerary{
-		ID: 1,
-	}
+	itinerary := &Itinerary{ID: 1}
+
+	// Mock transaction begin
 	mock.ExpectBegin()
 
-	mock.ExpectPrepare(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`).ExpectExec().
-		WithArgs(itinerary.ID).
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	// Mock SoftDeleteJobsByItineraryIdTx
+	originalNewItineraryFileJob := NewItineraryFileJob
+	defer func() { NewItineraryFileJob = originalNewItineraryFileJob }()
+	mockJob := &ItineraryFileJob{}
+	NewItineraryFileJob = func(itineraryID int64) *ItineraryFileJob {
+		assert.Equal(t, int64(1), itineraryID)
+		return mockJob
+	}
+	mockJob.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error {
+		return nil
+	}
 
+	// Mock DeleteByItineraryIdTx
+	originalNewItineraryTravelDestination := NewItineraryTravelDestination
+	defer func() { NewItineraryTravelDestination = originalNewItineraryTravelDestination }()
+	mockDest := &ItineraryTravelDestination{}
+	NewItineraryTravelDestination = func(country, city string, itineraryID int64, arrival, departure time.Time) *ItineraryTravelDestination {
+		assert.Equal(t, int64(1), itineraryID)
+		return mockDest
+	}
+	mockDest.DeleteByItineraryIdTx = func(tx *sql.Tx) error {
+		return nil
+	}
+
+	// Mock DELETE FROM itineraries
 	mock.ExpectPrepare("DELETE FROM itineraries WHERE id = \\?").
 		ExpectExec().
 		WithArgs(itinerary.ID).
@@ -788,121 +807,159 @@ func TestItineraryDelete_Success(t *testing.T) {
 
 	mock.ExpectCommit()
 
-	// Act
 	err = itinerary.defaultDelete()
-
-	// Assert
 	assert.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestItineraryDelete_PrepareDeleteDestinationsError(t *testing.T) {
-	// Arrange
+func TestItineraryDefaultDelete_BeginError(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
-
 	db.DB = dbMock
 
-	itinerary := &Itinerary{
-		ID: 1,
-	}
+	itinerary := &Itinerary{ID: 1}
 
-	mock.ExpectBegin()
+	mock.ExpectBegin().WillReturnError(errors.New("begin error"))
 
-	mock.ExpectPrepare(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`).ExpectExec().
-		WillReturnError(errors.New("prepare delete destinations statement error"))
-
-	mock.ExpectRollback()
-
-	// Act
 	err = itinerary.defaultDelete()
-
-	// Assert
 	assert.Error(t, err)
-	assert.Equal(t, "prepare delete destinations statement error", err.Error())
+	assert.Equal(t, "begin error", err.Error())
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestItineraryDelete_PrepareDeleteItineraryError(t *testing.T) {
-	// Arrange
+func TestItineraryDefaultDelete_SoftDeleteJobsError(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
-
 	db.DB = dbMock
 
-	itinerary := &Itinerary{
-		ID: 1,
-	}
+	itinerary := &Itinerary{ID: 1}
 
 	mock.ExpectBegin()
 
-	mock.ExpectPrepare(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`).ExpectExec().
-		WithArgs(itinerary.ID).
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	originalNewItineraryFileJob := NewItineraryFileJob
+	defer func() { NewItineraryFileJob = originalNewItineraryFileJob }()
+	mockJob := &ItineraryFileJob{}
+	NewItineraryFileJob = func(itineraryID int64) *ItineraryFileJob {
+		return mockJob
+	}
+	mockJob.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error {
+		return errors.New("soft delete jobs error")
+	}
+
+	err = itinerary.defaultDelete()
+	assert.Error(t, err)
+	assert.Equal(t, "soft delete jobs error", err.Error())
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestItineraryDefaultDelete_DeleteDestinationsError(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	itinerary := &Itinerary{ID: 1}
+
+	mock.ExpectBegin()
+
+	originalNewItineraryFileJob := NewItineraryFileJob
+	defer func() { NewItineraryFileJob = originalNewItineraryFileJob }()
+	mockJob := &ItineraryFileJob{}
+	NewItineraryFileJob = func(itineraryID int64) *ItineraryFileJob {
+		return mockJob
+	}
+	mockJob.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error {
+		return nil
+	}
+
+	originalNewItineraryTravelDestination := NewItineraryTravelDestination
+	defer func() { NewItineraryTravelDestination = originalNewItineraryTravelDestination }()
+	mockDest := &ItineraryTravelDestination{}
+	NewItineraryTravelDestination = func(country, city string, itineraryID int64, arrival, departure time.Time) *ItineraryTravelDestination {
+		return mockDest
+	}
+	mockDest.DeleteByItineraryIdTx = func(tx *sql.Tx) error {
+		return errors.New("delete destinations error")
+	}
+
+	err = itinerary.defaultDelete()
+	assert.Error(t, err)
+	assert.Equal(t, "delete destinations error", err.Error())
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestItineraryDefaultDelete_PrepareDeleteItineraryError(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	itinerary := &Itinerary{ID: 1}
+
+	mock.ExpectBegin()
+
+	originalNewItineraryFileJob := NewItineraryFileJob
+	defer func() { NewItineraryFileJob = originalNewItineraryFileJob }()
+	mockJob := &ItineraryFileJob{}
+	NewItineraryFileJob = func(itineraryID int64) *ItineraryFileJob {
+		return mockJob
+	}
+	mockJob.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error {
+		return nil
+	}
+
+	originalNewItineraryTravelDestination := NewItineraryTravelDestination
+	defer func() { NewItineraryTravelDestination = originalNewItineraryTravelDestination }()
+	mockDest := &ItineraryTravelDestination{}
+	NewItineraryTravelDestination = func(country, city string, itineraryID int64, arrival, departure time.Time) *ItineraryTravelDestination {
+		return mockDest
+	}
+	mockDest.DeleteByItineraryIdTx = func(tx *sql.Tx) error {
+		return nil
+	}
 
 	mock.ExpectPrepare("DELETE FROM itineraries WHERE id = \\?").
-		WillReturnError(errors.New("prepare delete itinerary statement error"))
+		WillReturnError(errors.New("prepare delete itinerary error"))
 
 	mock.ExpectRollback()
 
-	// Act
 	err = itinerary.defaultDelete()
-
-	// Assert
 	assert.Error(t, err)
-	assert.Equal(t, "prepare delete itinerary statement error", err.Error())
+	assert.Equal(t, "prepare delete itinerary error", err.Error())
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestItineraryDelete_ExecDeleteDestinationsError(t *testing.T) {
-	// Arrange
+func TestItineraryDefaultDelete_ExecDeleteItineraryError(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
-
 	db.DB = dbMock
 
-	itinerary := &Itinerary{
-		ID: 1,
-	}
+	itinerary := &Itinerary{ID: 1}
 
 	mock.ExpectBegin()
 
-	mock.ExpectPrepare("DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \\?").
-		ExpectExec().
-		WithArgs(itinerary.ID).
-		WillReturnError(errors.New("exec delete destinations error"))
-
-	mock.ExpectRollback()
-
-	// Act
-	err = itinerary.defaultDelete()
-
-	// Assert
-	assert.Error(t, err)
-	assert.Equal(t, "exec delete destinations error", err.Error())
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestItineraryDelete_ExecDeleteItineraryError(t *testing.T) {
-	// Arrange
-	dbMock, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer dbMock.Close()
-
-	db.DB = dbMock
-
-	itinerary := &Itinerary{
-		ID: 1,
+	originalNewItineraryFileJob := NewItineraryFileJob
+	defer func() { NewItineraryFileJob = originalNewItineraryFileJob }()
+	mockJob := &ItineraryFileJob{}
+	NewItineraryFileJob = func(itineraryID int64) *ItineraryFileJob {
+		return mockJob
+	}
+	mockJob.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error {
+		return nil
 	}
 
-	mock.ExpectBegin()
-
-	mock.ExpectPrepare(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`).ExpectExec().
-		WithArgs(itinerary.ID).
-		WillReturnResult(sqlmock.NewResult(0, 1))
+	originalNewItineraryTravelDestination := NewItineraryTravelDestination
+	defer func() { NewItineraryTravelDestination = originalNewItineraryTravelDestination }()
+	mockDest := &ItineraryTravelDestination{}
+	NewItineraryTravelDestination = func(country, city string, itineraryID int64, arrival, departure time.Time) *ItineraryTravelDestination {
+		return mockDest
+	}
+	mockDest.DeleteByItineraryIdTx = func(tx *sql.Tx) error {
+		return nil
+	}
 
 	mock.ExpectPrepare("DELETE FROM itineraries WHERE id = \\?").
 		ExpectExec().
@@ -911,14 +968,12 @@ func TestItineraryDelete_ExecDeleteItineraryError(t *testing.T) {
 
 	mock.ExpectRollback()
 
-	// Act
 	err = itinerary.defaultDelete()
-
-	// Assert
 	assert.Error(t, err)
 	assert.Equal(t, "exec delete itinerary error", err.Error())
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
 func TestItineraryDefaultExistById_Exists(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)

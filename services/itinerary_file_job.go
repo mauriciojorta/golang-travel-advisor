@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,13 +18,16 @@ import (
 )
 
 type ItineraryFileJobServiceInterface interface {
-	FindById(id int64) (*models.ItineraryFileJob, error)
-	FindByItineraryId(itineraryId int64) (*[]models.ItineraryFileJob, error)
+	FindAliveById(id int64) (*models.ItineraryFileJob, error)
+	FindAliveLightweightById(id int64) (*models.ItineraryFileJob, error)
+	FindAliveByItineraryId(itineraryId int64) (*[]models.ItineraryFileJob, error)
 	GetJobsRunningOfUserCount(userId int64) (int, error)
 	PrepareJob(itinerary *models.Itinerary) (*ItineraryFileAsyncTaskPayload, error)
 	AddAsyncTaskId(asyncTaskId string, itineraryFileJob *models.ItineraryFileJob) error
 	FailJob(errorDescription string, itineraryFileJob *models.ItineraryFileJob) error
 	StopJob(itineraryFileJob *models.ItineraryFileJob) error
+	SoftDeleteJob(itineraryFileJob *models.ItineraryFileJob) error
+	SoftDeleteJobsByItineraryId(itineraryId int64, tx *sql.Tx) error
 	DeleteJob(itineraryFileJob *models.ItineraryFileJob) error
 }
 
@@ -58,27 +62,41 @@ Destinations:
 
 Please provide a day-by-day plan, including recommendations for activities, local attractions, and travel tips for each destination. The plan should provide a schedule for each day, including morning, afternoon, and evening activities. The itinerary should be suitable for a traveler who enjoys cultural experiences, local cuisine, and sightseeing.`
 
-// FindById retrieves the job by its ID
-func (ifjs *ItineraryFileJobService) FindById(id int64) (*models.ItineraryFileJob, error) {
+// FindAliveById retrieves the job by its ID
+func (ifjs *ItineraryFileJobService) FindAliveById(id int64) (*models.ItineraryFileJob, error) {
 	if id <= 0 {
 		return nil, errors.New("invalid job ID")
 	}
 	job := models.NewItineraryFileJob(0) // Create a new ItineraryFileJob instance
 	job.ID = id
-	err := job.FindById()
+	err := job.FindAliveById()
 	if err != nil {
 		return nil, fmt.Errorf("failed to find job by ID: %w", err)
 	}
 	return job, nil
 }
 
-// FindByItineraryId retrieves jobs by itinerary ID
-func (ifjs *ItineraryFileJobService) FindByItineraryId(itineraryId int64) (*[]models.ItineraryFileJob, error) {
+// FindAliveLightweightById retrieves the job by its ID as a object containing only the ID and itinerary ID (entity primary and foreign keys)
+func (ifjs *ItineraryFileJobService) FindAliveLightweightById(id int64) (*models.ItineraryFileJob, error) {
+	if id <= 0 {
+		return nil, errors.New("invalid job ID")
+	}
+	job := models.NewItineraryFileJob(0) // Create a new ItineraryFileJob instance
+	job.ID = id
+	err := job.FindAliveLightweightById()
+	if err != nil {
+		return nil, fmt.Errorf("failed to find job by ID: %w", err)
+	}
+	return job, nil
+}
+
+// FindAliveByItineraryId retrieves jobs by itinerary ID
+func (ifjs *ItineraryFileJobService) FindAliveByItineraryId(itineraryId int64) (*[]models.ItineraryFileJob, error) {
 	if itineraryId <= 0 {
 		return nil, errors.New("invalid itinerary ID")
 	}
 	job := models.NewItineraryFileJob(itineraryId)
-	return job.FindByItineraryId()
+	return job.FindAliveByItineraryId()
 }
 
 // GetJobsRunningOfUserCount retrieves the count of running jobs for a user
@@ -161,13 +179,56 @@ func (ifjs *ItineraryFileJobService) StopJob(itineraryFileJob *models.ItineraryF
 	return nil
 }
 
+// SoftDeleteJob marks the job as deleted without removing it from the database
+func (ifjs *ItineraryFileJobService) SoftDeleteJob(itineraryFileJob *models.ItineraryFileJob) error {
+	if itineraryFileJob == nil {
+		return errors.New("itinerary file job instance is nil")
+	}
+	err := itineraryFileJob.SoftDeleteJob()
+	if err != nil {
+		return fmt.Errorf("failed to soft delete job: %w", err)
+	}
+	return nil
+}
+
+// SoftDeleteJobByItineraryId soft deletes jobs by itinerary ID
+func (ifjs *ItineraryFileJobService) SoftDeleteJobsByItineraryId(itineraryId int64, tx *sql.Tx) error {
+	if itineraryId <= 0 {
+		return errors.New("invalid itinerary ID")
+	}
+
+	if tx == nil {
+		return errors.New("transaction instance is nil")
+	}
+
+	job := models.NewItineraryFileJob(itineraryId)
+	err := job.SoftDeleteJobsByItineraryIdTx(tx)
+	if err != nil {
+		return fmt.Errorf("failed to soft delete job by itinerary ID: %w", err)
+	}
+	return nil
+
+}
+
 // Delete deletes the job
 func (ifjs *ItineraryFileJobService) DeleteJob(itineraryFileJob *models.ItineraryFileJob) error {
 	if itineraryFileJob == nil {
 		return errors.New("itinerary file job instance is nil")
 	}
 
-	err := itineraryFileJob.DeleteJob()
+	if itineraryFileJob.Status != "deleted" {
+		return errors.New("itinerary file job cannot be deleted because it is not marked for full deletion")
+	}
+
+	// Delete file of job before deleting it from the database
+	fileManager := GetFileManager(itineraryFileJob.FileManager)
+	err := fileManager.DeleteFile(itineraryFileJob.Filepath)
+	if err != nil {
+		log.Warnf("Error deleting file for itinerary job %v", itineraryFileJob.ID)
+	}
+
+	// Delete job from database
+	err = itineraryFileJob.DeleteJob()
 	if err != nil {
 		return fmt.Errorf("failed to delete job: %w", err)
 	}

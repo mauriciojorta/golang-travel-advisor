@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
@@ -278,18 +279,71 @@ func getItineraryJob(context *gin.Context) {
 
 	jobsService := services.GetItineraryFileJobService()
 
-	itineraryJob, err := jobsService.FindById(itineraryJobId)
+	itineraryJob, err := jobsService.FindAliveById(itineraryJobId)
 	if err != nil {
-		context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary job not found."})
+		if err == sql.ErrNoRows {
+			context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary job not found."})
+		} else {
+			context.JSON(http.StatusNotFound, gin.H{"message": "Could not get itinerary job. Try again later."})
+		}
 		return
 	}
 
-	if itineraryJob.ItineraryID != *itineraryId {
-		context.JSON(http.StatusForbidden, gin.H{"message": "You do not have permission to access this resource."})
+	itineraryJob = validateItineraryJobOwnership(*itineraryId, itineraryJob, context)
+	if itineraryJob == nil {
 		return
 	}
 
 	context.JSON(http.StatusOK, gin.H{"job": *itineraryJob})
+
+}
+
+func deleteItineraryJob(context *gin.Context) {
+
+	itineraryId := validateItineraryOwnership(context)
+	if itineraryId == nil {
+		return
+	}
+
+	itineraryJobIdStr := context.Param("itineraryJobId")
+	if itineraryJobIdStr == "" {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Itinerary Job ID is required."})
+		return
+	}
+
+	// Convert itineraryJobId from string to int64
+	var itineraryJobId int64
+	_, err := fmt.Sscan(itineraryJobIdStr, &itineraryJobId)
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Invalid itinerary job ID."})
+		return
+	}
+
+	jobsService := services.GetItineraryFileJobService()
+
+	itineraryJob, err := jobsService.FindAliveLightweightById(itineraryJobId)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary job not found."})
+		} else {
+			context.JSON(http.StatusNotFound, gin.H{"message": "Could not get itinerary job. Try again later."})
+		}
+		return
+	}
+
+	itineraryJob = validateItineraryJobOwnership(*itineraryId, itineraryJob, context)
+	if itineraryJob == nil {
+		return
+	}
+
+	// We soft delete the job instead of hard deleting it to safely delete files later in a background task
+	err = jobsService.SoftDeleteJob(itineraryJob)
+	if err != nil {
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not delete job. Try again later."})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{"message": "Itinerary job deleted."})
 
 }
 
@@ -301,7 +355,7 @@ func getAllItineraryFileJobs(context *gin.Context) {
 
 	jobsService := services.GetItineraryFileJobService()
 
-	itineraryFileJobs, err := jobsService.FindByItineraryId(*itineraryId)
+	itineraryFileJobs, err := jobsService.FindAliveByItineraryId(*itineraryId)
 	if err != nil {
 		log.Error("Error retrieving itinerary file jobs: ", err)
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve jobs. Try again later."})
@@ -366,4 +420,13 @@ func validateItineraryOwnership(context *gin.Context) *int64 {
 	}
 
 	return &itineraryId
+}
+
+func validateItineraryJobOwnership(itineraryId int64, itineraryFileJob *models.ItineraryFileJob, context *gin.Context) *models.ItineraryFileJob {
+	if itineraryId != itineraryFileJob.ItineraryID {
+		context.JSON(http.StatusForbidden, gin.H{"message": "You do not have permission to access this resource."})
+		return nil
+	}
+
+	return itineraryFileJob
 }

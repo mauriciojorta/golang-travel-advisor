@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFileJobDefaultFindByItineraryId(t *testing.T) {
+func TestFileJobDefaultFindAliveByItineraryId_Success(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -22,12 +22,12 @@ func TestFileJobDefaultFindByItineraryId(t *testing.T) {
 		AddRow(1, "completed", "Job OK", time.Now(), time.Now().Add(1*time.Minute), time.Now().Add(24*time.Hour), "/path/to/file1", "local", itineraryID, asyncTaskId1).
 		AddRow(2, "running", "Job running", time.Now().Add(48*time.Hour), time.Now().Add(49*time.Hour), time.Now().Add(72*time.Hour), "/path/to/file2", "local", itineraryID, asyncTaskId2)
 
-	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE itinerary_id = ?").
+	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE itinerary_id = \\? AND status != 'deleted'").
 		WithArgs(itineraryID).
 		WillReturnRows(rows)
 
 	job := &ItineraryFileJob{ItineraryID: itineraryID}
-	result, err := job.defaultFindByItineraryId()
+	result, err := job.defaultFindAliveByItineraryId()
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -54,7 +54,7 @@ func TestFileJobDefaultFindByItineraryId(t *testing.T) {
 	}
 }
 
-func TestFileJobDefaultFindByItineraryIdError(t *testing.T) {
+func TestFileJobDefaultFindAliveByItineraryId_Error(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -62,12 +62,12 @@ func TestFileJobDefaultFindByItineraryIdError(t *testing.T) {
 
 	itineraryID := int64(1)
 
-	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE itinerary_id = ?").
+	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE itinerary_id = \\? AND status != 'deleted'").
 		WithArgs(itineraryID).
 		WillReturnError(sqlmock.ErrCancelled)
 
 	job := &ItineraryFileJob{ItineraryID: itineraryID}
-	result, err := job.defaultFindByItineraryId()
+	result, err := job.defaultFindAliveByItineraryId()
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
@@ -77,7 +77,7 @@ func TestFileJobDefaultFindByItineraryIdError(t *testing.T) {
 	}
 }
 
-func TestFileJobDefaultFindById(t *testing.T) {
+func TestFileJobDefaultFindAliveById_Success(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -88,12 +88,12 @@ func TestFileJobDefaultFindById(t *testing.T) {
 	row := sqlmock.NewRows([]string{"id", "status", "status_description", "creation_date", "start_date", "end_date", "file_path", "file_manager", "itinerary_id", "async_task_id"}).
 		AddRow(jobID, "completed", "Job OK", time.Now(), time.Now().Add(1*time.Minute), time.Now().Add(24*time.Hour), "/path/to/file", "local", 1, asyncTaskId)
 
-	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE id = ?").
+	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE id = \\? AND status != 'deleted'").
 		WithArgs(jobID).
 		WillReturnRows(row)
 
 	job := &ItineraryFileJob{ID: jobID}
-	err = job.defaultFindById()
+	err = job.defaultFindAliveById()
 
 	assert.NoError(t, err)
 	assert.Equal(t, jobID, job.ID)
@@ -109,19 +109,19 @@ func TestFileJobDefaultFindById(t *testing.T) {
 	}
 }
 
-func TestFileJobDefaultIdError(t *testing.T) {
+func TestFileJobDefaultFindAliveById_Error(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
 	db.DB = dbMock
 
 	itineraryID := int64(1)
-	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE itinerary_id = ?").
+	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE itinerary_id = \\? AND status != 'deleted'").
 		WithArgs(itineraryID).
 		WillReturnError(sqlmock.ErrCancelled)
 
 	job := &ItineraryFileJob{ItineraryID: itineraryID}
-	result, err := job.defaultFindByItineraryId()
+	result, err := job.defaultFindAliveByItineraryId()
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
@@ -131,7 +131,7 @@ func TestFileJobDefaultIdError(t *testing.T) {
 	}
 }
 
-func TestDefaultGetJobsRunningOfUserCount(t *testing.T) {
+func TestDefaultGetJobsRunningOfUserCount_Success(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -154,7 +154,7 @@ func TestDefaultGetJobsRunningOfUserCount(t *testing.T) {
 	}
 }
 
-func TestDefaultGetJobsRunningOfUserCount_Zero(t *testing.T) {
+func TestDefaultGetJobsRunningOfUserCountZero_Success(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -200,7 +200,7 @@ func TestDefaultGetJobsRunningOfUserCount_Error(t *testing.T) {
 	}
 }
 
-func TestFileJobDefaultStopJob(t *testing.T) {
+func TestFileJobDefaultStopJob_Success(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -226,7 +226,7 @@ func TestFileJobDefaultStopJob(t *testing.T) {
 	}
 }
 
-func TestFileJobDefaultStopJobError(t *testing.T) {
+func TestFileJobDefaultStopJob_Error(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -251,7 +251,7 @@ func TestFileJobDefaultStopJobError(t *testing.T) {
 	}
 }
 
-func TestDefaultDeleteJob(t *testing.T) {
+func TestDefaultDeleteJob_Success(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -274,7 +274,7 @@ func TestDefaultDeleteJob(t *testing.T) {
 	}
 }
 
-func TestDefaultDeleteJobError(t *testing.T) {
+func TestDefaultDeleteJob_Error(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -575,6 +575,177 @@ func TestDefaultCompleteJob_Error(t *testing.T) {
 	err = job.defaultCompleteJob()
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to update job status in database")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+func TestDefaultFindAliveLightweightById_Success(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	jobID := int64(10)
+	itineraryID := int64(20)
+
+	row := sqlmock.NewRows([]string{"id", "itinerary_id"}).
+		AddRow(jobID, itineraryID)
+
+	mock.ExpectQuery("SELECT id, itinerary_id FROM itinerary_file_jobs WHERE id = \\? AND status != 'deleted'").
+		WithArgs(jobID).
+		WillReturnRows(row)
+
+	job := &ItineraryFileJob{ID: jobID}
+	err = job.defaultFindAliveLightweightById()
+
+	assert.NoError(t, err)
+	assert.Equal(t, jobID, job.ID)
+	assert.Equal(t, itineraryID, job.ItineraryID)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultFindAliveLightweightById_Error(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	jobID := int64(10)
+
+	mock.ExpectQuery("SELECT id, itinerary_id FROM itinerary_file_jobs WHERE id = \\? AND status != 'deleted'").
+		WithArgs(jobID).
+		WillReturnError(sqlmock.ErrCancelled)
+
+	job := &ItineraryFileJob{ID: jobID}
+	err = job.defaultFindAliveLightweightById()
+
+	assert.Error(t, err)
+	assert.Equal(t, jobID, job.ID) // ID should remain unchanged
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+func TestDefaultSoftDeleteJob_Success(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	job := &ItineraryFileJob{
+		ID: 42,
+	}
+
+	mock.ExpectExec(`UPDATE itinerary_file_jobs SET status = 'deleted' WHERE id = \?`).
+		WithArgs(job.ID).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err = job.defaultSoftDeleteJob()
+	assert.NoError(t, err)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultSoftDeleteJob_Error(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	job := &ItineraryFileJob{
+		ID: 42,
+	}
+
+	mock.ExpectExec(`UPDATE itinerary_file_jobs SET status = 'deleted' WHERE id = \?`).
+		WithArgs(job.ID).
+		WillReturnError(sqlmock.ErrCancelled)
+
+	err = job.defaultSoftDeleteJob()
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to soft delete job")
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultSoftDeleteJobsByItineraryId_Success(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+
+	itineraryID := int64(99)
+	job := &ItineraryFileJob{
+		ItineraryID: itineraryID,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE itinerary_file_jobs SET status = 'deleted' WHERE itinerary_id = \?`).
+		WithArgs(itineraryID).
+		WillReturnResult(sqlmock.NewResult(1, 2))
+
+	tx, err := dbMock.Begin()
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		} else {
+			err = tx.Commit()
+		}
+	}()
+	assert.NoError(t, err)
+
+	err = job.defaultSoftDeleteJobsByItineraryId(tx)
+	assert.NoError(t, err)
+
+	assert.NoError(t, err)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultSoftDeleteJobsByItineraryId_Error(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+
+	itineraryID := int64(99)
+	job := &ItineraryFileJob{
+		ItineraryID: itineraryID,
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectExec(`UPDATE itinerary_file_jobs SET status = 'deleted' WHERE itinerary_id = \?`).
+		WithArgs(itineraryID).
+		WillReturnError(sqlmock.ErrCancelled)
+
+	tx, err := dbMock.Begin()
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		} else {
+			err = tx.Commit()
+		}
+	}()
+	assert.NoError(t, err)
+
+	err = job.defaultSoftDeleteJobsByItineraryId(tx)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to soft delete jobs by itinerary ID")
+
+	_ = tx.Rollback()
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)

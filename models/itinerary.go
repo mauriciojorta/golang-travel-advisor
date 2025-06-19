@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"time"
 
 	"example.com/travel-advisor/db"
@@ -79,7 +80,7 @@ func (i *Itinerary) defaultExistById() (bool, error) {
 	var exists int
 	err := row.Scan(&exists)
 	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
+		if err == sql.ErrNoRows {
 			return false, nil
 		}
 		return false, err
@@ -238,16 +239,22 @@ func (i *Itinerary) defaultDelete() error {
 		return err
 	}
 
-	destination := NewItineraryTravelDestination("", "", i.ID, time.Now(), time.Now())
+	// Mark all jobs of itinerary for full future deletion
+	job := NewItineraryFileJob(i.ID)
+	err = job.SoftDeleteJobsByItineraryIdTx(tx)
+	if err != nil {
+		return err
+	}
 
 	// Clear existing travel destinations for this itinerary
+	destination := NewItineraryTravelDestination("", "", i.ID, time.Now(), time.Now())
 	err = destination.DeleteByItineraryIdTx(tx)
 	if err != nil {
 		return err
 	}
 
+	// Delete itinerary
 	query := `DELETE FROM itineraries WHERE id = ?`
-
 	stmt, err := tx.Prepare(query)
 	if err != nil {
 		return err

@@ -25,16 +25,19 @@ type ItineraryFileJob struct {
 	ItineraryID int64     `json:"itineraryId"`
 	AsyncTaskID string    `json:"asyncTaskId,omitempty"` // Optional, used for tracking async tasks
 
-	FindById                  func() error                        `json:"-"`
-	FindByItineraryId         func() (*[]ItineraryFileJob, error) `json:"-"`
-	GetJobsRunningOfUserCount func(userId int64) (int, error)     `json:"-"`
-	PrepareJob                func(itinerary *Itinerary) error    `json:"-"`
-	AddAsyncTaskId            func(asyncTaskId string) error      `json:"-"` // Functions for job management
-	StartJob                  func() error                        `json:"-"`
-	FailJob                   func(errorDescription string) error `json:"-"`
-	StopJob                   func() error                        `json:"-"`
-	CompleteJob               func() error                        `json:"-"`
-	DeleteJob                 func() error                        `json:"-"`
+	FindAliveById                 func() error                        `json:"-"`
+	FindAliveLightweightById      func() error                        `json:"-"`
+	FindAliveByItineraryId        func() (*[]ItineraryFileJob, error) `json:"-"`
+	GetJobsRunningOfUserCount     func(userId int64) (int, error)     `json:"-"`
+	PrepareJob                    func(itinerary *Itinerary) error    `json:"-"`
+	AddAsyncTaskId                func(asyncTaskId string) error      `json:"-"` // Functions for job management
+	StartJob                      func() error                        `json:"-"`
+	FailJob                       func(errorDescription string) error `json:"-"`
+	StopJob                       func() error                        `json:"-"`
+	CompleteJob                   func() error                        `json:"-"`
+	DeleteJob                     func() error                        `json:"-"`
+	SoftDeleteJob                 func() error                        `json:"-"`
+	SoftDeleteJobsByItineraryIdTx func(tx *sql.Tx) error              `json:"-"`
 }
 
 var NewItineraryFileJob = func(itineraryId int64) *ItineraryFileJob {
@@ -42,8 +45,9 @@ var NewItineraryFileJob = func(itineraryId int64) *ItineraryFileJob {
 		ItineraryID: itineraryId,
 	}
 	// Set default implementations for FindById, FindByItineraryId, RunJob, StopJob, and Delete
-	job.FindById = job.defaultFindById
-	job.FindByItineraryId = job.defaultFindByItineraryId
+	job.FindAliveById = job.defaultFindAliveById
+	job.FindAliveLightweightById = job.defaultFindAliveLightweightById
+	job.FindAliveByItineraryId = job.defaultFindAliveByItineraryId
 	job.GetJobsRunningOfUserCount = job.defaultGetJobsRunningOfUserCount
 	job.PrepareJob = job.defaultPrepareJob
 	job.StartJob = job.defaultStartJob
@@ -52,12 +56,14 @@ var NewItineraryFileJob = func(itineraryId int64) *ItineraryFileJob {
 	job.StopJob = job.defaultStopJob
 	job.CompleteJob = job.defaultCompleteJob
 	job.DeleteJob = job.defaultDeleteJob
+	job.SoftDeleteJob = job.defaultSoftDeleteJob
+	job.SoftDeleteJobsByItineraryIdTx = job.defaultSoftDeleteJobsByItineraryId
 	return job
 }
 
-func (ifj *ItineraryFileJob) defaultFindById() error {
+func (ifj *ItineraryFileJob) defaultFindAliveById() error {
 	query := `SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id
-	FROM itinerary_file_jobs WHERE id = ?`
+	FROM itinerary_file_jobs WHERE id = ? AND status != 'deleted'`
 	row := db.DB.QueryRow(query, ifj.ID)
 
 	var statusDescription sql.NullString
@@ -99,9 +105,22 @@ func (ifj *ItineraryFileJob) defaultFindById() error {
 	return nil
 }
 
-func (ifj *ItineraryFileJob) defaultFindByItineraryId() (*[]ItineraryFileJob, error) {
+func (ifj *ItineraryFileJob) defaultFindAliveLightweightById() error {
+	query := `SELECT id, itinerary_id
+	FROM itinerary_file_jobs WHERE id = ? AND status != 'deleted'`
+	row := db.DB.QueryRow(query, ifj.ID)
+
+	err := row.Scan(&ifj.ID, &ifj.ItineraryID)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ifj *ItineraryFileJob) defaultFindAliveByItineraryId() (*[]ItineraryFileJob, error) {
 	query := `SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id
-	FROM itinerary_file_jobs WHERE itinerary_id = ?`
+	FROM itinerary_file_jobs WHERE itinerary_id = ? AND status != 'deleted'`
 	rows, err := db.DB.Query(query, ifj.ItineraryID)
 	if err != nil {
 		return nil, err
@@ -267,4 +286,24 @@ func (ifj *ItineraryFileJob) defaultDeleteJob() error {
 	query := `DELETE FROM itinerary_file_jobs WHERE id = ?`
 	_, err := db.DB.Exec(query, ifj.ID)
 	return err
+}
+
+func (ifj *ItineraryFileJob) defaultSoftDeleteJob() error {
+	query := `UPDATE itinerary_file_jobs SET status = 'deleted' WHERE id = ?`
+	_, err := db.DB.Exec(query, ifj.ID)
+	if err != nil {
+		log.Errorf("Error soft deleting job: %v", err)
+		return fmt.Errorf("failed to soft delete job: %w", err)
+	}
+	return nil
+}
+
+func (ifj *ItineraryFileJob) defaultSoftDeleteJobsByItineraryId(tx *sql.Tx) error {
+	query := `UPDATE itinerary_file_jobs SET status = 'deleted' WHERE itinerary_id = ?`
+	_, err := tx.Exec(query, ifj.ItineraryID)
+	if err != nil {
+		log.Errorf("Error soft deleting jobs by itinerary ID: %v", err)
+		return fmt.Errorf("failed to soft delete jobs by itinerary ID: %w", err)
+	}
+	return nil
 }

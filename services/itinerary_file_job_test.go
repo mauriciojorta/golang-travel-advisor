@@ -1,6 +1,7 @@
 package services
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"os"
@@ -20,8 +21,8 @@ func mockItineraryFileJob() *models.ItineraryFileJob {
 	ifj := models.NewItineraryFileJob(0)
 	ifj.ID = 1
 	ifj.ItineraryID = 2
-	ifj.FindById = func() error { return nil }
-	ifj.FindByItineraryId = func() (*[]models.ItineraryFileJob, error) {
+	ifj.FindAliveById = func() error { return nil }
+	ifj.FindAliveByItineraryId = func() (*[]models.ItineraryFileJob, error) {
 		arr := []models.ItineraryFileJob{*ifj}
 		return &arr, nil
 	}
@@ -44,21 +45,21 @@ func mockItineraryFileJob() *models.ItineraryFileJob {
 
 func TestItineraryFileJobFindById_InvalidID(t *testing.T) {
 	svc := &ItineraryFileJobService{}
-	job, err := svc.FindById(0)
+	job, err := svc.FindAliveById(0)
 	assert.Nil(t, job)
 	assert.Error(t, err)
 }
 
 func TestItineraryFileJobFindById_FailFind(t *testing.T) {
 	ifj := mockItineraryFileJob()
-	ifj.FindById = func() error { return errors.New("fail") }
+	ifj.FindAliveById = func() error { return errors.New("fail") }
 
 	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob {
 		return ifj
 	}
 
 	svc := &ItineraryFileJobService{}
-	job, err := svc.FindById(1)
+	job, err := svc.FindAliveById(1)
 	assert.Nil(t, job)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to find job by ID")
@@ -72,21 +73,21 @@ func TestItineraryFileJobFindById_Success(t *testing.T) {
 	}
 
 	svc := &ItineraryFileJobService{}
-	job, err := svc.FindById(2)
+	job, err := svc.FindAliveById(2)
 	assert.NotNil(t, job)
 	assert.NoError(t, err)
 }
 
 func TestItineraryFileJobFindByItineraryId_InvalidID(t *testing.T) {
 	svc := &ItineraryFileJobService{}
-	jobs, err := svc.FindByItineraryId(0)
+	jobs, err := svc.FindAliveByItineraryId(0)
 	assert.Nil(t, jobs)
 	assert.Error(t, err)
 }
 
 func TestItineraryFileJobFindByItineraryId_Success(t *testing.T) {
 	ifj := mockItineraryFileJob()
-	ifj.FindByItineraryId = func() (*[]models.ItineraryFileJob, error) {
+	ifj.FindAliveByItineraryId = func() (*[]models.ItineraryFileJob, error) {
 		arr := []models.ItineraryFileJob{*ifj}
 		return &arr, nil
 	}
@@ -95,7 +96,7 @@ func TestItineraryFileJobFindByItineraryId_Success(t *testing.T) {
 	}
 
 	svc := &ItineraryFileJobService{}
-	jobs, err := svc.FindByItineraryId(1)
+	jobs, err := svc.FindAliveByItineraryId(1)
 	assert.NoError(t, err)
 	assert.NotNil(t, jobs)
 	assert.Equal(t, int64(1), (*jobs)[0].ID)
@@ -265,30 +266,6 @@ func TestItineraryFileJobStopJob_Success(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestItineraryFileJobDeleteJob_NilJob(t *testing.T) {
-	svc := &ItineraryFileJobService{}
-	err := svc.DeleteJob(nil)
-	assert.Error(t, err)
-}
-
-func TestItineraryFileJobDeleteJob_Fail(t *testing.T) {
-	ifj := mockItineraryFileJob()
-	ifj.DeleteJob = func() error {
-		return errors.New("fail")
-	}
-	err := (&ItineraryFileJobService{}).DeleteJob(ifj)
-	assert.Error(t, err)
-}
-
-func TestItineraryFileJobDeleteJob_Success(t *testing.T) {
-	ifj := mockItineraryFileJob()
-	ifj.DeleteJob = func() error {
-		return nil // Simulate successful deletion of job
-	}
-
-	err := (&ItineraryFileJobService{}).DeleteJob(ifj)
-	assert.NoError(t, err)
-}
 func TestHandleItineraryFileJob_UnmarshalError(t *testing.T) {
 	// Invalid JSON payload
 	task := asynq.NewTask("ItineraryFileJob", []byte("{invalid-json}"))
@@ -528,4 +505,120 @@ func TestHandleItineraryFileJob_Success(t *testing.T) {
 
 	err := HandleItineraryFileJob(nil, task)
 	assert.NoError(t, err)
+}
+func TestItineraryFileJobService_SoftDeleteJob_NilJob(t *testing.T) {
+	svc := &ItineraryFileJobService{}
+	err := svc.SoftDeleteJob(nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "itinerary file job instance is nil")
+}
+
+func TestItineraryFileJobService_SoftDeleteJob_Fail(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.SoftDeleteJob = func() error { return errors.New("fail soft delete") }
+	err := (&ItineraryFileJobService{}).SoftDeleteJob(ifj)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to soft delete job")
+}
+
+func TestItineraryFileJobService_SoftDeleteJob_Success(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.SoftDeleteJob = func() error { return nil }
+	err := (&ItineraryFileJobService{}).SoftDeleteJob(ifj)
+	assert.NoError(t, err)
+}
+
+func TestItineraryFileJobService_SoftDeleteJobsByItineraryId_InvalidID(t *testing.T) {
+	svc := &ItineraryFileJobService{}
+	err := svc.SoftDeleteJobsByItineraryId(0, &sql.Tx{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid itinerary ID")
+}
+
+func TestItineraryFileJobService_SoftDeleteJobsByItineraryId_NilTx(t *testing.T) {
+	svc := &ItineraryFileJobService{}
+	err := svc.SoftDeleteJobsByItineraryId(1, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "transaction instance is nil")
+}
+
+func TestItineraryFileJobService_SoftDeleteJobsByItineraryId_Fail(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error { return errors.New("fail soft delete by itinerary id") }
+	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return ifj }
+	err := (&ItineraryFileJobService{}).SoftDeleteJobsByItineraryId(1, &sql.Tx{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to soft delete job by itinerary ID")
+}
+
+func TestItineraryFileJobService_SoftDeleteJobsByItineraryId_Success(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error { return nil }
+	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return ifj }
+	err := (&ItineraryFileJobService{}).SoftDeleteJobsByItineraryId(1, &sql.Tx{})
+	assert.NoError(t, err)
+}
+
+type mockFileManager struct {
+	deleteFileCalled bool
+	deleteFileErr    error
+}
+
+func (m *mockFileManager) DeleteFile(path string) error {
+	m.deleteFileCalled = true
+	return m.deleteFileErr
+}
+
+func (m *mockFileManager) SaveContentInFile(path string, content *string) error { return nil }
+
+func TestItineraryFileJobService_DeleteJob_NilJob(t *testing.T) {
+	svc := &ItineraryFileJobService{}
+	err := svc.DeleteJob(nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "itinerary file job instance is nil")
+}
+
+func TestItineraryFileJobService_DeleteJob_NotMarkedDeleted(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.Status = "completed"
+	err := (&ItineraryFileJobService{}).DeleteJob(ifj)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "itinerary file job cannot be deleted because it is not marked for full deletion")
+}
+
+func TestItineraryFileJobService_DeleteJob_FileDeleteFails(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.Status = "deleted"
+	ifj.Filepath = "some/path"
+	mgr := &mockFileManager{deleteFileErr: errors.New("file delete fail")}
+	GetFileManager = func(name string) FileManagerInterface { return mgr }
+	ifj.DeleteJob = func() error { return nil }
+	err := (&ItineraryFileJobService{}).DeleteJob(ifj)
+	assert.NoError(t, err)
+	assert.True(t, mgr.deleteFileCalled)
+}
+
+func TestItineraryFileJobService_DeleteJob_DeleteJobFails(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.Status = "deleted"
+	ifj.Filepath = "some/path"
+	mgr := &mockFileManager{}
+	GetFileManager = func(name string) FileManagerInterface { return mgr }
+	ifj.DeleteJob = func() error { return errors.New("delete job fail") }
+	err := (&ItineraryFileJobService{}).DeleteJob(ifj)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to delete job")
+	assert.True(t, mgr.deleteFileCalled)
+}
+
+func TestItineraryFileJobService_DeleteJob_Success(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.Status = "deleted"
+	ifj.Filepath = "some/path"
+	mgr := &mockFileManager{}
+	GetFileManager = func(name string) FileManagerInterface { return mgr }
+	ifj.DeleteJob = func() error { return nil }
+	err := (&ItineraryFileJobService{}).DeleteJob(ifj)
+	assert.NoError(t, err)
+	assert.True(t, mgr.deleteFileCalled)
 }

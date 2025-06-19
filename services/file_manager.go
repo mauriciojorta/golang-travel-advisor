@@ -4,6 +4,7 @@ import "example.com/travel-advisor/utils"
 
 type FileManagerInterface interface {
 	SaveContentInFile(filepath string, content *string) error
+	DeleteFile(filepath string) error
 }
 
 type LocalFileManager struct {
@@ -11,6 +12,11 @@ type LocalFileManager struct {
 
 func (lfm *LocalFileManager) SaveContentInFile(filepath string, content *string) error {
 	err := utils.WriteLocalFile(filepath, []byte(*content), 0644)
+	return err
+}
+
+func (lfm *LocalFileManager) DeleteFile(filepath string) error {
+	err := utils.DeleteLocalFile(filepath)
 	return err
 }
 

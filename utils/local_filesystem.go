@@ -19,3 +19,23 @@ var WriteLocalFile = func(p string, content []byte, perm os.FileMode) error {
 
 	return nil
 }
+
+var DeleteLocalFile = func(p string) error {
+	// Check if the file exists.
+	if _, err := os.Stat(p); os.IsNotExist(err) {
+		// If it doesn't, then it is already deleted, so we consider the operation successful.
+		return nil
+	}
+
+	// Check if the file is a directory
+	if fi, err := os.Stat(p); err == nil && fi.IsDir() {
+		return fmt.Errorf("path %s is a directory, not a file", p)
+	}
+
+	// Remove the file
+	if err := os.Remove(p); err != nil {
+		return fmt.Errorf("failed to delete file %s: %w", p, err)
+	}
+
+	return nil
+}
