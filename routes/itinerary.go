@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -281,10 +282,10 @@ func getItineraryJob(context *gin.Context) {
 
 	itineraryJob, err := jobsService.FindAliveById(itineraryJobId)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if strings.Contains(err.Error(), sql.ErrNoRows.Error()) {
 			context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary job not found."})
 		} else {
-			context.JSON(http.StatusNotFound, gin.H{"message": "Could not get itinerary job. Try again later."})
+			context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not get itinerary job. Try again later."})
 		}
 		return
 	}
@@ -296,6 +297,55 @@ func getItineraryJob(context *gin.Context) {
 
 	context.JSON(http.StatusOK, gin.H{"job": *itineraryJob})
 
+}
+
+func stopItineraryJob(context *gin.Context) {
+	itineraryId := validateItineraryOwnership(context)
+	if itineraryId == nil {
+		return
+	}
+
+	itineraryJobIdStr := context.Param("itineraryJobId")
+	if itineraryJobIdStr == "" {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Itinerary Job ID is required."})
+		return
+	}
+
+	// Convert itineraryJobId from string to int64
+	var itineraryJobId int64
+	_, err := fmt.Sscan(itineraryJobIdStr, &itineraryJobId)
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Invalid itinerary job ID."})
+		return
+	}
+
+	jobsService := services.GetItineraryFileJobService()
+
+	itineraryJob, err := jobsService.FindAliveById(itineraryJobId)
+	if err != nil {
+		if strings.Contains(err.Error(), sql.ErrNoRows.Error()) {
+			log.Error("Itinerary job not found: ", err)
+			context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary job not found."})
+		} else {
+			log.Error("Error retrieving itinerary job: ", err)
+			context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not get itinerary job. Try again later."})
+		}
+		return
+	}
+
+	itineraryJob = validateItineraryJobOwnership(*itineraryId, itineraryJob, context)
+	if itineraryJob == nil {
+		return
+	}
+
+	err = jobsService.StopJob(itineraryJob)
+	if err != nil {
+		log.Error("Error stopping itinerary job: ", err)
+		context.JSON(http.StatusInternalServerError, gin.H{"message": fmt.Sprintf("Could not stop job: %v.", err)})
+		return
+	}
+
+	context.JSON(http.StatusOK, gin.H{"message": "Itinerary job stopped."})
 }
 
 func deleteItineraryJob(context *gin.Context) {
@@ -323,10 +373,10 @@ func deleteItineraryJob(context *gin.Context) {
 
 	itineraryJob, err := jobsService.FindAliveLightweightById(itineraryJobId)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if strings.Contains(err.Error(), sql.ErrNoRows.Error()) {
 			context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary job not found."})
 		} else {
-			context.JSON(http.StatusNotFound, gin.H{"message": "Could not get itinerary job. Try again later."})
+			context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not get itinerary job. Try again later."})
 		}
 		return
 	}

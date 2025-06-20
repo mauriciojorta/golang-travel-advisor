@@ -48,6 +48,7 @@ func TestInitLlmClient_Defaults(t *testing.T) {
 	os.Setenv("OPENAI_API_KEY", "test_key")
 	os.Unsetenv("LLM_VENDOR")
 	os.Unsetenv("LLM_MODEL")
+	defer os.Clearenv()
 
 	err := InitLlmClient()
 	assert.NoError(t, err)
@@ -58,6 +59,7 @@ func TestInitLlmClient_WithOpenAIVendor(t *testing.T) {
 	os.Setenv("OPENAI_API_KEY", "test_key")
 	os.Setenv("LLM_VENDOR", "openai")
 	os.Unsetenv("LLM_MODEL")
+	defer os.Clearenv()
 
 	err := InitLlmClient()
 	assert.NoError(t, err)
@@ -68,6 +70,7 @@ func TestInitLlmClient_WithModelEnvAndDefaultVendor(t *testing.T) {
 	os.Setenv("OPENAI_API_KEY", "test_key")
 	os.Unsetenv("LLM_VENDOR")
 	os.Setenv("LLM_MODEL", "gpt-4")
+	defer os.Clearenv()
 
 	err := InitLlmClient()
 	assert.NoError(t, err)
@@ -77,6 +80,7 @@ func TestInitLlmClient_DefaultVendorWithoutOpenAIKey(t *testing.T) {
 	resetSingleton()
 	os.Unsetenv("OPENAI_API_KEY")
 	os.Unsetenv("LLM_VENDOR")
+	defer os.Clearenv()
 
 	err := InitLlmClient()
 	assert.Error(t, err)
@@ -87,6 +91,7 @@ func TestInitLlmClient_OpenAIVendorWithoutOpenAIKey(t *testing.T) {
 	resetSingleton()
 	os.Unsetenv("OPENAI_API_KEY")
 	os.Setenv("LLM_VENDOR", "openai")
+	defer os.Clearenv()
 
 	err := InitLlmClient()
 	assert.Error(t, err)
@@ -95,6 +100,7 @@ func TestInitLlmClient_OpenAIVendorWithoutOpenAIKey(t *testing.T) {
 
 func TestCallLlm_UsesLlmClient(t *testing.T) {
 	os.Setenv("OPENAI_API_KEY", "test_key")
+	defer os.Clearenv()
 
 	// Replace llmClient with a mock
 	resetSingleton()

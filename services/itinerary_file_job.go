@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 	"time"
 
 	"example.com/travel-advisor/apis"
@@ -169,6 +171,26 @@ func (ifjs *ItineraryFileJobService) FailJob(errorDescription string, itineraryF
 func (ifjs *ItineraryFileJobService) StopJob(itineraryFileJob *models.ItineraryFileJob) error {
 	if itineraryFileJob == nil {
 		return errors.New("itinerary file job instance is nil")
+	}
+
+	if itineraryFileJob.Status == "completed" {
+		return errors.New("itinerary file job instance is already completed. It cannot be stopped.")
+	}
+
+	asyncTaskTimeoutStr := os.Getenv("ASYNC_TASK_TIMEOUT_MINUTES")
+	var asyncTaskTimeoutMinutes int
+	if asyncTaskTimeoutStr != "" {
+		var err error
+		asyncTaskTimeoutMinutes, err = strconv.Atoi(asyncTaskTimeoutStr)
+		if err != nil {
+			return err
+		}
+	} else {
+		asyncTaskTimeoutMinutes = 10 // default timeout in minutes if not set
+	}
+
+	if time.Now().Before(itineraryFileJob.CreationDate.Add(time.Duration(asyncTaskTimeoutMinutes) * time.Minute)) {
+		return errors.New("itinerary file job instance is still within the timeout period and cannot be stopped")
 	}
 
 	err := itineraryFileJob.StopJob()

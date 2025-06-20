@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"example.com/travel-advisor/apis"
 	"example.com/travel-advisor/models"
@@ -245,6 +246,28 @@ func TestItineraryFileJobStopJob_NilJob(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestItineraryFileJobStopJob_JobCompleted(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.Status = "completed"
+	defer func() {
+		ifj.Status = ""
+	}()
+
+	err := (&ItineraryFileJobService{}).StopJob(ifj)
+	assert.Error(t, err)
+}
+
+func TestItineraryFileJobStopJob_TimeoutNotReached(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.CreationDate = time.Now().Add(4 * -time.Minute) // Simulate job started 4 minutes ago (below default timeout of 10 minutes)
+	defer func() {
+		ifj.CreationDate = time.Now()
+	}()
+
+	err := (&ItineraryFileJobService{}).StopJob(ifj)
+	assert.Error(t, err)
+}
+
 func TestItineraryFileJobStopJob_Fail(t *testing.T) {
 	ifj := mockItineraryFileJob()
 	ifj.StopJob = func() error {
@@ -257,6 +280,28 @@ func TestItineraryFileJobStopJob_Fail(t *testing.T) {
 
 func TestItineraryFileJobStopJob_Success(t *testing.T) {
 	ifj := mockItineraryFileJob()
+	ifj.CreationDate = time.Now().Add(11 * -time.Minute) // Simulate job started 11 minutes ago (above default timeout of 10 minutes)
+	defer func() {
+		ifj.CreationDate = time.Now()
+	}()
+
+	ifj.StopJob = func() error {
+		return nil // Simulate successful stopping of job
+	}
+
+	err := (&ItineraryFileJobService{}).StopJob(ifj)
+	assert.NoError(t, err)
+}
+
+func TestItineraryFileJobStopJob_Success_CustomTimeout(t *testing.T) {
+	os.Setenv("ASYNC_TASK_TIMEOUT_MINUTES", "2")
+
+	ifj := mockItineraryFileJob()
+	ifj.CreationDate = time.Now().Add(4 * -time.Minute) // Simulate job started 4 minutes ago (above custom timeout of 2 minutes)
+	defer func() {
+		ifj.CreationDate = time.Now()
+		defer os.Clearenv()
+	}()
 
 	ifj.StopJob = func() error {
 		return nil // Simulate successful stopping of job

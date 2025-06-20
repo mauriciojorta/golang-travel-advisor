@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strconv"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -60,7 +61,18 @@ func (q *AsyncqTaskQueue) EnqueueItineraryFileJob(itineraryTaskPayload Itinerary
 		return nil, err
 	}
 
-	asyncTask := asynq.NewTask(TypeItineraryFileGeneration, asyncTaskPayloadJson, asynq.Timeout(10*time.Minute))
+	asyncTaskTimeoutStr := os.Getenv("ASYNC_TASK_TIMEOUT_MINUTES")
+	var asyncTaskTimeoutMinutes int
+	if asyncTaskTimeoutStr != "" {
+		asyncTaskTimeoutMinutes, err = strconv.Atoi(asyncTaskTimeoutStr)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		asyncTaskTimeoutMinutes = 10 // default timeout in minutes if not set
+	}
+
+	asyncTask := asynq.NewTask(TypeItineraryFileGeneration, asyncTaskPayloadJson, asynq.Timeout(time.Duration(asyncTaskTimeoutMinutes)*time.Minute))
 
 	info, err := q.Client.Enqueue(asyncTask)
 	if err != nil {

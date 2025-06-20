@@ -252,7 +252,7 @@ func (ifj *ItineraryFileJob) defaultAddAsyncTaskId(asyncTaskId string) error {
 func (ifj *ItineraryFileJob) defaultStopJob() error {
 	// Simulate stopping the job
 	prevJobStatus := ifj.Status
-	if ifj.Status == "running" {
+	if ifj.Status == "running" || ifj.Status == "pending" {
 		ifj.Status = "stopped"
 		ifj.StatusDescription = "Job stopped by user"
 		ifj.EndDate = time.Now()

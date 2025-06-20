@@ -200,7 +200,7 @@ func TestDefaultGetJobsRunningOfUserCount_Error(t *testing.T) {
 	}
 }
 
-func TestFileJobDefaultStopJob_Success(t *testing.T) {
+func TestFileJobDefaultStopJob_SuccessWithRunningJob(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -209,6 +209,32 @@ func TestFileJobDefaultStopJob_Success(t *testing.T) {
 	job := &ItineraryFileJob{
 		ID:     1,
 		Status: "running",
+	}
+
+	mock.ExpectExec(`UPDATE itinerary_file_jobs SET status = \?, status_description = \?, end_date = \? WHERE id = \?`).
+		WithArgs("stopped", "Job stopped by user", sqlmock.AnyArg(), job.ID).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err = job.defaultStopJob()
+
+	assert.NoError(t, err)
+	assert.Equal(t, "stopped", job.Status)
+	assert.Equal(t, "Job stopped by user", job.StatusDescription)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestFileJobDefaultStopJob_SuccessWithPendingJob(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	job := &ItineraryFileJob{
+		ID:     1,
+		Status: "pending",
 	}
 
 	mock.ExpectExec(`UPDATE itinerary_file_jobs SET status = \?, status_description = \?, end_date = \? WHERE id = \?`).
