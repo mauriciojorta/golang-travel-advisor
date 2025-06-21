@@ -14,6 +14,9 @@ func mockItinerary() *models.Itinerary {
 	it.ID = 1
 	it.OwnerID = 2
 	it.FindById = func(_ bool) error { return nil }
+	it.FindLightweightById = func() error {
+		return nil
+	}
 	it.FindByOwnerId = func() (*[]models.Itinerary, error) {
 		arr := []models.Itinerary{*it}
 		return &arr, nil
@@ -54,6 +57,41 @@ func TestFindById_ErrorFromModel(t *testing.T) {
 		return it
 	}
 	got, err := svc.FindById(1, true)
+	if err == nil || got != nil {
+		t.Errorf("expected error from model")
+	}
+}
+
+func TestFindLightweightById_Success(t *testing.T) {
+	svc := &ItineraryService{}
+	it := mockItinerary()
+	called := false
+	it.FindLightweightById = func() error { called = true; return nil }
+	models.NewItinerary = func(title, desc string, notes *string, dest *[]models.ItineraryTravelDestination) *models.Itinerary {
+		return it
+	}
+	got, err := svc.FindLightweightById(1)
+	if err != nil || got == nil || !called {
+		t.Errorf("expected success, got err=%v, called=%v", err, called)
+	}
+}
+
+func TestFindLightweightById_InvalidID(t *testing.T) {
+	svc := &ItineraryService{}
+	got, err := svc.FindLightweightById(0)
+	if err == nil || got != nil {
+		t.Errorf("expected error for invalid id")
+	}
+}
+
+func TestFindLightweightById_ErrorFromModel(t *testing.T) {
+	svc := &ItineraryService{}
+	it := mockItinerary()
+	it.FindLightweightById = func() error { return errors.New("fail") }
+	models.NewItinerary = func(title, desc string, notes *string, dest *[]models.ItineraryTravelDestination) *models.Itinerary {
+		return it
+	}
+	got, err := svc.FindLightweightById(1)
 	if err == nil || got != nil {
 		t.Errorf("expected error from model")
 	}

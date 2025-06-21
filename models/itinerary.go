@@ -1,7 +1,6 @@
 package models
 
 import (
-	"database/sql"
 	"time"
 
 	"example.com/travel-advisor/db"
@@ -18,13 +17,12 @@ type Itinerary struct {
 	FileJobs           []ItineraryFileJob            `json:"fileJobs"`
 	Notes              *string                       `json:"notes"`
 
-	FindById          func(includeDestinations bool) error    `json:"-"`
-	ExistById         func() (bool, error)                    `json:"-"`
-	ValidateOwnership func(currentUserId int64) (bool, error) `json:"-"`
-	FindByOwnerId     func() (*[]Itinerary, error)            `json:"-"`
-	Create            func() error                            `json:"-"`
-	Update            func() error                            `json:"-"`
-	Delete            func() error                            `json:"-"`
+	FindById            func(includeDestinations bool) error `json:"-"`
+	FindLightweightById func() error                         `json:"-"`
+	FindByOwnerId       func() (*[]Itinerary, error)         `json:"-"`
+	Create              func() error                         `json:"-"`
+	Update              func() error                         `json:"-"`
+	Delete              func() error                         `json:"-"`
 }
 
 var NewItinerary = func(title string, description string, notes *string, travelDestinations *[]ItineraryTravelDestination) *Itinerary {
@@ -37,8 +35,7 @@ var NewItinerary = func(title string, description string, notes *string, travelD
 
 	// Set default implementations for FindById, FindByOwnerId, Create, Update, Delete, and GenerateItineraryFile
 	itinerary.FindById = itinerary.defaultFindById
-	itinerary.ExistById = itinerary.defaultExistById
-	itinerary.ValidateOwnership = itinerary.defaultValidateOwnership
+	itinerary.FindLightweightById = itinerary.defaultFindLightweightById
 	itinerary.FindByOwnerId = itinerary.defaultFindByOwnerId
 	itinerary.Create = itinerary.defaultCreate
 	itinerary.Update = itinerary.defaultUpdate
@@ -73,36 +70,18 @@ func (i *Itinerary) defaultFindById(includeDestinations bool) error {
 
 }
 
-func (i *Itinerary) defaultExistById() (bool, error) {
-	query := `SELECT 1 FROM itineraries WHERE id = ? LIMIT 1`
+func (i *Itinerary) defaultFindLightweightById() error {
+	query := `SELECT id, owner_id
+	FROM itineraries WHERE id = ?`
 	row := db.DB.QueryRow(query, i.ID)
 
-	var exists int
-	err := row.Scan(&exists)
+	err := row.Scan(&i.ID, &i.OwnerID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		}
-		return false, err
+		return err
 	}
 
-	return true, nil
-}
+	return nil
 
-func (i *Itinerary) defaultValidateOwnership(currentUserId int64) (bool, error) {
-	query := `SELECT 1 FROM itineraries WHERE id = ? AND owner_id = ? LIMIT 1`
-	row := db.DB.QueryRow(query, i.ID, currentUserId)
-
-	var exists int
-	err := row.Scan(&exists)
-	if err != nil {
-		if err.Error() == "sql: no rows in result set" {
-			return false, nil
-		}
-		return false, err
-	}
-
-	return true, nil
 }
 
 func (i *Itinerary) defaultFindByOwnerId() (*[]Itinerary, error) {

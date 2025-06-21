@@ -191,6 +191,62 @@ func TestItineraryDefaultFindById_DestinationScanError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestItineraryDefaultFindLightweightById_Success(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	itinerary := &Itinerary{ID: 42}
+
+	mock.ExpectQuery("SELECT id, owner_id FROM itineraries WHERE id = \\?").
+		WithArgs(itinerary.ID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "owner_id"}).
+			AddRow(42, 99))
+
+	err = itinerary.defaultFindLightweightById()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(42), itinerary.ID)
+	assert.Equal(t, int64(99), itinerary.OwnerID)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestItineraryDefaultFindLightweightById_NoRows(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	itinerary := &Itinerary{ID: 100}
+
+	mock.ExpectQuery("SELECT id, owner_id FROM itineraries WHERE id = \\?").
+		WithArgs(itinerary.ID).
+		WillReturnError(sql.ErrNoRows)
+
+	err = itinerary.defaultFindLightweightById()
+	assert.Error(t, err)
+	assert.Equal(t, sql.ErrNoRows, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestItineraryDefaultFindLightweightById_ScanError(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	itinerary := &Itinerary{ID: 123}
+
+	mock.ExpectQuery("SELECT id, owner_id FROM itineraries WHERE id = \\?").
+		WithArgs(itinerary.ID).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "owner_id"}).
+			AddRow("not-an-int", 99))
+
+	err = itinerary.defaultFindLightweightById()
+	assert.Error(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestItineraryFindByOwnerId_Success(t *testing.T) {
 	// Arrange
 	dbMock, mock, err := sqlmock.New()
@@ -971,116 +1027,5 @@ func TestItineraryDefaultDelete_ExecDeleteItineraryError(t *testing.T) {
 	err = itinerary.defaultDelete()
 	assert.Error(t, err)
 	assert.Equal(t, "exec delete itinerary error", err.Error())
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestItineraryDefaultExistById_Exists(t *testing.T) {
-	dbMock, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer dbMock.Close()
-	db.DB = dbMock
-
-	itinerary := &Itinerary{ID: 1}
-
-	mock.ExpectQuery("SELECT 1 FROM itineraries WHERE id = \\? LIMIT 1").
-		WithArgs(itinerary.ID).
-		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))
-
-	exists, err := itinerary.defaultExistById()
-	assert.NoError(t, err)
-	assert.True(t, exists)
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestItineraryDefaultExistById_NotExists(t *testing.T) {
-	dbMock, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer dbMock.Close()
-	db.DB = dbMock
-
-	itinerary := &Itinerary{ID: 1}
-
-	mock.ExpectQuery("SELECT 1 FROM itineraries WHERE id = \\? LIMIT 1").
-		WithArgs(itinerary.ID).
-		WillReturnError(sql.ErrNoRows)
-
-	exists, err := itinerary.defaultExistById()
-	assert.NoError(t, err)
-	assert.False(t, exists)
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestItineraryDefaultExistById_ScanError(t *testing.T) {
-	dbMock, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer dbMock.Close()
-	db.DB = dbMock
-
-	itinerary := &Itinerary{ID: 1}
-
-	mock.ExpectQuery("SELECT 1 FROM itineraries WHERE id = \\? LIMIT 1").
-		WithArgs(itinerary.ID).
-		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow("not-an-int"))
-
-	exists, err := itinerary.defaultExistById()
-	assert.Error(t, err)
-	assert.False(t, exists)
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestItineraryDefaultValidateOwnership_OwnerExists(t *testing.T) {
-	dbMock, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer dbMock.Close()
-	db.DB = dbMock
-
-	itinerary := &Itinerary{ID: 1}
-	currentUserId := int64(2)
-
-	mock.ExpectQuery("SELECT 1 FROM itineraries WHERE id = \\? AND owner_id = \\? LIMIT 1").
-		WithArgs(itinerary.ID, currentUserId).
-		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))
-
-	exists, err := itinerary.defaultValidateOwnership(currentUserId)
-	assert.NoError(t, err)
-	assert.True(t, exists)
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestItineraryDefaultValidateOwnership_NotOwner(t *testing.T) {
-	dbMock, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer dbMock.Close()
-	db.DB = dbMock
-
-	itinerary := &Itinerary{ID: 1}
-	currentUserId := int64(2)
-
-	mock.ExpectQuery("SELECT 1 FROM itineraries WHERE id = \\? AND owner_id = \\? LIMIT 1").
-		WithArgs(itinerary.ID, currentUserId).
-		WillReturnError(sql.ErrNoRows)
-
-	exists, err := itinerary.defaultValidateOwnership(currentUserId)
-	assert.NoError(t, err)
-	assert.False(t, exists)
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestItineraryDefaultValidateOwnership_ScanError(t *testing.T) {
-	dbMock, mock, err := sqlmock.New()
-	assert.NoError(t, err)
-	defer dbMock.Close()
-	db.DB = dbMock
-
-	itinerary := &Itinerary{ID: 1}
-	currentUserId := int64(2)
-
-	mock.ExpectQuery("SELECT 1 FROM itineraries WHERE id = \\? AND owner_id = \\? LIMIT 1").
-		WithArgs(itinerary.ID, currentUserId).
-		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow("not-an-int"))
-
-	exists, err := itinerary.defaultValidateOwnership(currentUserId)
-	assert.Error(t, err)
-	assert.False(t, exists)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }

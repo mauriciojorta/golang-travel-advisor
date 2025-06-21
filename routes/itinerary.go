@@ -80,20 +80,14 @@ func updateItinerary(context *gin.Context) {
 
 	itineraryService := services.GetItineraryService()
 
-	itineraryExists, err := itineraryService.ExistById(input.ID)
-	if !itineraryExists {
-		if err != nil {
-			log.Error("Error checking if itinerary exists: ", err)
-			context.JSON(http.StatusInternalServerError, gin.H{"message": "Internal Server Error. Try again later."})
-			return
-		}
-		context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary not found."})
-		return
-	}
-
 	itinerary, err := itineraryService.FindById(input.ID, true)
+
 	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not get itinerary. Try again later."})
+		if strings.Contains(err.Error(), sql.ErrNoRows.Error()) {
+			context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary not found."})
+		} else {
+			context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not get itinerary. Try again later."})
+		}
 		return
 	}
 
@@ -124,14 +118,14 @@ func updateItinerary(context *gin.Context) {
 }
 
 func deleteItinerary(context *gin.Context) {
-	itineraryId := validateItineraryOwnership(context)
-	if itineraryId == nil {
+	itinerary := getAndValidateItinerary(context, false)
+	if itinerary == nil {
 		return
 	}
 
 	itineraryService := services.GetItineraryService()
 
-	err := itineraryService.Delete(*itineraryId)
+	err := itineraryService.Delete(itinerary.ID)
 	if err != nil {
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not delete itinerary. Try again later."})
 		return
@@ -159,16 +153,8 @@ func getOwnersItineraries(context *gin.Context) {
 }
 
 func getItinerary(context *gin.Context) {
-	itineraryId := validateItineraryOwnership(context)
-	if itineraryId == nil {
-		return
-	}
-
-	itineraryService := services.GetItineraryService()
-
-	itinerary, err := itineraryService.FindById(*itineraryId, true)
-	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not get itinerary. Try again later."})
+	itinerary := getAndValidateItinerary(context, true)
+	if itinerary == nil {
 		return
 	}
 
@@ -177,16 +163,8 @@ func getItinerary(context *gin.Context) {
 
 func runItineraryFileJob(context *gin.Context) {
 
-	itineraryId := validateItineraryOwnership(context)
-	if itineraryId == nil {
-		return
-	}
-
-	itineraryService := services.GetItineraryService()
-
-	itinerary, err := itineraryService.FindById(*itineraryId, true)
-	if err != nil {
-		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not get itinerary. Try again later."})
+	itinerary := getAndValidateItinerary(context, true)
+	if itinerary == nil {
 		return
 	}
 
@@ -259,8 +237,8 @@ func runItineraryFileJob(context *gin.Context) {
 }
 
 func getItineraryJob(context *gin.Context) {
-	itineraryId := validateItineraryOwnership(context)
-	if itineraryId == nil {
+	itinerary := getAndValidateItinerary(context, false)
+	if itinerary == nil {
 		return
 	}
 
@@ -290,7 +268,7 @@ func getItineraryJob(context *gin.Context) {
 		return
 	}
 
-	itineraryJob = validateItineraryJobOwnership(*itineraryId, itineraryJob, context)
+	itineraryJob = validateItineraryJobOwnership(itinerary.ID, itineraryJob, context)
 	if itineraryJob == nil {
 		return
 	}
@@ -300,8 +278,8 @@ func getItineraryJob(context *gin.Context) {
 }
 
 func stopItineraryJob(context *gin.Context) {
-	itineraryId := validateItineraryOwnership(context)
-	if itineraryId == nil {
+	itinerary := getAndValidateItinerary(context, false)
+	if itinerary == nil {
 		return
 	}
 
@@ -333,7 +311,7 @@ func stopItineraryJob(context *gin.Context) {
 		return
 	}
 
-	itineraryJob = validateItineraryJobOwnership(*itineraryId, itineraryJob, context)
+	itineraryJob = validateItineraryJobOwnership(itinerary.ID, itineraryJob, context)
 	if itineraryJob == nil {
 		return
 	}
@@ -341,7 +319,7 @@ func stopItineraryJob(context *gin.Context) {
 	err = jobsService.StopJob(itineraryJob)
 	if err != nil {
 		log.Error("Error stopping itinerary job: ", err)
-		context.JSON(http.StatusInternalServerError, gin.H{"message": fmt.Sprintf("Could not stop job: %v.", err)})
+		context.JSON(http.StatusInternalServerError, gin.H{"message": fmt.Sprintf("Could not stop job: %v", err)})
 		return
 	}
 
@@ -350,8 +328,8 @@ func stopItineraryJob(context *gin.Context) {
 
 func deleteItineraryJob(context *gin.Context) {
 
-	itineraryId := validateItineraryOwnership(context)
-	if itineraryId == nil {
+	itinerary := getAndValidateItinerary(context, false)
+	if itinerary == nil {
 		return
 	}
 
@@ -381,7 +359,7 @@ func deleteItineraryJob(context *gin.Context) {
 		return
 	}
 
-	itineraryJob = validateItineraryJobOwnership(*itineraryId, itineraryJob, context)
+	itineraryJob = validateItineraryJobOwnership(itinerary.ID, itineraryJob, context)
 	if itineraryJob == nil {
 		return
 	}
@@ -398,14 +376,14 @@ func deleteItineraryJob(context *gin.Context) {
 }
 
 func getAllItineraryFileJobs(context *gin.Context) {
-	itineraryId := validateItineraryOwnership(context)
-	if itineraryId == nil {
+	itinerary := getAndValidateItinerary(context, false)
+	if itinerary == nil {
 		return
 	}
 
 	jobsService := services.GetItineraryFileJobService()
 
-	itineraryFileJobs, err := jobsService.FindAliveByItineraryId(*itineraryId)
+	itineraryFileJobs, err := jobsService.FindAliveByItineraryId(itinerary.ID)
 	if err != nil {
 		log.Error("Error retrieving itinerary file jobs: ", err)
 		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not retrieve jobs. Try again later."})
@@ -425,7 +403,7 @@ func validateAuthenticatedUser(context *gin.Context) *int64 {
 	return &uid
 }
 
-func validateItineraryOwnership(context *gin.Context) *int64 {
+func getAndValidateItinerary(context *gin.Context, fullItinerary bool) *models.Itinerary {
 	userId := validateAuthenticatedUser(context)
 	if userId == nil {
 		return nil
@@ -447,29 +425,29 @@ func validateItineraryOwnership(context *gin.Context) *int64 {
 
 	itineraryService := services.GetItineraryService()
 
-	itineraryExists, err := itineraryService.ExistById(itineraryId)
-	if !itineraryExists {
-		if err != nil {
-			log.Error("Error checking if itinerary exists: ", err)
-			context.JSON(http.StatusInternalServerError, gin.H{"message": "Internal Server Error. Try again later."})
-			return nil
+	var itinerary *models.Itinerary
+
+	if fullItinerary {
+		itinerary, err = itineraryService.FindById(itineraryId, true)
+	} else {
+		itinerary, err = itineraryService.FindLightweightById(itineraryId)
+	}
+
+	if err != nil {
+		if strings.Contains(err.Error(), sql.ErrNoRows.Error()) {
+			context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary not found."})
+		} else {
+			context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not get itinerary. Try again later."})
 		}
-		context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary not found."})
 		return nil
 	}
 
-	userIsOwnerOfItinerary, err := itineraryService.ValidateOwnership(itineraryId, *userId)
-	if !userIsOwnerOfItinerary {
-		if err != nil {
-			log.Error("Error checking if user owns itinerary: ", err)
-			context.JSON(http.StatusInternalServerError, gin.H{"message": "Internal Server Error. Try again later."})
-			return nil
-		}
+	if itinerary.OwnerID != *userId {
 		context.JSON(http.StatusForbidden, gin.H{"message": "You do not have permission to access this resource."})
 		return nil
 	}
 
-	return &itineraryId
+	return itinerary
 }
 
 func validateItineraryJobOwnership(itineraryId int64, itineraryFileJob *models.ItineraryFileJob, context *gin.Context) *models.ItineraryFileJob {

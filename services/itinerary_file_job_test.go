@@ -23,6 +23,9 @@ func mockItineraryFileJob() *models.ItineraryFileJob {
 	ifj.ID = 1
 	ifj.ItineraryID = 2
 	ifj.FindAliveById = func() error { return nil }
+	ifj.FindAliveLightweightById = func() error {
+		return nil
+	}
 	ifj.FindAliveByItineraryId = func() (*[]models.ItineraryFileJob, error) {
 		arr := []models.ItineraryFileJob{*ifj}
 		return &arr, nil
@@ -75,6 +78,43 @@ func TestItineraryFileJobFindById_Success(t *testing.T) {
 
 	svc := &ItineraryFileJobService{}
 	job, err := svc.FindAliveById(2)
+	assert.NotNil(t, job)
+	assert.NoError(t, err)
+}
+
+func TestItineraryFileJobFindAliveLightweightById_InvalidID(t *testing.T) {
+	svc := &ItineraryFileJobService{}
+	job, err := svc.FindAliveLightweightById(0)
+	assert.Nil(t, job)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid job ID")
+}
+
+func TestItineraryFileJobFindAliveLightweightById_FailFind(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.FindAliveLightweightById = func() error { return errors.New("fail") }
+
+	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob {
+		return ifj
+	}
+
+	svc := &ItineraryFileJobService{}
+	job, err := svc.FindAliveLightweightById(1)
+	assert.Nil(t, job)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to find job by ID")
+}
+
+func TestItineraryFileJobFindAliveLightweightById_Success(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.FindAliveLightweightById = func() error { return nil }
+
+	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob {
+		return ifj
+	}
+
+	svc := &ItineraryFileJobService{}
+	job, err := svc.FindAliveLightweightById(2)
 	assert.NotNil(t, job)
 	assert.NoError(t, err)
 }

@@ -68,7 +68,7 @@ func createTables() {
 		creation_date DATETIME NOT NULL,
 		update_date DATETIME NOT NULL,
 		FOREIGN KEY (itinerary_id) REFERENCES itineraries(id),
-		UNIQUE (country, city, arrival_date, departure_date, itinerary_id)
+		UNIQUE (itinerary_id, arrival_date, departure_date, city, country)
 	)
 	`
 	_, err = DB.Exec(createItinerariesTravelDestinationsTable)
