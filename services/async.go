@@ -72,7 +72,7 @@ func (q *AsyncqTaskQueue) EnqueueItineraryFileJob(itineraryTaskPayload Itinerary
 		asyncTaskTimeoutMinutes = 10 // default timeout in minutes if not set
 	}
 
-	asyncTask := asynq.NewTask(TypeItineraryFileGeneration, asyncTaskPayloadJson, asynq.Timeout(time.Duration(asyncTaskTimeoutMinutes)*time.Minute))
+	asyncTask := asynq.NewTask(TypeItineraryFileGeneration, asyncTaskPayloadJson, asynq.MaxRetry(0), asynq.Timeout(time.Duration(asyncTaskTimeoutMinutes)*time.Minute))
 
 	info, err := q.Client.Enqueue(asyncTask)
 	if err != nil {

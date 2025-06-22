@@ -31,6 +31,7 @@ type ItineraryFileJobServiceInterface interface {
 	SoftDeleteJob(itineraryFileJob *models.ItineraryFileJob) error
 	SoftDeleteJobsByItineraryId(itineraryId int64, tx *sql.Tx) error
 	DeleteJob(itineraryFileJob *models.ItineraryFileJob) error
+	DeleteDeadJobs(fetchLimit int) error
 }
 
 type ItineraryFileJobService struct{}
@@ -73,7 +74,8 @@ func (ifjs *ItineraryFileJobService) FindAliveById(id int64) (*models.ItineraryF
 	job.ID = id
 	err := job.FindAliveById()
 	if err != nil {
-		return nil, fmt.Errorf("failed to find job by ID: %w", err)
+		log.Errorf("failed to find job by ID: %v", err)
+		return nil, errors.New("failed to find job by ID")
 	}
 	return job, nil
 }
@@ -87,7 +89,8 @@ func (ifjs *ItineraryFileJobService) FindAliveLightweightById(id int64) (*models
 	job.ID = id
 	err := job.FindAliveLightweightById()
 	if err != nil {
-		return nil, fmt.Errorf("failed to find job by ID: %w", err)
+		log.Errorf("failed to find job by ID: %v", err)
+		return nil, errors.New("failed to find job by ID")
 	}
 	return job, nil
 }
@@ -121,7 +124,7 @@ func (ifjs *ItineraryFileJobService) PrepareJob(itinerary *models.Itinerary) (*I
 	err := job.PrepareJob(itinerary)
 	if err != nil {
 		log.Errorf("failed to prepare job: %v", err)
-		return nil, fmt.Errorf("failed to prepare job: %w", err)
+		return nil, errors.New("failed to prepare job")
 	}
 
 	payload := &ItineraryFileAsyncTaskPayload{
@@ -144,7 +147,8 @@ func (ifjs *ItineraryFileJobService) AddAsyncTaskId(asyncTaskId string, itinerar
 
 	err := itineraryFileJob.AddAsyncTaskId(asyncTaskId)
 	if err != nil {
-		return fmt.Errorf("failed to add async task ID: %w", err)
+		log.Errorf("failed to add async task ID: %v", err)
+		return errors.New("failed to add async task ID")
 	}
 
 	return nil
@@ -161,7 +165,8 @@ func (ifjs *ItineraryFileJobService) FailJob(errorDescription string, itineraryF
 
 	err := itineraryFileJob.FailJob(errorDescription)
 	if err != nil {
-		return fmt.Errorf("failed to fail job: %w", err)
+		log.Errorf("failed to fail job: %v", err)
+		return errors.New("failed to fail job")
 	}
 
 	return nil
@@ -174,7 +179,7 @@ func (ifjs *ItineraryFileJobService) StopJob(itineraryFileJob *models.ItineraryF
 	}
 
 	if itineraryFileJob.Status == "completed" {
-		return errors.New("itinerary file job instance is already completed. It cannot be stopped.")
+		return errors.New("itinerary file job instance is already completed. It cannot be stopped")
 	}
 
 	asyncTaskTimeoutStr := os.Getenv("ASYNC_TASK_TIMEOUT_MINUTES")
@@ -195,7 +200,8 @@ func (ifjs *ItineraryFileJobService) StopJob(itineraryFileJob *models.ItineraryF
 
 	err := itineraryFileJob.StopJob()
 	if err != nil {
-		return fmt.Errorf("failed to stop job: %w", err)
+		log.Errorf("failed to stop job: %v", err)
+		return errors.New("failed to stop job")
 	}
 
 	return nil
@@ -208,7 +214,7 @@ func (ifjs *ItineraryFileJobService) SoftDeleteJob(itineraryFileJob *models.Itin
 	}
 	err := itineraryFileJob.SoftDeleteJob()
 	if err != nil {
-		return fmt.Errorf("failed to soft delete job: %w", err)
+		return errors.New("failed to soft delete job")
 	}
 	return nil
 }
@@ -226,13 +232,13 @@ func (ifjs *ItineraryFileJobService) SoftDeleteJobsByItineraryId(itineraryId int
 	job := models.NewItineraryFileJob(itineraryId)
 	err := job.SoftDeleteJobsByItineraryIdTx(tx)
 	if err != nil {
-		return fmt.Errorf("failed to soft delete job by itinerary ID: %w", err)
+		return errors.New("failed to soft delete job by itinerary ID")
 	}
 	return nil
 
 }
 
-// Delete deletes the job
+// Deletes a single job
 func (ifjs *ItineraryFileJobService) DeleteJob(itineraryFileJob *models.ItineraryFileJob) error {
 	if itineraryFileJob == nil {
 		return errors.New("itinerary file job instance is nil")
@@ -252,16 +258,64 @@ func (ifjs *ItineraryFileJobService) DeleteJob(itineraryFileJob *models.Itinerar
 	// Delete job from database
 	err = itineraryFileJob.DeleteJob()
 	if err != nil {
-		return fmt.Errorf("failed to delete job: %w", err)
+		return errors.New("failed to delete job")
 	}
 
 	return nil
 }
 
+// Fully deletes (job file + DB jobs table row removal) a "dead" (in 'deleted' status) jobs from the system.
+// It only deletes the first 'n' jobs it finds on the DB based on the fetchLimit argument value (10 by default if the value is equal or less than 0)
+func (ifjs *ItineraryFileJobService) DeleteDeadJobs(fetchLimit int) error {
+	finalFetchLimit := 10 // Default fetch limit
+	if fetchLimit > 0 {
+		finalFetchLimit = fetchLimit // If the passed fetchLimit is greater than 0, the finalFetchLimit is updated with its value
+	}
+
+	job := models.NewItineraryFileJob(-1)
+
+	deadJobs, err := job.FindDead(finalFetchLimit)
+	if err != nil {
+		log.Error("failed to find dead jobs", err)
+		return errors.New("failed to find dead jobs")
+	}
+	if len(*deadJobs) == 0 {
+		log.Info("No dead jobs found to delete")
+		return nil
+	}
+	for _, deadJob := range *deadJobs {
+		log.Infof("Deleting dead job with ID: %d", deadJob.ID)
+
+		if deadJob.Filepath != "" {
+			// Delete the file associated with the job
+			fileManager := GetFileManager(deadJob.FileManager)
+			err = fileManager.DeleteFile(deadJob.Filepath)
+			if err != nil {
+				log.Warnf("Error deleting file for dead job %v: %v", deadJob.ID, err)
+			} else {
+				log.Debugf("File %v of job with ID %d deleted successfully", deadJob.Filepath, deadJob.ID)
+			}
+		}
+
+		// Delete the job from the database
+		job.ID = deadJob.ID
+		err = job.DeleteJob()
+		if err != nil {
+			log.Errorf("Error deleting dead job %v from database: %v", deadJob.ID, err)
+		} else {
+			log.Debugf("Job with ID %d deleted successfully", deadJob.ID)
+		}
+	}
+
+	return nil
+
+}
+
 func HandleItineraryFileJob(ctx context.Context, t *asynq.Task) error {
 	var itineraryFileJobTask ItineraryFileAsyncTaskPayload
 	if err := json.Unmarshal(t.Payload(), &itineraryFileJobTask); err != nil {
-		return fmt.Errorf("could not unmarshal task payload: %w", err)
+		log.Errorf("could not unmarshal task payload: %v", err)
+		return errors.New("could not unmarshal task payload")
 	}
 
 	itinerary := itineraryFileJobTask.Itinerary
@@ -325,6 +379,15 @@ func HandleItineraryFileJob(ctx context.Context, t *asynq.Task) error {
 		return err
 	}
 
+	defer func(finalError *error, filepath string, fileManager FileManagerInterface) {
+		if finalError != nil {
+			deleteFileError := fileManager.DeleteFile(filepath)
+			if deleteFileError != nil {
+				log.Warnf("Error deleting file %v after unexpected failure processing job: %v", filepath, deleteFileError)
+			}
+		}
+	}(&err, job.Filepath, fileManager)
+
 	job.Status = "completed"
 	job.StatusDescription = "Itinerary generated successfully"
 	job.EndDate = time.Now()
@@ -369,7 +432,8 @@ var buildItineraryLlmPrompt = func(itinerary *models.Itinerary) (*string, error)
 
 	message, err := prompt.Format(inputMap)
 	if err != nil {
-		return nil, fmt.Errorf("failed to format itinerary prompt: %w", err)
+		log.Errorf("failed to format itinerary prompt: %v", err)
+		return nil, errors.New("failed to format itinerary prompt")
 	}
 
 	log.Debugf("Generated itinerary prompt: %s", message)

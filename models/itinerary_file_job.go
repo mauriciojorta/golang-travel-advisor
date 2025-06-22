@@ -25,19 +25,20 @@ type ItineraryFileJob struct {
 	ItineraryID int64     `json:"itineraryId"`
 	AsyncTaskID string    `json:"asyncTaskId,omitempty"` // Optional, used for tracking async tasks
 
-	FindAliveById                 func() error                        `json:"-"`
-	FindAliveLightweightById      func() error                        `json:"-"`
-	FindAliveByItineraryId        func() (*[]ItineraryFileJob, error) `json:"-"`
-	GetJobsRunningOfUserCount     func(userId int64) (int, error)     `json:"-"`
-	PrepareJob                    func(itinerary *Itinerary) error    `json:"-"`
-	AddAsyncTaskId                func(asyncTaskId string) error      `json:"-"` // Functions for job management
-	StartJob                      func() error                        `json:"-"`
-	FailJob                       func(errorDescription string) error `json:"-"`
-	StopJob                       func() error                        `json:"-"`
-	CompleteJob                   func() error                        `json:"-"`
-	DeleteJob                     func() error                        `json:"-"`
-	SoftDeleteJob                 func() error                        `json:"-"`
-	SoftDeleteJobsByItineraryIdTx func(tx *sql.Tx) error              `json:"-"`
+	FindAliveById                 func() error                                      `json:"-"`
+	FindAliveLightweightById      func() error                                      `json:"-"`
+	FindAliveByItineraryId        func() (*[]ItineraryFileJob, error)               `json:"-"`
+	FindDead                      func(fetchLimit int) (*[]ItineraryFileJob, error) `json:"-"`
+	GetJobsRunningOfUserCount     func(userId int64) (int, error)                   `json:"-"`
+	PrepareJob                    func(itinerary *Itinerary) error                  `json:"-"`
+	AddAsyncTaskId                func(asyncTaskId string) error                    `json:"-"` // Functions for job management
+	StartJob                      func() error                                      `json:"-"`
+	FailJob                       func(errorDescription string) error               `json:"-"`
+	StopJob                       func() error                                      `json:"-"`
+	CompleteJob                   func() error                                      `json:"-"`
+	DeleteJob                     func() error                                      `json:"-"`
+	SoftDeleteJob                 func() error                                      `json:"-"`
+	SoftDeleteJobsByItineraryIdTx func(tx *sql.Tx) error                            `json:"-"`
 }
 
 var NewItineraryFileJob = func(itineraryId int64) *ItineraryFileJob {
@@ -48,6 +49,7 @@ var NewItineraryFileJob = func(itineraryId int64) *ItineraryFileJob {
 	job.FindAliveById = job.defaultFindAliveById
 	job.FindAliveLightweightById = job.defaultFindAliveLightweightById
 	job.FindAliveByItineraryId = job.defaultFindAliveByItineraryId
+	job.FindDead = job.defaultFindDead
 	job.GetJobsRunningOfUserCount = job.defaultGetJobsRunningOfUserCount
 	job.PrepareJob = job.defaultPrepareJob
 	job.StartJob = job.defaultStartJob
@@ -122,6 +124,61 @@ func (ifj *ItineraryFileJob) defaultFindAliveByItineraryId() (*[]ItineraryFileJo
 	query := `SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id
 	FROM itinerary_file_jobs WHERE itinerary_id = ? AND status != 'deleted'`
 	rows, err := db.DB.Query(query, ifj.ItineraryID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var jobs []ItineraryFileJob
+	for rows.Next() {
+		var job ItineraryFileJob
+		var statusDescription sql.NullString
+		var endDate sql.NullTime
+		var filePath sql.NullString
+		var fileManager sql.NullString
+		var asyncTaskId sql.NullString
+		err := rows.Scan(&job.ID, &job.Status, &statusDescription, &job.CreationDate, &job.StartDate, &endDate, &filePath, &fileManager, &job.ItineraryID, &asyncTaskId)
+
+		if err != nil {
+			return nil, err
+		}
+		if statusDescription.Valid {
+			job.StatusDescription = statusDescription.String
+		} else {
+			job.StatusDescription = ""
+		}
+		if endDate.Valid {
+			job.EndDate = endDate.Time
+		} else {
+			job.EndDate = time.Time{}
+		}
+		if filePath.Valid {
+			job.Filepath = filePath.String
+		} else {
+			job.Filepath = ""
+		}
+		if fileManager.Valid {
+			job.FileManager = fileManager.String
+		} else {
+			job.FileManager = ""
+		}
+		if asyncTaskId.Valid {
+			job.AsyncTaskID = asyncTaskId.String
+		} else {
+			job.AsyncTaskID = ""
+		}
+
+		jobs = append(jobs, job)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return &jobs, nil
+}
+
+func (ifj *ItineraryFileJob) defaultFindDead(fetchLimit int) (*[]ItineraryFileJob, error) {
+	query := `SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id
+	FROM itinerary_file_jobs WHERE status = 'deleted' ORDER BY creation_date ASC LIMIT ?`
+	rows, err := db.DB.Query(query, fetchLimit)
 	if err != nil {
 		return nil, err
 	}

@@ -131,6 +131,139 @@ func TestFileJobDefaultFindAliveById_Error(t *testing.T) {
 	}
 }
 
+func TestDefaultFindDead_Success(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	now := time.Now()
+	job1ID := int64(1)
+	job2ID := int64(2)
+	itineraryID := int64(10)
+	asyncTaskId1 := "dead-task-1"
+	asyncTaskId2 := "dead-task-2"
+
+	rows := sqlmock.NewRows([]string{
+		"id", "status", "status_description", "creation_date", "start_date", "end_date",
+		"file_path", "file_manager", "itinerary_id", "async_task_id",
+	}).
+		AddRow(job1ID, "deleted", "desc1", now, now.Add(1*time.Minute), now.Add(2*time.Minute), "/dead/file1", "local", itineraryID, asyncTaskId1).
+		AddRow(job2ID, "deleted", "desc2", now.Add(1*time.Hour), now.Add(2*time.Hour), now.Add(3*time.Hour), "/dead/file2", "s3", itineraryID, asyncTaskId2)
+
+	mock.ExpectQuery(`SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id
+	FROM itinerary_file_jobs WHERE status = 'deleted' ORDER BY creation_date ASC LIMIT \?`).
+		WithArgs(2).
+		WillReturnRows(rows)
+
+	job := &ItineraryFileJob{}
+	result, err := job.defaultFindDead(2)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Len(t, *result, 2)
+
+	assert.Equal(t, job1ID, (*result)[0].ID)
+	assert.Equal(t, "deleted", (*result)[0].Status)
+	assert.Equal(t, "desc1", (*result)[0].StatusDescription)
+	assert.Equal(t, "/dead/file1", (*result)[0].Filepath)
+	assert.Equal(t, "local", (*result)[0].FileManager)
+	assert.Equal(t, itineraryID, (*result)[0].ItineraryID)
+	assert.Equal(t, asyncTaskId1, (*result)[0].AsyncTaskID)
+
+	assert.Equal(t, job2ID, (*result)[1].ID)
+	assert.Equal(t, "deleted", (*result)[1].Status)
+	assert.Equal(t, "desc2", (*result)[1].StatusDescription)
+	assert.Equal(t, "/dead/file2", (*result)[1].Filepath)
+	assert.Equal(t, "s3", (*result)[1].FileManager)
+	assert.Equal(t, itineraryID, (*result)[1].ItineraryID)
+	assert.Equal(t, asyncTaskId2, (*result)[1].AsyncTaskID)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultFindDead_QueryError(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	mock.ExpectQuery(`SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id
+	FROM itinerary_file_jobs WHERE status = 'deleted' ORDER BY creation_date ASC LIMIT \?`).
+		WithArgs(5).
+		WillReturnError(sqlmock.ErrCancelled)
+
+	job := &ItineraryFileJob{}
+	result, err := job.defaultFindDead(5)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultFindDead_ScanError(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	// Return a row with a wrong type to cause scan error
+	rows := sqlmock.NewRows([]string{
+		"id", "status", "status_description", "creation_date", "start_date", "end_date",
+		"file_path", "file_manager", "itinerary_id", "async_task_id",
+	}).
+		AddRow("not-an-int", "deleted", "desc", time.Now(), time.Now(), time.Now(), "/file", "local", 1, "async-task")
+
+	mock.ExpectQuery(`SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id
+	FROM itinerary_file_jobs WHERE status = 'deleted' ORDER BY creation_date ASC LIMIT \?`).
+		WithArgs(1).
+		WillReturnRows(rows)
+
+	job := &ItineraryFileJob{}
+	result, err := job.defaultFindDead(1)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultFindDead_RowsErr(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	rows := sqlmock.NewRows([]string{
+		"id", "status", "status_description", "creation_date", "start_date", "end_date",
+		"file_path", "file_manager", "itinerary_id", "async_task_id",
+	}).
+		AddRow(1, "deleted", "desc", time.Now(), time.Now(), time.Now(), "/file", "local", 1, "async-task").
+		RowError(0, sqlmock.ErrCancelled)
+
+	mock.ExpectQuery(`SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id
+	FROM itinerary_file_jobs WHERE status = 'deleted' ORDER BY creation_date ASC LIMIT \?`).
+		WithArgs(1).
+		WillReturnRows(rows)
+
+	job := &ItineraryFileJob{}
+	result, err := job.defaultFindDead(1)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
 func TestDefaultGetJobsRunningOfUserCount_Success(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)

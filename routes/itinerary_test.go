@@ -100,7 +100,7 @@ func (m *mockJobsService) StopJob(_ *models.ItineraryFileJob) error {
 }
 
 func (m *mockJobsService) FailJob(_ string, _ *models.ItineraryFileJob) error {
-	return nil
+	return nil // unused in routes
 }
 
 func (m *mockJobsService) SoftDeleteJob(_ *models.ItineraryFileJob) error {
@@ -113,6 +113,10 @@ func (m *mockJobsService) SoftDeleteJobsByItineraryId(_ int64, _ *sql.Tx) error 
 
 func (m *mockJobsService) DeleteJob(_ *models.ItineraryFileJob) error {
 	return m.DeleteErr
+}
+
+func (m *mockJobsService) DeleteDeadJobs(_ int) error {
+	return nil // unused in routes
 }
 
 // For runItineraryFileJob

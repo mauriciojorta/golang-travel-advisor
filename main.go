@@ -2,6 +2,8 @@ package main
 
 import (
 	"os"
+	"strconv"
+	"time"
 
 	"example.com/travel-advisor/apis"
 	"example.com/travel-advisor/db"
@@ -73,6 +75,50 @@ func main() {
 
 	routes.RegisterRoutes(server)
 
+	// Start background cleanup process for dead itinerary file jobs
+	startDeadItineraryFileJobsCleanup()
+
 	server.Run(":8080") //localhost:8080
 
+}
+
+// This function triggers the full delection of "dead" itinerary file jobs (those marked in status 'deleted') through a periodic timer
+func startDeadItineraryFileJobsCleanup() {
+	// Initialize a ticker to run every 'n' minutes according to the value defined in the environment variables (10 minutes if absent there)
+	intervalInMinutesStr := os.Getenv("DEAD_ITINERARY_FILE_JOBS_TIMER_MINUTES_INTERVAL")
+	intervalInMinutes := 10
+	var err error
+	if intervalInMinutesStr != "" {
+		intervalInMinutes, err = strconv.Atoi(intervalInMinutesStr)
+		if err != nil {
+			log.Errorf("The format of DEAD_ITINERARY_FILE_JOBS_TIMER_MINUTES_INTERVAL environment property is incorrect: %v", err)
+			return
+		}
+	}
+
+	ticker := time.NewTicker(time.Duration(intervalInMinutes) * time.Minute)
+	go func() {
+
+		for range ticker.C {
+			jobsService := services.GetItineraryFileJobService()
+
+			fetchLimitStr := os.Getenv("DEAD_ITINERARY_FILE_JOBS_FETCH_LIMIT")
+			fetchLimit := 10
+			if fetchLimitStr != "" {
+				fetchLimit, err = strconv.Atoi(fetchLimitStr)
+				if err != nil {
+					log.Errorf("The format of DEAD_ITINERARY_FILE_JOBS_FETCH_LIMIT environment property is incorrect: %v", err)
+					return
+				}
+			}
+
+			log.Info("Running periodic cleanup of deleted itinerary files")
+			err := jobsService.DeleteDeadJobs(fetchLimit)
+			if err != nil {
+				log.Errorf("Error during periodic cleanup: %v", err)
+			}
+			log.Info("Periodic cleanup of deleted itinerary files was successful")
+
+		}
+	}()
 }

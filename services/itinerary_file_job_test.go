@@ -534,6 +534,9 @@ func TestHandleItineraryFileJob_CompleteJobFails(t *testing.T) {
 	utils.WriteLocalFile = func(path string, data []byte, perm os.FileMode) error {
 		return nil
 	}
+	utils.DeleteLocalFile = func(p string) error {
+		return nil
+	}
 
 	payload := ItineraryFileAsyncTaskPayload{
 		Itinerary:        it,
@@ -706,4 +709,140 @@ func TestItineraryFileJobService_DeleteJob_Success(t *testing.T) {
 	err := (&ItineraryFileJobService{}).DeleteJob(ifj)
 	assert.NoError(t, err)
 	assert.True(t, mgr.deleteFileCalled)
+}
+
+func TestItineraryFileJobService_DeleteDeadJobs_FindDeadFails(t *testing.T) {
+	origNewItineraryFileJob := models.NewItineraryFileJob
+	defer func() { models.NewItineraryFileJob = origNewItineraryFileJob }()
+
+	mockJob := mockItineraryFileJob()
+	mockJob.FindDead = func(limit int) (*[]models.ItineraryFileJob, error) {
+		return nil, errors.New("find dead fail")
+	}
+	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return mockJob }
+
+	svc := &ItineraryFileJobService{}
+	err := svc.DeleteDeadJobs(5)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to find dead jobs")
+}
+
+func TestItineraryFileJobService_DeleteDeadJobs_NoDeadJobs(t *testing.T) {
+	origNewItineraryFileJob := models.NewItineraryFileJob
+	defer func() { models.NewItineraryFileJob = origNewItineraryFileJob }()
+
+	mockJob := mockItineraryFileJob()
+	mockJob.FindDead = func(limit int) (*[]models.ItineraryFileJob, error) {
+		arr := []models.ItineraryFileJob{}
+		return &arr, nil
+	}
+	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return mockJob }
+
+	svc := &ItineraryFileJobService{}
+	err := svc.DeleteDeadJobs(0)
+	assert.NoError(t, err)
+}
+
+func TestItineraryFileJobService_DeleteDeadJobs_FileDeleteFails(t *testing.T) {
+	origNewItineraryFileJob := models.NewItineraryFileJob
+	defer func() { models.NewItineraryFileJob = origNewItineraryFileJob }()
+
+	mockDeadJob := mockItineraryFileJob()
+	mockDeadJob.ID = 123
+	mockDeadJob.FileManager = "mock"
+	mockDeadJob.Filepath = "dead/path"
+	mockDeadJob.DeleteJob = func() error { return nil }
+
+	mockJob := mockItineraryFileJob()
+	mockJob.FindDead = func(limit int) (*[]models.ItineraryFileJob, error) {
+		arr := []models.ItineraryFileJob{*mockDeadJob}
+		return &arr, nil
+	}
+	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return mockJob }
+
+	mgr := &mockFileManager{deleteFileErr: errors.New("file delete fail")}
+	GetFileManager = func(name string) FileManagerInterface { return mgr }
+
+	svc := &ItineraryFileJobService{}
+	err := svc.DeleteDeadJobs(1)
+	assert.NoError(t, err)
+	assert.True(t, mgr.deleteFileCalled)
+}
+
+func TestItineraryFileJobService_DeleteDeadJobs_DeleteJobFails(t *testing.T) {
+	origNewItineraryFileJob := models.NewItineraryFileJob
+	defer func() { models.NewItineraryFileJob = origNewItineraryFileJob }()
+
+	mockDeadJob := mockItineraryFileJob()
+	mockDeadJob.ID = 456
+	mockDeadJob.FileManager = "mock"
+	mockDeadJob.Filepath = "dead/path"
+	mockDeadJob.DeleteJob = func() error { return errors.New("delete job fail") }
+
+	mockJob := mockItineraryFileJob()
+	mockJob.FindDead = func(limit int) (*[]models.ItineraryFileJob, error) {
+		arr := []models.ItineraryFileJob{*mockDeadJob}
+		return &arr, nil
+	}
+	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return mockJob }
+
+	mgr := &mockFileManager{}
+	GetFileManager = func(name string) FileManagerInterface { return mgr }
+
+	svc := &ItineraryFileJobService{}
+	err := svc.DeleteDeadJobs(1)
+	assert.NoError(t, err)
+	assert.True(t, mgr.deleteFileCalled)
+}
+
+func TestItineraryFileJobService_DeleteDeadJobs_Success(t *testing.T) {
+	origNewItineraryFileJob := models.NewItineraryFileJob
+	defer func() { models.NewItineraryFileJob = origNewItineraryFileJob }()
+
+	mockDeadJob := mockItineraryFileJob()
+	mockDeadJob.ID = 789
+	mockDeadJob.FileManager = "mock"
+	mockDeadJob.Filepath = "dead/path"
+	mockDeadJob.DeleteJob = func() error { return nil }
+
+	mockJob := mockItineraryFileJob()
+	mockJob.FindDead = func(limit int) (*[]models.ItineraryFileJob, error) {
+		arr := []models.ItineraryFileJob{*mockDeadJob}
+		return &arr, nil
+	}
+	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return mockJob }
+
+	mgr := &mockFileManager{}
+	GetFileManager = func(name string) FileManagerInterface { return mgr }
+
+	svc := &ItineraryFileJobService{}
+	err := svc.DeleteDeadJobs(1)
+	assert.NoError(t, err)
+	assert.True(t, mgr.deleteFileCalled)
+}
+
+func TestItineraryFileJobService_DeleteDeadJobs_AbsentFileSuccess(t *testing.T) {
+	origNewItineraryFileJob := models.NewItineraryFileJob
+	defer func() { models.NewItineraryFileJob = origNewItineraryFileJob }()
+
+	mockDeadJob := mockItineraryFileJob()
+	mockDeadJob.ID = 789
+	mockDeadJob.FileManager = "mock"
+	mockDeadJob.Filepath = ""
+	mockDeadJob.DeleteJob = func() error { return nil }
+
+	mockJob := mockItineraryFileJob()
+	mockJob.FindDead = func(limit int) (*[]models.ItineraryFileJob, error) {
+		arr := []models.ItineraryFileJob{*mockDeadJob}
+		return &arr, nil
+	}
+	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return mockJob }
+
+	mgr := &mockFileManager{}
+	GetFileManager = func(name string) FileManagerInterface { return mgr }
+
+	svc := &ItineraryFileJobService{}
+	err := svc.DeleteDeadJobs(1)
+	assert.NoError(t, err)
+	assert.False(t, mgr.deleteFileCalled)
 }
