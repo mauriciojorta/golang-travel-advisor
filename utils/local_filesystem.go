@@ -6,6 +6,26 @@ import (
 	"path/filepath"
 )
 
+var OpenLocalFile = func(p string) (*os.File, error) {
+	// Check if the file exists
+	if _, err := os.Stat(p); os.IsNotExist(err) {
+		return nil, fmt.Errorf("file %s does not exist: %w", p, err)
+	}
+
+	// Check if the file is a directory
+	if fi, err := os.Stat(p); err == nil && fi.IsDir() {
+		return nil, fmt.Errorf("path %s is a directory, not a file", p)
+	}
+
+	// Open the file for reading
+	file, err := os.Open(p)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open file %s: %w", p, err)
+	}
+
+	return file, nil
+}
+
 var WriteLocalFile = func(p string, content []byte, perm os.FileMode) error {
 	// Create directories leading up to the file
 	if err := os.MkdirAll(filepath.Dir(p), perm); err != nil {

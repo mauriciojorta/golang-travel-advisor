@@ -20,6 +20,7 @@ func RegisterRoutes(server *gin.Engine) {
 	authenticated.POST("/itineraries/:itineraryId/jobs", runItineraryFileJob)
 	authenticated.GET("/itineraries/:itineraryId/jobs", getAllItineraryFileJobs)
 	authenticated.GET("/itineraries/:itineraryId/jobs/:itineraryJobId", getItineraryJob)
+	authenticated.GET("/itineraries/:itineraryId/jobs/:itineraryJobId/file", downloadItineraryJobFile)
 	authenticated.PUT("/itineraries/:itineraryId/jobs/:itineraryJobId/stop", stopItineraryJob)
 	authenticated.DELETE("/itineraries/:itineraryId/jobs/:itineraryJobId", deleteItineraryJob)
 

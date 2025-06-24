@@ -5,9 +5,12 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
+	"time"
 
 	"example.com/travel-advisor/models"
 	"example.com/travel-advisor/services"
@@ -58,19 +61,23 @@ func (m *mockItineraryService) Delete(_ int64) error {
 
 // For runItineraryFileJob
 type mockJobsService struct {
-	GetJobsRunningOfUserCountVal int
-	GetJobsRunningOfUserCountErr error
-	PrepareJobTask               *services.ItineraryFileAsyncTaskPayload
-	PrepareJobErr                error
-	StopJobErr                   error
-	AddAsyncTaskIdErr            error
-	FindByItineraryIdResult      *[]models.ItineraryFileJob
-	FindByItineraryIdErr         error
-	FindByIdResult               *models.ItineraryFileJob
-	FindByIdErr                  error
-	SoftDeleteErr                error
-	SoftDeleteByItineraryId      error
-	DeleteErr                    error
+	GetJobsRunningOfUserCountVal   int
+	GetJobsRunningOfUserCountErr   error
+	PrepareJobTask                 *services.ItineraryFileAsyncTaskPayload
+	PrepareJobErr                  error
+	StopJobErr                     error
+	AddAsyncTaskIdErr              error
+	FindByItineraryIdResult        *[]models.ItineraryFileJob
+	FindByItineraryIdErr           error
+	FindByIdResult                 *models.ItineraryFileJob
+	FindByIdErr                    error
+	FindAliveLightweightByIdResult *models.ItineraryFileJob
+	FindAliveLightweightByIdErr    error
+	OpenItineraryJobFileResult     io.ReadSeekCloser
+	OpenItineraryJobFileErr        error
+	SoftDeleteErr                  error
+	SoftDeleteByItineraryId        error
+	DeleteErr                      error
 }
 
 func (m *mockJobsService) GetJobsRunningOfUserCount(_ int64) (int, error) {
@@ -88,7 +95,7 @@ func (m *mockJobsService) FindAliveById(_ int64) (*models.ItineraryFileJob, erro
 }
 
 func (m *mockJobsService) FindAliveLightweightById(_ int64) (*models.ItineraryFileJob, error) {
-	return m.FindByIdResult, m.FindByIdErr
+	return m.FindAliveLightweightByIdResult, m.FindAliveLightweightByIdErr //unused in routes
 }
 
 func (m *mockJobsService) FindAliveByItineraryId(_ int64) (*[]models.ItineraryFileJob, error) {
@@ -117,6 +124,10 @@ func (m *mockJobsService) DeleteJob(_ *models.ItineraryFileJob) error {
 
 func (m *mockJobsService) DeleteDeadJobs(_ int) error {
 	return nil // unused in routes
+}
+
+func (m *mockJobsService) OpenItineraryJobFile(itineraryFileJob *models.ItineraryFileJob) (io.ReadSeekCloser, error) {
+	return m.OpenItineraryJobFileResult, m.OpenItineraryJobFileErr
 }
 
 // For runItineraryFileJob
@@ -1311,7 +1322,7 @@ func Test_deleteItineraryJob_ItineraryJobNotFound(t *testing.T) {
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
-		return &mockJobsService{FindByIdErr: sql.ErrNoRows}
+		return &mockJobsService{FindAliveLightweightByIdErr: sql.ErrNoRows}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -1333,7 +1344,7 @@ func Test_deleteItineraryJob_ItineraryJobUnexpectedError(t *testing.T) {
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
-		return &mockJobsService{FindByIdErr: errors.New("unexpected error")}
+		return &mockJobsService{FindAliveLightweightByIdErr: errors.New("unexpected error")}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -1355,7 +1366,7 @@ func Test_deleteItineraryJob_Forbidden_JobOwnership(t *testing.T) {
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
-		return &mockJobsService{FindByIdResult: &models.ItineraryFileJob{ID: 2, ItineraryID: 99}}
+		return &mockJobsService{FindAliveLightweightByIdResult: &models.ItineraryFileJob{ID: 2, ItineraryID: 99}}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -1378,8 +1389,8 @@ func Test_deleteItineraryJob_SoftDeleteJob_Error(t *testing.T) {
 	defer func() { services.GetItineraryFileJobService = origJobs }()
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
 		return &mockJobsService{
-			FindByIdResult: &models.ItineraryFileJob{ID: 2, ItineraryID: 1},
-			SoftDeleteErr:  errors.New("delete error"),
+			FindAliveLightweightByIdResult: &models.ItineraryFileJob{ID: 2, ItineraryID: 1},
+			SoftDeleteErr:                  errors.New("delete error"),
 		}
 	}
 	w := httptest.NewRecorder()
@@ -1403,8 +1414,8 @@ func Test_deleteItineraryJob_Success(t *testing.T) {
 	defer func() { services.GetItineraryFileJobService = origJobs }()
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
 		return &mockJobsService{
-			FindByIdResult: &models.ItineraryFileJob{ID: 2, ItineraryID: 1},
-			SoftDeleteErr:  nil,
+			FindAliveLightweightByIdResult: &models.ItineraryFileJob{ID: 2, ItineraryID: 1},
+			SoftDeleteErr:                  nil,
 		}
 	}
 	w := httptest.NewRecorder()
@@ -1631,3 +1642,303 @@ func Test_stopItineraryJob_Success(t *testing.T) {
 	stopItineraryJob(c)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
+func Test_downloadItineraryJobFile_Unauthorized(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+}
+
+func Test_downloadItineraryJobFile_BadRequest_NoItineraryId(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func Test_downloadItineraryJobFile_BadRequest_InvalidItineraryId(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "abc"}}
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func Test_downloadItineraryJobFile_ItineraryNotFound(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindLightweightByIdErr: sql.ErrNoRows}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func Test_downloadItineraryJobFile_ItineraryUnexpectedError(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindLightweightByIdErr: errors.New("unexpected error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_downloadItineraryJobFile_ItineraryForbidden(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindLightweightByIdIt: &models.Itinerary{ID: 1, OwnerID: 2}}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func Test_downloadItineraryJobFile_BadRequest_NoItineraryJobId(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindLightweightByIdIt: &models.Itinerary{ID: 1, OwnerID: 1}}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func Test_downloadItineraryJobFile_BadRequest_InvalidItineraryJobId(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindLightweightByIdIt: &models.Itinerary{ID: 1, OwnerID: 1}}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{
+		{Key: "itineraryId", Value: "1"},
+		{Key: "itineraryJobId", Value: "abc"},
+	}
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func Test_downloadItineraryJobFile_ItineraryJobNotFound(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindLightweightByIdIt: &models.Itinerary{ID: 1, OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{FindByIdErr: sql.ErrNoRows}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{
+		{Key: "itineraryId", Value: "1"},
+		{Key: "itineraryJobId", Value: "2"},
+	}
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+func Test_downloadItineraryJobFile_ItineraryJobUnexpectedError(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindLightweightByIdIt: &models.Itinerary{ID: 1, OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{FindByIdErr: errors.New("unexpected error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{
+		{Key: "itineraryId", Value: "1"},
+		{Key: "itineraryJobId", Value: "2"},
+	}
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_downloadItineraryJobFile_Forbidden_JobOwnership(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindLightweightByIdIt: &models.Itinerary{ID: 1, OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{FindByIdResult: &models.ItineraryFileJob{ID: 2, ItineraryID: 99}}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{
+		{Key: "itineraryId", Value: "1"},
+		{Key: "itineraryJobId", Value: "2"},
+	}
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
+func Test_downloadItineraryJobFile_JobFilePathEmpty(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindLightweightByIdIt: &models.Itinerary{ID: 1, OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{FindByIdResult: &models.ItineraryFileJob{ID: 2, ItineraryID: 1, Filepath: ""}}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{
+		{Key: "itineraryId", Value: "1"},
+		{Key: "itineraryJobId", Value: "2"},
+	}
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+type fakeReadSeekCloser struct {
+	io.Reader
+}
+
+func (f *fakeReadSeekCloser) Close() error                                 { return nil }
+func (f *fakeReadSeekCloser) Seek(offset int64, whence int) (int64, error) { return 0, nil }
+
+type fakeFile struct {
+	fakeReadSeekCloser
+	name string
+	size int64
+}
+
+func (f *fakeFile) Stat() (os.FileInfo, error) {
+	return &fakeFileInfo{name: f.name, size: f.size}, nil
+}
+func (f *fakeFile) Name() string { return f.name }
+
+type fakeFileInfo struct {
+	name string
+	size int64
+}
+
+func (fi *fakeFileInfo) Name() string           { return fi.name }
+func (fi *fakeFileInfo) Size() int64            { return fi.size }
+func (fi *fakeFileInfo) Mode() os.FileMode      { return 0444 }
+func (fi *fakeFileInfo) ModTime() (t time.Time) { return }
+func (fi *fakeFileInfo) IsDir() bool            { return false }
+func (fi *fakeFileInfo) Sys() interface{}       { return nil }
+
+func Test_downloadItineraryJobFile_OpenFile_Error(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindLightweightByIdIt: &models.Itinerary{ID: 1, OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{
+			FindByIdResult:          &models.ItineraryFileJob{ID: 2, ItineraryID: 1, Filepath: "file.txt"},
+			OpenItineraryJobFileErr: errors.New("open error"),
+		}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{
+		{Key: "itineraryId", Value: "1"},
+		{Key: "itineraryJobId", Value: "2"},
+	}
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_downloadItineraryJobFile_FileNotOsFile(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindLightweightByIdIt: &models.Itinerary{ID: 1, OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{
+			FindByIdResult:             &models.ItineraryFileJob{ID: 2, ItineraryID: 1, Filepath: "file.txt"},
+			OpenItineraryJobFileResult: &fakeReadSeekCloser{Reader: bytes.NewReader([]byte("data"))},
+		}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{
+		{Key: "itineraryId", Value: "1"},
+		{Key: "itineraryJobId", Value: "2"},
+	}
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+type statErrorFile struct {
+	fakeReadSeekCloser
+}
+
+func (f *statErrorFile) Stat() (os.FileInfo, error) {
+	return nil, errors.New("stat error")
+}
+
+func Test_downloadItineraryJobFile_FileStat_Error(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindLightweightByIdIt: &models.Itinerary{ID: 1, OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	badFile := &statErrorFile{fakeReadSeekCloser{Reader: bytes.NewReader([]byte("data"))}}
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{
+			FindByIdResult:             &models.ItineraryFileJob{ID: 2, ItineraryID: 1, Filepath: "file.txt"},
+			OpenItineraryJobFileResult: badFile,
+		}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{
+		{Key: "itineraryId", Value: "1"},
+		{Key: "itineraryJobId", Value: "2"},
+	}
+	downloadItineraryJobFile(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+// Note: A full success test for file download would require more advanced file and http mocking.

@@ -277,6 +277,81 @@ func getItineraryJob(context *gin.Context) {
 
 }
 
+func downloadItineraryJobFile(context *gin.Context) {
+	itinerary := getAndValidateItinerary(context, false)
+	if itinerary == nil {
+		return
+	}
+
+	itineraryJobIdStr := context.Param("itineraryJobId")
+	if itineraryJobIdStr == "" {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Itinerary Job ID is required."})
+		return
+	}
+
+	// Convert itineraryJobId from string to int64
+	var itineraryJobId int64
+	_, err := fmt.Sscan(itineraryJobIdStr, &itineraryJobId)
+	if err != nil {
+		context.JSON(http.StatusBadRequest, gin.H{"message": "Invalid itinerary job ID."})
+		return
+	}
+
+	jobsService := services.GetItineraryFileJobService()
+
+	itineraryJob, err := jobsService.FindAliveById(itineraryJobId)
+	if err != nil {
+		if strings.Contains(err.Error(), sql.ErrNoRows.Error()) {
+			context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary job not found."})
+		} else {
+			context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not get itinerary job. Try again later."})
+		}
+		return
+	}
+
+	itineraryJob = validateItineraryJobOwnership(itinerary.ID, itineraryJob, context)
+	if itineraryJob == nil {
+		return
+	}
+
+	filePath := itineraryJob.Filepath
+	if filePath == "" {
+		context.JSON(http.StatusNotFound, gin.H{"message": "Itinerary job file not found."})
+		return
+	}
+
+	file, err := jobsService.OpenItineraryJobFile(itineraryJob)
+	if err != nil {
+		log.Error("Error opening itinerary job file: ", err)
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not open itinerary job file. Try again later."})
+		return
+	}
+	defer file.Close()
+
+	// Assert file to *os.File to access Stat()
+	osFile, ok := file.(*os.File)
+	if !ok {
+		log.Error("File is not an *os.File, cannot get file info")
+		// TODO in the future, instead of returning an error, we could handle different file types (like a S3 file)
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Internal server error. Try again later."})
+		return
+	}
+
+	fileInfo, err := osFile.Stat()
+	if err != nil {
+		log.Error("Error getting file info: ", err)
+		context.JSON(http.StatusInternalServerError, gin.H{"message": "Could not get file info. Try again later."})
+		return
+	}
+	context.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileInfo.Name()))
+	context.Header("Content-Type", "application/octet-stream")
+	context.Header("Content-Length", strconv.FormatInt(fileInfo.Size(), 10))
+	http.ServeContent(context.Writer, context.Request, fileInfo.Name(), fileInfo.ModTime(), file)
+	context.Status(http.StatusOK)
+	// Note: The file will be served directly to the client, so no further action is needed here.
+
+}
+
 func stopItineraryJob(context *gin.Context) {
 	itinerary := getAndValidateItinerary(context, false)
 	if itinerary == nil {

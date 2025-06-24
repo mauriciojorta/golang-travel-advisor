@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"time"
@@ -23,6 +24,7 @@ type ItineraryFileJobServiceInterface interface {
 	FindAliveById(id int64) (*models.ItineraryFileJob, error)
 	FindAliveLightweightById(id int64) (*models.ItineraryFileJob, error)
 	FindAliveByItineraryId(itineraryId int64) (*[]models.ItineraryFileJob, error)
+	OpenItineraryJobFile(itineraryFileJob *models.ItineraryFileJob) (io.ReadSeekCloser, error)
 	GetJobsRunningOfUserCount(userId int64) (int, error)
 	PrepareJob(itinerary *models.Itinerary) (*ItineraryFileAsyncTaskPayload, error)
 	AddAsyncTaskId(asyncTaskId string, itineraryFileJob *models.ItineraryFileJob) error
@@ -102,6 +104,24 @@ func (ifjs *ItineraryFileJobService) FindAliveByItineraryId(itineraryId int64) (
 	}
 	job := models.NewItineraryFileJob(itineraryId)
 	return job.FindAliveByItineraryId()
+}
+
+func (itineraryFileJobService *ItineraryFileJobService) OpenItineraryJobFile(itineraryFileJob *models.ItineraryFileJob) (io.ReadSeekCloser, error) {
+	if itineraryFileJob == nil {
+		return nil, errors.New("itinerary file job instance is nil")
+	}
+	if itineraryFileJob.Filepath == "" {
+		return nil, errors.New("itinerary file job filepath is empty")
+	}
+
+	fileManager := GetFileManager(itineraryFileJob.FileManager)
+	file, err := fileManager.OpenFile(itineraryFileJob.Filepath)
+	if err != nil {
+		log.Errorf("failed to open itinerary job file: %v", err)
+		return nil, errors.New("failed to open itinerary job file")
+	}
+
+	return file, nil
 }
 
 // GetJobsRunningOfUserCount retrieves the count of running jobs for a user
@@ -380,7 +400,7 @@ func HandleItineraryFileJob(ctx context.Context, t *asynq.Task) error {
 	}
 
 	defer func(finalError *error, filepath string, fileManager FileManagerInterface) {
-		if finalError != nil {
+		if *finalError != nil {
 			deleteFileError := fileManager.DeleteFile(filepath)
 			if deleteFileError != nil {
 				log.Warnf("Error deleting file %v after unexpected failure processing job: %v", filepath, deleteFileError)

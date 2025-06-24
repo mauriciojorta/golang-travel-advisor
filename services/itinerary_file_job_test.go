@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"testing"
 	"time"
@@ -650,6 +651,8 @@ func TestItineraryFileJobService_SoftDeleteJobsByItineraryId_Success(t *testing.
 type mockFileManager struct {
 	deleteFileCalled bool
 	deleteFileErr    error
+	returnReader     io.ReadSeekCloser
+	openFileErr      error
 }
 
 func (m *mockFileManager) DeleteFile(path string) error {
@@ -659,6 +662,9 @@ func (m *mockFileManager) DeleteFile(path string) error {
 
 func (m *mockFileManager) SaveContentInFile(path string, content *string) error { return nil }
 
+func (m *mockFileManager) OpenFile(path string) (io.ReadSeekCloser, error) {
+	return m.returnReader, m.openFileErr
+}
 func TestItineraryFileJobService_DeleteJob_NilJob(t *testing.T) {
 	svc := &ItineraryFileJobService{}
 	err := svc.DeleteJob(nil)
@@ -845,4 +851,50 @@ func TestItineraryFileJobService_DeleteDeadJobs_AbsentFileSuccess(t *testing.T) 
 	err := svc.DeleteDeadJobs(1)
 	assert.NoError(t, err)
 	assert.False(t, mgr.deleteFileCalled)
+}
+func TestItineraryFileJobService_OpenItineraryJobFile_NilJob(t *testing.T) {
+	svc := &ItineraryFileJobService{}
+	file, err := svc.OpenItineraryJobFile(nil)
+	assert.Nil(t, file)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "itinerary file job instance is nil")
+}
+
+func TestItineraryFileJobService_OpenItineraryJobFile_EmptyFilepath(t *testing.T) {
+	svc := &ItineraryFileJobService{}
+	job := &models.ItineraryFileJob{Filepath: ""}
+	file, err := svc.OpenItineraryJobFile(job)
+	assert.Nil(t, file)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "itinerary file job filepath is empty")
+}
+
+type mockReadSeeker struct{}
+
+func (m *mockReadSeeker) Read(p []byte) (n int, err error)             { return 0, io.EOF }
+func (m *mockReadSeeker) Close() error                                 { return nil }
+func (m *mockReadSeeker) Seek(offset int64, whence int) (int64, error) { return 0, nil }
+
+func TestItineraryFileJobService_OpenItineraryJobFile_OpenFileFails(t *testing.T) {
+	svc := &ItineraryFileJobService{}
+	job := &models.ItineraryFileJob{Filepath: "some/path", FileManager: "mock"}
+	mgr := &mockFileManager{openFileErr: errors.New("fail open")}
+	GetFileManager = func(name string) FileManagerInterface { return mgr }
+
+	file, err := svc.OpenItineraryJobFile(job)
+	assert.Nil(t, file)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to open itinerary job file")
+}
+
+func TestItineraryFileJobService_OpenItineraryJobFile_Success(t *testing.T) {
+	svc := &ItineraryFileJobService{}
+	job := &models.ItineraryFileJob{Filepath: "some/path", FileManager: "mock"}
+	reader := &mockReadSeeker{}
+	mgr := &mockFileManager{returnReader: reader}
+	GetFileManager = func(name string) FileManagerInterface { return mgr }
+
+	file, err := svc.OpenItineraryJobFile(job)
+	assert.NoError(t, err)
+	assert.Equal(t, reader, file)
 }

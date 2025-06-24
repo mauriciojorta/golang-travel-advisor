@@ -1,10 +1,15 @@
 package services
 
-import "example.com/travel-advisor/utils"
+import (
+	"io"
+
+	"example.com/travel-advisor/utils"
+)
 
 type FileManagerInterface interface {
 	SaveContentInFile(filepath string, content *string) error
 	DeleteFile(filepath string) error
+	OpenFile(filepath string) (io.ReadSeekCloser, error)
 }
 
 type LocalFileManager struct {
@@ -18,6 +23,14 @@ func (lfm *LocalFileManager) SaveContentInFile(filepath string, content *string)
 func (lfm *LocalFileManager) DeleteFile(filepath string) error {
 	err := utils.DeleteLocalFile(filepath)
 	return err
+}
+
+func (lfm *LocalFileManager) OpenFile(filepath string) (io.ReadSeekCloser, error) {
+	file, err := utils.OpenLocalFile(filepath)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
 }
 
 var GetFileManager = func(fileManagerType string) FileManagerInterface {

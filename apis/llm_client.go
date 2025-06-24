@@ -55,7 +55,7 @@ func InitLlmClient() error {
 var CallLlm = func(messages []llms.MessageContent) (*string, error) {
 
 	ctx := context.Background()
-	response, err := llmClient.GenerateContent(ctx, messages, llms.WithTemperature(0.8))
+	response, err := llmClient.GenerateContent(ctx, messages, llms.WithTemperature(0.8), llms.WithMinLength(1500), llms.WithMaxLength(2000))
 
 	if err != nil {
 		log.Error(err)
