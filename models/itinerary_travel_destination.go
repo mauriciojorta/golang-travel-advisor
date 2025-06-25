@@ -17,11 +17,26 @@ type ItineraryTravelDestination struct {
 	CreationDate  *time.Time `json:"creationDate"`
 	UpdateDate    *time.Time `json:"updateDate"`
 
-	FindByItineraryId     func() (*[]ItineraryTravelDestination, error) `json:"-"`
-	Create                func(*sql.Tx) error                           `json:"-"`
-	Update                func() error                                  `json:"-"`
-	Delete                func() error                                  `json:"-"`
-	DeleteByItineraryIdTx func(*sql.Tx) error                           `json:"-"`
+	FindByItineraryId     func(itineraryId int64) (*[]ItineraryTravelDestination, error) `json:"-"`
+	Create                func(*sql.Tx) error                                            `json:"-"`
+	Update                func() error                                                   `json:"-"`
+	Delete                func() error                                                   `json:"-"`
+	DeleteByItineraryIdTx func(itineraryId int64, tx *sql.Tx) error                      `json:"-"`
+}
+
+var InitItineraryTravelDestination = func() *ItineraryTravelDestination {
+	return initItineraryTravelDestinationFunctions(&ItineraryTravelDestination{})
+}
+
+var initItineraryTravelDestinationFunctions = func(destination *ItineraryTravelDestination) *ItineraryTravelDestination {
+	// Set default implementations for Find, Create, Update, and Delete
+	destination.FindByItineraryId = destination.defaultFindByItineraryId
+	destination.Create = destination.defaultCreate
+	destination.Update = destination.defaultUpdate
+	destination.Delete = destination.defaultDelete
+	destination.DeleteByItineraryIdTx = destination.defaultDeleteByItineraryIdTx
+
+	return destination
 }
 
 var NewItineraryTravelDestination = func(country string, city string, itineraryId int64, arrivalDate time.Time, departureDate time.Time) *ItineraryTravelDestination {
@@ -33,21 +48,14 @@ var NewItineraryTravelDestination = func(country string, city string, itineraryI
 		DepartureDate: departureDate,
 	}
 
-	// Set default implementations for Find, Create, Update, and Delete
-	destination.FindByItineraryId = destination.defaultFindByItineraryId
-	destination.Create = destination.defaultCreate
-	destination.Update = destination.defaultUpdate
-	destination.Delete = destination.defaultDelete
-	destination.DeleteByItineraryIdTx = destination.defaultDeleteByItineraryIdTx
-
-	return destination
+	return initItineraryTravelDestinationFunctions(destination)
 }
 
-func (d *ItineraryTravelDestination) defaultFindByItineraryId() (*[]ItineraryTravelDestination, error) {
+func (d *ItineraryTravelDestination) defaultFindByItineraryId(itineraryId int64) (*[]ItineraryTravelDestination, error) {
 
 	query := `SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date
 	FROM itinerary_travel_destinations WHERE itinerary_id = ? ORDER BY arrival_date ASC`
-	destRows, err := db.DB.Query(query, d.ItineraryID)
+	destRows, err := db.DB.Query(query, itineraryId)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +138,7 @@ func (d *ItineraryTravelDestination) defaultDelete() error {
 	return nil
 }
 
-func (d *ItineraryTravelDestination) defaultDeleteByItineraryIdTx(tx *sql.Tx) error {
+func (d *ItineraryTravelDestination) defaultDeleteByItineraryIdTx(itineraryId int64, tx *sql.Tx) error {
 	query := `DELETE FROM itinerary_travel_destinations WHERE itinerary_id = ?`
 
 	stmt, err := tx.Prepare(query)
@@ -140,7 +148,7 @@ func (d *ItineraryTravelDestination) defaultDeleteByItineraryIdTx(tx *sql.Tx) er
 
 	defer stmt.Close()
 
-	_, err = stmt.Exec(d.ItineraryID)
+	_, err = stmt.Exec(itineraryId)
 	if err != nil {
 		return err
 	}

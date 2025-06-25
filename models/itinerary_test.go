@@ -18,11 +18,11 @@ func TestItineraryDefaultFindById_WithDestinationsSuccess(t *testing.T) {
 	db.DB = dbMock
 
 	now := time.Now()
-	itinerary := &Itinerary{ID: 1}
+	itinerary := &Itinerary{}
 
 	// Mock main itinerary row
 	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE id = \\?").
-		WithArgs(itinerary.ID).
+		WithArgs(1).
 		WillReturnRows(
 			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
 				AddRow(1, "Test Title", "Test Description", "A test trip", 2, time.Now(), time.Now().Add(2*time.Hour)),
@@ -30,24 +30,24 @@ func TestItineraryDefaultFindById_WithDestinationsSuccess(t *testing.T) {
 
 	// Mock travel destinations rows
 	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
-		WithArgs(itinerary.ID).
+		WithArgs(1).
 		WillReturnRows(
 			sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date", "creation_date", "update_date"}).
 				AddRow(10, "Country1", "City1", 1, now, now.Add(12*time.Hour), time.Now(), time.Now().Add(2*time.Hour)).
 				AddRow(11, "Country2", "City2", 1, now.Add(12*time.Hour), now.Add(24*time.Hour), time.Now(), time.Now().Add(2*time.Hour)),
 		)
 
-	err = itinerary.defaultFindById(true)
+	it, err := itinerary.defaultFindById(1, true)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(1), itinerary.ID)
-	assert.Equal(t, "Test Title", itinerary.Title)
-	assert.Equal(t, "Test Description", itinerary.Description)
-	assert.Equal(t, "A test trip", *itinerary.Notes)
-	assert.Equal(t, int64(2), itinerary.OwnerID)
-	assert.Len(t, (*itinerary.TravelDestinations), 2)
-	assert.Equal(t, int64(10), (*itinerary.TravelDestinations)[0].ID)
-	assert.Equal(t, "Country1", (*itinerary.TravelDestinations)[0].Country)
-	assert.Equal(t, "City1", (*itinerary.TravelDestinations)[0].City)
+	assert.Equal(t, int64(1), it.ID)
+	assert.Equal(t, "Test Title", it.Title)
+	assert.Equal(t, "Test Description", it.Description)
+	assert.Equal(t, "A test trip", *it.Notes)
+	assert.Equal(t, int64(2), it.OwnerID)
+	assert.Len(t, (*it.TravelDestinations), 2)
+	assert.Equal(t, int64(10), (*it.TravelDestinations)[0].ID)
+	assert.Equal(t, "Country1", (*it.TravelDestinations)[0].Country)
+	assert.Equal(t, "City1", (*it.TravelDestinations)[0].City)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -57,24 +57,24 @@ func TestItineraryDefaultFindById_WithoutDestinationsSuccess(t *testing.T) {
 	defer dbMock.Close()
 	db.DB = dbMock
 
-	itinerary := &Itinerary{ID: 1}
+	itinerary := &Itinerary{}
 
 	// Mock main itinerary row
 	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE id = \\?").
-		WithArgs(itinerary.ID).
+		WithArgs(1).
 		WillReturnRows(
 			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
 				AddRow(1, "Test Title", "Test Description", "A test trip", 2, time.Now(), time.Now().Add(2*time.Hour)),
 		)
 
-	err = itinerary.defaultFindById(false)
+	it, err := itinerary.defaultFindById(1, false)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(1), itinerary.ID)
-	assert.Equal(t, "Test Title", itinerary.Title)
-	assert.Equal(t, "Test Description", itinerary.Description)
-	assert.Equal(t, "A test trip", *itinerary.Notes)
-	assert.Equal(t, int64(2), itinerary.OwnerID)
-	assert.Nil(t, itinerary.TravelDestinations)
+	assert.Equal(t, int64(1), it.ID)
+	assert.Equal(t, "Test Title", it.Title)
+	assert.Equal(t, "Test Description", it.Description)
+	assert.Equal(t, "A test trip", *it.Notes)
+	assert.Equal(t, int64(2), it.OwnerID)
+	assert.Nil(t, it.TravelDestinations)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -85,11 +85,11 @@ func TestItineraryDefaultFindById_WithDestinationsSuccessNullNotes(t *testing.T)
 	db.DB = dbMock
 
 	now := time.Now()
-	itinerary := &Itinerary{ID: 1}
+	itinerary := &Itinerary{}
 
 	// Mock main itinerary row
 	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE id = \\?").
-		WithArgs(itinerary.ID).
+		WithArgs(1).
 		WillReturnRows(
 			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
 				AddRow(1, "Test Title", "Test Description", nil, 2, time.Now(), time.Now().Add(2*time.Hour)),
@@ -97,24 +97,24 @@ func TestItineraryDefaultFindById_WithDestinationsSuccessNullNotes(t *testing.T)
 
 	// Mock travel destinations rows
 	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
-		WithArgs(itinerary.ID).
+		WithArgs(1).
 		WillReturnRows(
 			sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date", "creation_date", "update_date"}).
 				AddRow(10, "Country1", "City1", 1, now, now.Add(12*time.Hour), time.Now(), time.Now().Add(2*time.Hour)).
 				AddRow(11, "Country2", "City2", 1, now.Add(12*time.Hour), now.Add(24*time.Hour), time.Now(), time.Now().Add(2*time.Hour)),
 		)
 
-	err = itinerary.defaultFindById(true)
+	it, err := itinerary.defaultFindById(1, true)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(1), itinerary.ID)
-	assert.Equal(t, "Test Title", itinerary.Title)
-	assert.Equal(t, "Test Description", itinerary.Description)
-	assert.Nil(t, itinerary.Notes)
-	assert.Equal(t, int64(2), itinerary.OwnerID)
-	assert.Len(t, (*itinerary.TravelDestinations), 2)
-	assert.Equal(t, int64(10), (*itinerary.TravelDestinations)[0].ID)
-	assert.Equal(t, "Country1", (*itinerary.TravelDestinations)[0].Country)
-	assert.Equal(t, "City1", (*itinerary.TravelDestinations)[0].City)
+	assert.Equal(t, int64(1), it.ID)
+	assert.Equal(t, "Test Title", it.Title)
+	assert.Equal(t, "Test Description", it.Description)
+	assert.Nil(t, it.Notes)
+	assert.Equal(t, int64(2), it.OwnerID)
+	assert.Len(t, (*it.TravelDestinations), 2)
+	assert.Equal(t, int64(10), (*it.TravelDestinations)[0].ID)
+	assert.Equal(t, "Country1", (*it.TravelDestinations)[0].Country)
+	assert.Equal(t, "City1", (*it.TravelDestinations)[0].City)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -124,13 +124,13 @@ func TestItineraryDefaultFindById_RowScanError(t *testing.T) {
 	defer dbMock.Close()
 	db.DB = dbMock
 
-	itinerary := &Itinerary{ID: 1}
+	itinerary := &Itinerary{}
 
 	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE id = \\?").
-		WithArgs(itinerary.ID).
+		WithArgs(1).
 		WillReturnError(sql.ErrNoRows)
 
-	err = itinerary.defaultFindById(true)
+	_, err = itinerary.defaultFindById(1, true)
 	assert.Error(t, err)
 	assert.Equal(t, sql.ErrNoRows, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -142,20 +142,20 @@ func TestItineraryDefaultFindById_DestinationsQueryError(t *testing.T) {
 	defer dbMock.Close()
 	db.DB = dbMock
 
-	itinerary := &Itinerary{ID: 1}
+	itinerary := &Itinerary{}
 
 	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE id = \\?").
-		WithArgs(itinerary.ID).
+		WithArgs(1).
 		WillReturnRows(
 			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
 				AddRow(1, "Test Title", "Test Description", nil, 2, time.Now(), time.Now().Add(2*time.Hour)),
 		)
 
 	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
-		WithArgs(itinerary.ID).
+		WithArgs(1).
 		WillReturnError(sql.ErrConnDone)
 
-	err = itinerary.defaultFindById(true)
+	_, err = itinerary.defaultFindById(1, true)
 	assert.Error(t, err)
 	assert.Equal(t, sql.ErrConnDone, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -168,10 +168,10 @@ func TestItineraryDefaultFindById_DestinationScanError(t *testing.T) {
 	db.DB = dbMock
 
 	now := time.Now()
-	itinerary := &Itinerary{ID: 1}
+	itinerary := &Itinerary{}
 
 	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE id = \\?").
-		WithArgs(itinerary.ID).
+		WithArgs(1).
 		WillReturnRows(
 			sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
 				AddRow(1, "Test Title", "Test Description", nil, 2, time.Now(), time.Now().Add(2*time.Hour)),
@@ -179,14 +179,14 @@ func TestItineraryDefaultFindById_DestinationScanError(t *testing.T) {
 
 	// Return a row with a wrong type to force scan error
 	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
-		WithArgs(itinerary.ID).
+		WithArgs(1).
 		WillReturnRows(
 			sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date", "creation_date", "update_date"}).
 				AddRow(10, "Country1", "City1", 1, now, now.Add(12*time.Hour), time.Now(), time.Now().Add(2*time.Hour)).
 				AddRow("not-an-int", "Country2", "City2", 1, now.Add(12*time.Hour), now.Add(24*time.Hour), time.Now(), time.Now().Add(2*time.Hour)),
 		)
 
-	err = itinerary.defaultFindById(true)
+	_, err = itinerary.defaultFindById(1, true)
 	assert.Error(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
@@ -197,17 +197,17 @@ func TestItineraryDefaultFindLightweightById_Success(t *testing.T) {
 	defer dbMock.Close()
 	db.DB = dbMock
 
-	itinerary := &Itinerary{ID: 42}
+	itinerary := &Itinerary{}
 
 	mock.ExpectQuery("SELECT id, owner_id FROM itineraries WHERE id = \\?").
-		WithArgs(itinerary.ID).
+		WithArgs(42).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "owner_id"}).
 			AddRow(42, 99))
 
-	err = itinerary.defaultFindLightweightById()
+	it, err := itinerary.defaultFindLightweightById(42)
 	assert.NoError(t, err)
-	assert.Equal(t, int64(42), itinerary.ID)
-	assert.Equal(t, int64(99), itinerary.OwnerID)
+	assert.Equal(t, int64(42), it.ID)
+	assert.Equal(t, int64(99), it.OwnerID)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -217,13 +217,13 @@ func TestItineraryDefaultFindLightweightById_NoRows(t *testing.T) {
 	defer dbMock.Close()
 	db.DB = dbMock
 
-	itinerary := &Itinerary{ID: 100}
+	itinerary := &Itinerary{}
 
 	mock.ExpectQuery("SELECT id, owner_id FROM itineraries WHERE id = \\?").
-		WithArgs(itinerary.ID).
+		WithArgs(100).
 		WillReturnError(sql.ErrNoRows)
 
-	err = itinerary.defaultFindLightweightById()
+	_, err = itinerary.defaultFindLightweightById(100)
 	assert.Error(t, err)
 	assert.Equal(t, sql.ErrNoRows, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -235,14 +235,14 @@ func TestItineraryDefaultFindLightweightById_ScanError(t *testing.T) {
 	defer dbMock.Close()
 	db.DB = dbMock
 
-	itinerary := &Itinerary{ID: 123}
+	itinerary := &Itinerary{}
 
 	mock.ExpectQuery("SELECT id, owner_id FROM itineraries WHERE id = \\?").
-		WithArgs(itinerary.ID).
+		WithArgs(123).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "owner_id"}).
 			AddRow("not-an-int", 99))
 
-	err = itinerary.defaultFindLightweightById()
+	_, err = itinerary.defaultFindLightweightById(123)
 	assert.Error(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
@@ -255,21 +255,19 @@ func TestItineraryFindByOwnerId_Success(t *testing.T) {
 
 	db.DB = dbMock
 
-	itinerary := &Itinerary{
-		OwnerID: 1,
-	}
+	itinerary := &Itinerary{}
 
 	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE owner_id = \\?").
-		WithArgs(itinerary.OwnerID).
+		WithArgs(1).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
 			AddRow(1, "Test Title", "Test Description", "A test trip", 1, time.Now(), time.Now().Add(2*time.Hour)))
 
 	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
-		WithArgs(int64(1)).
+		WithArgs(1).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date", "creation_date", "update_date"}))
 
 	// Act
-	itineraries, err := itinerary.defaultFindByOwnerId()
+	itineraries, err := itinerary.defaultFindByOwnerId(1)
 
 	// Assert
 	assert.NoError(t, err)
@@ -291,21 +289,19 @@ func TestItineraryFindByOwnerId_SuccessNullNotes(t *testing.T) {
 
 	db.DB = dbMock
 
-	itinerary := &Itinerary{
-		OwnerID: 1,
-	}
+	itinerary := &Itinerary{}
 
 	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE owner_id = \\?").
-		WithArgs(itinerary.OwnerID).
+		WithArgs(1).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
 			AddRow(1, "Test Title", "Test Description", nil, 1, time.Now(), time.Now().Add(2*time.Hour)))
 
 	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
-		WithArgs(int64(1)).
+		WithArgs(1).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date", "creation_date", "update_date"}))
 
 	// Act
-	itineraries, err := itinerary.defaultFindByOwnerId()
+	itineraries, err := itinerary.defaultFindByOwnerId(1)
 
 	// Assert
 	assert.NoError(t, err)
@@ -325,16 +321,14 @@ func TestItineraryFindByOwnerId_NoRows(t *testing.T) {
 
 	db.DB = dbMock
 
-	itinerary := &Itinerary{
-		OwnerID: 1,
-	}
+	itinerary := &Itinerary{}
 
 	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE owner_id = \\?").
-		WithArgs(itinerary.OwnerID).
+		WithArgs(1).
 		WillReturnError(sql.ErrNoRows)
 
 	// Act
-	_, err = itinerary.defaultFindByOwnerId()
+	_, err = itinerary.defaultFindByOwnerId(1)
 
 	// Assert
 	assert.Error(t, err)
@@ -350,16 +344,14 @@ func TestItineraryFindByOwnerId_QueryError(t *testing.T) {
 
 	db.DB = dbMock
 
-	itinerary := &Itinerary{
-		OwnerID: 1,
-	}
+	itinerary := &Itinerary{}
 
 	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE owner_id = \\?").
-		WithArgs(itinerary.OwnerID).
+		WithArgs(1).
 		WillReturnError(assert.AnError)
 
 	// Act
-	_, err = itinerary.defaultFindByOwnerId()
+	_, err = itinerary.defaultFindByOwnerId(1)
 
 	// Assert
 	assert.Error(t, err)
@@ -375,21 +367,19 @@ func TestItineraryDefaultFindByOwnerId_DestinationQueryError(t *testing.T) {
 
 	db.DB = dbMock
 
-	itinerary := &Itinerary{
-		OwnerID: 1,
-	}
+	itinerary := &Itinerary{}
 
 	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE owner_id = \\?").
-		WithArgs(itinerary.OwnerID).
+		WithArgs(1).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
 			AddRow(1, "Test Title", "Test Description", nil, 1, time.Now(), time.Now().Add(2*time.Hour)))
 
 	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
-		WithArgs(int64(1)).
+		WithArgs(1).
 		WillReturnError(sql.ErrConnDone)
 
 	// Act
-	_, err = itinerary.defaultFindByOwnerId()
+	_, err = itinerary.defaultFindByOwnerId(1)
 
 	// Assert
 	assert.Error(t, err)
@@ -406,22 +396,20 @@ func TestItineraryDefaultFindByOwnerId_DestinationScanError(t *testing.T) {
 
 	db.DB = dbMock
 
-	itinerary := &Itinerary{
-		OwnerID: 1,
-	}
+	itinerary := &Itinerary{}
 
 	mock.ExpectQuery("SELECT id, title, description, notes, owner_id, creation_date, update_date FROM itineraries WHERE owner_id = \\?").
-		WithArgs(itinerary.OwnerID).
+		WithArgs(1).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "description", "notes", "owner_id", "creation_date", "update_date"}).
 			AddRow(1, "Test Title", "Test Description", nil, 1, time.Now(), time.Now().Add(2*time.Hour)))
 
 	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
-		WithArgs(int64(1)).
+		WithArgs(1).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "country", "city", "itinerary_id", "arrival_date", "departure_date"}).
 			AddRow("not-an-int", "Country1", "City1", 1, time.Now(), time.Now().Add(12*time.Hour)))
 
 	// Act
-	_, err = itinerary.defaultFindByOwnerId()
+	_, err = itinerary.defaultFindByOwnerId(1)
 
 	// Assert
 	assert.Error(t, err)
@@ -832,26 +820,24 @@ func TestItineraryDefaultDelete_Success_WithJobs(t *testing.T) {
 	mock.ExpectBegin()
 
 	// Mock SoftDeleteJobsByItineraryIdTx
-	originalNewItineraryFileJob := NewItineraryFileJob
-	defer func() { NewItineraryFileJob = originalNewItineraryFileJob }()
+	originalInitItineraryFileJob := InitItineraryFileJob
+	defer func() { InitItineraryFileJob = originalInitItineraryFileJob }()
 	mockJob := &ItineraryFileJob{}
-	NewItineraryFileJob = func(itineraryID int64) *ItineraryFileJob {
-		assert.Equal(t, int64(1), itineraryID)
+	InitItineraryFileJob = func() *ItineraryFileJob {
 		return mockJob
 	}
-	mockJob.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error {
+	mockJob.SoftDeleteJobsByItineraryIdTx = func(itineraryId int64, tx *sql.Tx) error {
 		return nil
 	}
 
 	// Mock DeleteByItineraryIdTx
-	originalNewItineraryTravelDestination := NewItineraryTravelDestination
-	defer func() { NewItineraryTravelDestination = originalNewItineraryTravelDestination }()
+	originalInitItineraryTravelDestination := InitItineraryTravelDestination
+	defer func() { InitItineraryTravelDestination = originalInitItineraryTravelDestination }()
 	mockDest := &ItineraryTravelDestination{}
-	NewItineraryTravelDestination = func(country, city string, itineraryID int64, arrival, departure time.Time) *ItineraryTravelDestination {
-		assert.Equal(t, int64(1), itineraryID)
+	InitItineraryTravelDestination = func() *ItineraryTravelDestination {
 		return mockDest
 	}
-	mockDest.DeleteByItineraryIdTx = func(tx *sql.Tx) error {
+	mockDest.DeleteByItineraryIdTx = func(itineraryId int64, tx *sql.Tx) error {
 		return nil
 	}
 
@@ -894,13 +880,13 @@ func TestItineraryDefaultDelete_SoftDeleteJobsError(t *testing.T) {
 
 	mock.ExpectBegin()
 
-	originalNewItineraryFileJob := NewItineraryFileJob
-	defer func() { NewItineraryFileJob = originalNewItineraryFileJob }()
+	originalInitItineraryFileJob := InitItineraryFileJob
+	defer func() { InitItineraryFileJob = originalInitItineraryFileJob }()
 	mockJob := &ItineraryFileJob{}
-	NewItineraryFileJob = func(itineraryID int64) *ItineraryFileJob {
+	InitItineraryFileJob = func() *ItineraryFileJob {
 		return mockJob
 	}
-	mockJob.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error {
+	mockJob.SoftDeleteJobsByItineraryIdTx = func(itineraryId int64, tx *sql.Tx) error {
 		return errors.New("soft delete jobs error")
 	}
 
@@ -920,23 +906,26 @@ func TestItineraryDefaultDelete_DeleteDestinationsError(t *testing.T) {
 
 	mock.ExpectBegin()
 
-	originalNewItineraryFileJob := NewItineraryFileJob
-	defer func() { NewItineraryFileJob = originalNewItineraryFileJob }()
+	// Mock SoftDeleteJobsByItineraryIdTx
+	originalInitItineraryFileJob := InitItineraryFileJob
+	defer func() { InitItineraryFileJob = originalInitItineraryFileJob }()
 	mockJob := &ItineraryFileJob{}
-	NewItineraryFileJob = func(itineraryID int64) *ItineraryFileJob {
+	InitItineraryFileJob = func() *ItineraryFileJob {
 		return mockJob
 	}
-	mockJob.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error {
+	mockJob.SoftDeleteJobsByItineraryIdTx = func(itineraryId int64, tx *sql.Tx) error {
 		return nil
 	}
 
-	originalNewItineraryTravelDestination := NewItineraryTravelDestination
-	defer func() { NewItineraryTravelDestination = originalNewItineraryTravelDestination }()
+	// Mock DeleteByItineraryIdTx
+	originalInitItineraryTravelDestination := InitItineraryTravelDestination
+	defer func() { InitItineraryTravelDestination = originalInitItineraryTravelDestination }()
 	mockDest := &ItineraryTravelDestination{}
-	NewItineraryTravelDestination = func(country, city string, itineraryID int64, arrival, departure time.Time) *ItineraryTravelDestination {
+	InitItineraryTravelDestination = func() *ItineraryTravelDestination {
 		return mockDest
 	}
-	mockDest.DeleteByItineraryIdTx = func(tx *sql.Tx) error {
+
+	mockDest.DeleteByItineraryIdTx = func(itineraryId int64, tx *sql.Tx) error {
 		return errors.New("delete destinations error")
 	}
 
@@ -956,23 +945,25 @@ func TestItineraryDefaultDelete_PrepareDeleteItineraryError(t *testing.T) {
 
 	mock.ExpectBegin()
 
-	originalNewItineraryFileJob := NewItineraryFileJob
-	defer func() { NewItineraryFileJob = originalNewItineraryFileJob }()
+	// Mock SoftDeleteJobsByItineraryIdTx
+	originalInitItineraryFileJob := InitItineraryFileJob
+	defer func() { InitItineraryFileJob = originalInitItineraryFileJob }()
 	mockJob := &ItineraryFileJob{}
-	NewItineraryFileJob = func(itineraryID int64) *ItineraryFileJob {
+	InitItineraryFileJob = func() *ItineraryFileJob {
 		return mockJob
 	}
-	mockJob.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error {
+	mockJob.SoftDeleteJobsByItineraryIdTx = func(itineraryId int64, tx *sql.Tx) error {
 		return nil
 	}
 
-	originalNewItineraryTravelDestination := NewItineraryTravelDestination
-	defer func() { NewItineraryTravelDestination = originalNewItineraryTravelDestination }()
+	// Mock DeleteByItineraryIdTx
+	originalInitItineraryTravelDestination := InitItineraryTravelDestination
+	defer func() { InitItineraryTravelDestination = originalInitItineraryTravelDestination }()
 	mockDest := &ItineraryTravelDestination{}
-	NewItineraryTravelDestination = func(country, city string, itineraryID int64, arrival, departure time.Time) *ItineraryTravelDestination {
+	InitItineraryTravelDestination = func() *ItineraryTravelDestination {
 		return mockDest
 	}
-	mockDest.DeleteByItineraryIdTx = func(tx *sql.Tx) error {
+	mockDest.DeleteByItineraryIdTx = func(itineraryId int64, tx *sql.Tx) error {
 		return nil
 	}
 
@@ -997,23 +988,25 @@ func TestItineraryDefaultDelete_ExecDeleteItineraryError(t *testing.T) {
 
 	mock.ExpectBegin()
 
-	originalNewItineraryFileJob := NewItineraryFileJob
-	defer func() { NewItineraryFileJob = originalNewItineraryFileJob }()
+	// Mock SoftDeleteJobsByItineraryIdTx
+	originalInitItineraryFileJob := InitItineraryFileJob
+	defer func() { InitItineraryFileJob = originalInitItineraryFileJob }()
 	mockJob := &ItineraryFileJob{}
-	NewItineraryFileJob = func(itineraryID int64) *ItineraryFileJob {
+	InitItineraryFileJob = func() *ItineraryFileJob {
 		return mockJob
 	}
-	mockJob.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error {
+	mockJob.SoftDeleteJobsByItineraryIdTx = func(itineraryId int64, tx *sql.Tx) error {
 		return nil
 	}
 
-	originalNewItineraryTravelDestination := NewItineraryTravelDestination
-	defer func() { NewItineraryTravelDestination = originalNewItineraryTravelDestination }()
+	// Mock DeleteByItineraryIdTx
+	originalInitItineraryTravelDestination := InitItineraryTravelDestination
+	defer func() { InitItineraryTravelDestination = originalInitItineraryTravelDestination }()
 	mockDest := &ItineraryTravelDestination{}
-	NewItineraryTravelDestination = func(country, city string, itineraryID int64, arrival, departure time.Time) *ItineraryTravelDestination {
+	InitItineraryTravelDestination = func() *ItineraryTravelDestination {
 		return mockDest
 	}
-	mockDest.DeleteByItineraryIdTx = func(tx *sql.Tx) error {
+	mockDest.DeleteByItineraryIdTx = func(itineraryId int64, tx *sql.Tx) error {
 		return nil
 	}
 

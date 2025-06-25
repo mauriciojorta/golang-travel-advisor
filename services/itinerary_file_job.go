@@ -72,14 +72,13 @@ func (ifjs *ItineraryFileJobService) FindAliveById(id int64) (*models.ItineraryF
 	if id <= 0 {
 		return nil, errors.New("invalid job ID")
 	}
-	job := models.NewItineraryFileJob(0) // Create a new ItineraryFileJob instance
-	job.ID = id
-	err := job.FindAliveById()
+	job := models.InitItineraryFileJob()
+	j, err := job.FindAliveById(id)
 	if err != nil {
 		log.Errorf("failed to find job by ID: %v", err)
 		return nil, errors.New("failed to find job by ID")
 	}
-	return job, nil
+	return j, nil
 }
 
 // FindAliveLightweightById retrieves the job by its ID as a object containing only the ID and itinerary ID (entity primary and foreign keys)
@@ -87,14 +86,14 @@ func (ifjs *ItineraryFileJobService) FindAliveLightweightById(id int64) (*models
 	if id <= 0 {
 		return nil, errors.New("invalid job ID")
 	}
-	job := models.NewItineraryFileJob(0) // Create a new ItineraryFileJob instance
+	job := models.InitItineraryFileJob()
 	job.ID = id
-	err := job.FindAliveLightweightById()
+	j, err := job.FindAliveLightweightById(id)
 	if err != nil {
 		log.Errorf("failed to find job by ID: %v", err)
 		return nil, errors.New("failed to find job by ID")
 	}
-	return job, nil
+	return j, nil
 }
 
 // FindAliveByItineraryId retrieves jobs by itinerary ID
@@ -102,8 +101,8 @@ func (ifjs *ItineraryFileJobService) FindAliveByItineraryId(itineraryId int64) (
 	if itineraryId <= 0 {
 		return nil, errors.New("invalid itinerary ID")
 	}
-	job := models.NewItineraryFileJob(itineraryId)
-	return job.FindAliveByItineraryId()
+	job := models.InitItineraryFileJob()
+	return job.FindAliveByItineraryId(itineraryId)
 }
 
 func (itineraryFileJobService *ItineraryFileJobService) OpenItineraryJobFile(itineraryFileJob *models.ItineraryFileJob) (io.ReadSeekCloser, error) {
@@ -129,7 +128,7 @@ func (ifjs *ItineraryFileJobService) GetJobsRunningOfUserCount(userId int64) (in
 	if userId <= 0 {
 		return 0, errors.New("invalid user ID")
 	}
-	job := models.NewItineraryFileJob(0) // Create a new ItineraryFileJob instance
+	job := models.InitItineraryFileJob()
 	return job.GetJobsRunningOfUserCount(userId)
 }
 
@@ -140,7 +139,7 @@ func (ifjs *ItineraryFileJobService) PrepareJob(itinerary *models.Itinerary) (*I
 		return nil, errors.New("itinerary instance is nil")
 	}
 
-	job := models.NewItineraryFileJob(itinerary.ID)
+	job := models.InitItineraryFileJob()
 	err := job.PrepareJob(itinerary)
 	if err != nil {
 		log.Errorf("failed to prepare job: %v", err)
@@ -249,8 +248,8 @@ func (ifjs *ItineraryFileJobService) SoftDeleteJobsByItineraryId(itineraryId int
 		return errors.New("transaction instance is nil")
 	}
 
-	job := models.NewItineraryFileJob(itineraryId)
-	err := job.SoftDeleteJobsByItineraryIdTx(tx)
+	job := models.InitItineraryFileJob()
+	err := job.SoftDeleteJobsByItineraryIdTx(itineraryId, tx)
 	if err != nil {
 		return errors.New("failed to soft delete job by itinerary ID")
 	}
@@ -292,7 +291,7 @@ func (ifjs *ItineraryFileJobService) DeleteDeadJobs(fetchLimit int) error {
 		finalFetchLimit = fetchLimit // If the passed fetchLimit is greater than 0, the finalFetchLimit is updated with its value
 	}
 
-	job := models.NewItineraryFileJob(-1)
+	job := models.InitItineraryFileJob()
 
 	deadJobs, err := job.FindDead(finalFetchLimit)
 	if err != nil {

@@ -17,22 +17,19 @@ type Itinerary struct {
 	FileJobs           []ItineraryFileJob            `json:"fileJobs"`
 	Notes              *string                       `json:"notes"`
 
-	FindById            func(includeDestinations bool) error `json:"-"`
-	FindLightweightById func() error                         `json:"-"`
-	FindByOwnerId       func() (*[]Itinerary, error)         `json:"-"`
-	Create              func() error                         `json:"-"`
-	Update              func() error                         `json:"-"`
-	Delete              func() error                         `json:"-"`
+	FindById            func(id int64, includeDestinations bool) (*Itinerary, error) `json:"-"`
+	FindLightweightById func(id int64) (*Itinerary, error)                           `json:"-"`
+	FindByOwnerId       func(ownerId int64) (*[]Itinerary, error)                    `json:"-"`
+	Create              func() error                                                 `json:"-"`
+	Update              func() error                                                 `json:"-"`
+	Delete              func() error                                                 `json:"-"`
 }
 
-var NewItinerary = func(title string, description string, notes *string, travelDestinations *[]ItineraryTravelDestination) *Itinerary {
-	itinerary := &Itinerary{
-		Title:              title,
-		Description:        description,
-		Notes:              notes,
-		TravelDestinations: travelDestinations,
-	}
+var InitItinerary = func() *Itinerary {
+	return InitItineraryFunctions(&Itinerary{})
+}
 
+var InitItineraryFunctions = func(itinerary *Itinerary) *Itinerary {
 	// Set default implementations for FindById, FindByOwnerId, Create, Update, Delete, and GenerateItineraryFile
 	itinerary.FindById = itinerary.defaultFindById
 	itinerary.FindLightweightById = itinerary.defaultFindLightweightById
@@ -44,51 +41,66 @@ var NewItinerary = func(title string, description string, notes *string, travelD
 	return itinerary
 }
 
-func (i *Itinerary) defaultFindById(includeDestinations bool) error {
+var NewItinerary = func(title string, description string, notes *string, travelDestinations *[]ItineraryTravelDestination) *Itinerary {
+	itinerary := &Itinerary{
+		Title:              title,
+		Description:        description,
+		Notes:              notes,
+		TravelDestinations: travelDestinations,
+	}
+
+	return InitItineraryFunctions(itinerary)
+
+}
+
+func (i *Itinerary) defaultFindById(id int64, includeDestinations bool) (*Itinerary, error) {
 	query := `SELECT id, title, description, notes, owner_id, creation_date, update_date
 	FROM itineraries WHERE id = ?`
-	row := db.DB.QueryRow(query, i.ID)
+	row := db.DB.QueryRow(query, id)
 
-	err := row.Scan(&i.ID, &i.Title, &i.Description, &i.Notes, &i.OwnerID, &i.CreationDate, &i.UpdateDate)
+	itinerary := &Itinerary{}
+	err := row.Scan(&itinerary.ID, &itinerary.Title, &itinerary.Description, &itinerary.Notes, &itinerary.OwnerID, &itinerary.CreationDate, &itinerary.UpdateDate)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if includeDestinations {
 		// Fetch travel destinations for the itinerary
-		destinationEntity := NewItineraryTravelDestination("", "", i.ID, time.Now(), time.Now())
+		destinationEntity := InitItineraryTravelDestination()
 
-		travelDestinations, err := destinationEntity.FindByItineraryId()
+		travelDestinations, err := destinationEntity.FindByItineraryId(id)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		i.TravelDestinations = travelDestinations
+		itinerary.TravelDestinations = travelDestinations
 	}
 
-	return nil
+	return itinerary, nil
 
 }
 
-func (i *Itinerary) defaultFindLightweightById() error {
+func (i *Itinerary) defaultFindLightweightById(id int64) (*Itinerary, error) {
 	query := `SELECT id, owner_id
 	FROM itineraries WHERE id = ?`
-	row := db.DB.QueryRow(query, i.ID)
+	row := db.DB.QueryRow(query, id)
 
-	err := row.Scan(&i.ID, &i.OwnerID)
+	itinerary := &Itinerary{}
+
+	err := row.Scan(&itinerary.ID, &itinerary.OwnerID)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return itinerary, nil
 
 }
 
-func (i *Itinerary) defaultFindByOwnerId() (*[]Itinerary, error) {
+func (i *Itinerary) defaultFindByOwnerId(ownerId int64) (*[]Itinerary, error) {
 	query := `SELECT id, title, description, notes, owner_id, creation_date, update_date
 	FROM itineraries WHERE owner_id = ?`
 
-	rows, err := db.DB.Query(query, i.OwnerID)
+	rows, err := db.DB.Query(query, ownerId)
 	if err != nil {
 		return nil, err
 	}
@@ -104,9 +116,9 @@ func (i *Itinerary) defaultFindByOwnerId() (*[]Itinerary, error) {
 		}
 
 		// Fetch travel destinations for the itinerary
-		destinationEntity := NewItineraryTravelDestination("", "", itinerary.ID, time.Now(), time.Now())
+		destinationEntity := InitItineraryTravelDestination()
 
-		travelDestinations, err := destinationEntity.FindByItineraryId()
+		travelDestinations, err := destinationEntity.FindByItineraryId(itinerary.ID)
 		if err != nil {
 			return nil, err
 		}
@@ -186,10 +198,10 @@ func (i *Itinerary) defaultUpdate() error {
 		return err
 	}
 
-	destination := NewItineraryTravelDestination("", "", i.ID, time.Now(), time.Now())
+	destination := InitItineraryTravelDestination()
 
 	// Clear existing travel destinations for this itinerary
-	err = destination.DeleteByItineraryIdTx(tx)
+	err = destination.DeleteByItineraryIdTx(i.ID, tx)
 	if err != nil {
 		return err
 	}
@@ -219,15 +231,15 @@ func (i *Itinerary) defaultDelete() error {
 	}
 
 	// Mark all jobs of itinerary for full future deletion
-	job := NewItineraryFileJob(i.ID)
-	err = job.SoftDeleteJobsByItineraryIdTx(tx)
+	job := InitItineraryFileJob()
+	err = job.SoftDeleteJobsByItineraryIdTx(i.ID, tx)
 	if err != nil {
 		return err
 	}
 
 	// Clear existing travel destinations for this itinerary
-	destination := NewItineraryTravelDestination("", "", i.ID, time.Now(), time.Now())
-	err = destination.DeleteByItineraryIdTx(tx)
+	destination := InitItineraryTravelDestination()
+	err = destination.DeleteByItineraryIdTx(i.ID, tx)
 	if err != nil {
 		return err
 	}

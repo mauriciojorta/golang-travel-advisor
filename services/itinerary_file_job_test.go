@@ -23,11 +23,9 @@ func mockItineraryFileJob() *models.ItineraryFileJob {
 	ifj := models.NewItineraryFileJob(0)
 	ifj.ID = 1
 	ifj.ItineraryID = 2
-	ifj.FindAliveById = func() error { return nil }
-	ifj.FindAliveLightweightById = func() error {
-		return nil
-	}
-	ifj.FindAliveByItineraryId = func() (*[]models.ItineraryFileJob, error) {
+	ifj.FindAliveById = func(id int64) (*models.ItineraryFileJob, error) { return &models.ItineraryFileJob{}, nil }
+	ifj.FindAliveLightweightById = func(id int64) (*models.ItineraryFileJob, error) { return &models.ItineraryFileJob{}, nil }
+	ifj.FindAliveByItineraryId = func(itineraryId int64) (*[]models.ItineraryFileJob, error) {
 		arr := []models.ItineraryFileJob{*ifj}
 		return &arr, nil
 	}
@@ -57,9 +55,9 @@ func TestItineraryFileJobFindById_InvalidID(t *testing.T) {
 
 func TestItineraryFileJobFindById_FailFind(t *testing.T) {
 	ifj := mockItineraryFileJob()
-	ifj.FindAliveById = func() error { return errors.New("fail") }
+	ifj.FindAliveById = func(id int64) (*models.ItineraryFileJob, error) { return nil, errors.New("fail") }
 
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob {
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
 		return ifj
 	}
 
@@ -73,7 +71,7 @@ func TestItineraryFileJobFindById_FailFind(t *testing.T) {
 func TestItineraryFileJobFindById_Success(t *testing.T) {
 	ifj := mockItineraryFileJob()
 
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob {
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
 		return ifj
 	}
 
@@ -93,9 +91,9 @@ func TestItineraryFileJobFindAliveLightweightById_InvalidID(t *testing.T) {
 
 func TestItineraryFileJobFindAliveLightweightById_FailFind(t *testing.T) {
 	ifj := mockItineraryFileJob()
-	ifj.FindAliveLightweightById = func() error { return errors.New("fail") }
+	ifj.FindAliveLightweightById = func(id int64) (*models.ItineraryFileJob, error) { return nil, errors.New("fail") }
 
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob {
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
 		return ifj
 	}
 
@@ -108,9 +106,9 @@ func TestItineraryFileJobFindAliveLightweightById_FailFind(t *testing.T) {
 
 func TestItineraryFileJobFindAliveLightweightById_Success(t *testing.T) {
 	ifj := mockItineraryFileJob()
-	ifj.FindAliveLightweightById = func() error { return nil }
+	ifj.FindAliveLightweightById = func(id int64) (*models.ItineraryFileJob, error) { return &models.ItineraryFileJob{}, nil }
 
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob {
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
 		return ifj
 	}
 
@@ -129,11 +127,11 @@ func TestItineraryFileJobFindByItineraryId_InvalidID(t *testing.T) {
 
 func TestItineraryFileJobFindByItineraryId_Success(t *testing.T) {
 	ifj := mockItineraryFileJob()
-	ifj.FindAliveByItineraryId = func() (*[]models.ItineraryFileJob, error) {
+	ifj.FindAliveByItineraryId = func(itineraryId int64) (*[]models.ItineraryFileJob, error) {
 		arr := []models.ItineraryFileJob{*ifj}
 		return &arr, nil
 	}
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob {
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
 		return ifj
 	}
 
@@ -159,7 +157,7 @@ func TestItineraryFileJobGetJobsRunningOfUserCount_Success(t *testing.T) {
 		}
 		return 0, nil // Default case
 	}
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob {
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
 		return ifj
 	}
 
@@ -181,7 +179,7 @@ func TestItineraryFileJobPrepareJob_PrepareJobFails(t *testing.T) {
 	ifj.PrepareJob = func(it *models.Itinerary) error {
 		return errors.New("prepare job failed")
 	}
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob {
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
 		return ifj
 	}
 
@@ -197,7 +195,7 @@ func TestItineraryFileJobPrepareJob_Success(t *testing.T) {
 	ifj.PrepareJob = func(it *models.Itinerary) error {
 		return nil // Simulate successful preparation
 	}
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob {
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
 		return ifj
 	}
 
@@ -227,7 +225,7 @@ func TestItineraryFileJobAddAsyncTaskId_Fail(t *testing.T) {
 	ifj.AddAsyncTaskId = func(id string) error {
 		return errors.New("fail")
 	}
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob {
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
 		return ifj
 	}
 
@@ -240,7 +238,7 @@ func TestItineraryFileJobAddAsyncTaskId_Success(t *testing.T) {
 	ifj.AddAsyncTaskId = func(id string) error {
 		return nil // Simulate successful addition of async task ID
 	}
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob {
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
 		return ifj
 	}
 
@@ -633,8 +631,8 @@ func TestItineraryFileJobService_SoftDeleteJobsByItineraryId_NilTx(t *testing.T)
 
 func TestItineraryFileJobService_SoftDeleteJobsByItineraryId_Fail(t *testing.T) {
 	ifj := mockItineraryFileJob()
-	ifj.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error { return errors.New("fail soft delete by itinerary id") }
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return ifj }
+	ifj.SoftDeleteJobsByItineraryIdTx = func(itineraryId int64, tx *sql.Tx) error { return errors.New("fail soft delete by itinerary id") }
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob { return ifj }
 	err := (&ItineraryFileJobService{}).SoftDeleteJobsByItineraryId(1, &sql.Tx{})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to soft delete job by itinerary ID")
@@ -642,8 +640,8 @@ func TestItineraryFileJobService_SoftDeleteJobsByItineraryId_Fail(t *testing.T) 
 
 func TestItineraryFileJobService_SoftDeleteJobsByItineraryId_Success(t *testing.T) {
 	ifj := mockItineraryFileJob()
-	ifj.SoftDeleteJobsByItineraryIdTx = func(tx *sql.Tx) error { return nil }
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return ifj }
+	ifj.SoftDeleteJobsByItineraryIdTx = func(itineraryId int64, tx *sql.Tx) error { return nil }
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob { return ifj }
 	err := (&ItineraryFileJobService{}).SoftDeleteJobsByItineraryId(1, &sql.Tx{})
 	assert.NoError(t, err)
 }
@@ -725,7 +723,7 @@ func TestItineraryFileJobService_DeleteDeadJobs_FindDeadFails(t *testing.T) {
 	mockJob.FindDead = func(limit int) (*[]models.ItineraryFileJob, error) {
 		return nil, errors.New("find dead fail")
 	}
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return mockJob }
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob { return mockJob }
 
 	svc := &ItineraryFileJobService{}
 	err := svc.DeleteDeadJobs(5)
@@ -742,7 +740,7 @@ func TestItineraryFileJobService_DeleteDeadJobs_NoDeadJobs(t *testing.T) {
 		arr := []models.ItineraryFileJob{}
 		return &arr, nil
 	}
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return mockJob }
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob { return mockJob }
 
 	svc := &ItineraryFileJobService{}
 	err := svc.DeleteDeadJobs(0)
@@ -764,7 +762,7 @@ func TestItineraryFileJobService_DeleteDeadJobs_FileDeleteFails(t *testing.T) {
 		arr := []models.ItineraryFileJob{*mockDeadJob}
 		return &arr, nil
 	}
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return mockJob }
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob { return mockJob }
 
 	mgr := &mockFileManager{deleteFileErr: errors.New("file delete fail")}
 	GetFileManager = func(name string) FileManagerInterface { return mgr }
@@ -790,7 +788,7 @@ func TestItineraryFileJobService_DeleteDeadJobs_DeleteJobFails(t *testing.T) {
 		arr := []models.ItineraryFileJob{*mockDeadJob}
 		return &arr, nil
 	}
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return mockJob }
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob { return mockJob }
 
 	mgr := &mockFileManager{}
 	GetFileManager = func(name string) FileManagerInterface { return mgr }
@@ -816,7 +814,7 @@ func TestItineraryFileJobService_DeleteDeadJobs_Success(t *testing.T) {
 		arr := []models.ItineraryFileJob{*mockDeadJob}
 		return &arr, nil
 	}
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return mockJob }
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob { return mockJob }
 
 	mgr := &mockFileManager{}
 	GetFileManager = func(name string) FileManagerInterface { return mgr }
@@ -842,7 +840,7 @@ func TestItineraryFileJobService_DeleteDeadJobs_AbsentFileSuccess(t *testing.T) 
 		arr := []models.ItineraryFileJob{*mockDeadJob}
 		return &arr, nil
 	}
-	models.NewItineraryFileJob = func(itineraryId int64) *models.ItineraryFileJob { return mockJob }
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob { return mockJob }
 
 	mgr := &mockFileManager{}
 	GetFileManager = func(name string) FileManagerInterface { return mgr }

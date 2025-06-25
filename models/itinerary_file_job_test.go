@@ -26,8 +26,8 @@ func TestFileJobDefaultFindAliveByItineraryId_Success(t *testing.T) {
 		WithArgs(itineraryID).
 		WillReturnRows(rows)
 
-	job := &ItineraryFileJob{ItineraryID: itineraryID}
-	result, err := job.defaultFindAliveByItineraryId()
+	job := &ItineraryFileJob{}
+	result, err := job.defaultFindAliveByItineraryId(itineraryID)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
@@ -66,8 +66,8 @@ func TestFileJobDefaultFindAliveByItineraryId_Error(t *testing.T) {
 		WithArgs(itineraryID).
 		WillReturnError(sqlmock.ErrCancelled)
 
-	job := &ItineraryFileJob{ItineraryID: itineraryID}
-	result, err := job.defaultFindAliveByItineraryId()
+	job := &ItineraryFileJob{}
+	result, err := job.defaultFindAliveByItineraryId(itineraryID)
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
@@ -93,16 +93,16 @@ func TestFileJobDefaultFindAliveById_Success(t *testing.T) {
 		WillReturnRows(row)
 
 	job := &ItineraryFileJob{ID: jobID}
-	err = job.defaultFindAliveById()
+	j, err := job.defaultFindAliveById(jobID)
 
 	assert.NoError(t, err)
-	assert.Equal(t, jobID, job.ID)
-	assert.Equal(t, "completed", job.Status)
-	assert.Equal(t, "/path/to/file", job.Filepath)
-	assert.Equal(t, "local", job.FileManager)
-	assert.Equal(t, "Job OK", job.StatusDescription)
-	assert.Equal(t, int64(1), job.ItineraryID)
-	assert.Equal(t, asyncTaskId, job.AsyncTaskID)
+	assert.Equal(t, jobID, j.ID)
+	assert.Equal(t, "completed", j.Status)
+	assert.Equal(t, "/path/to/file", j.Filepath)
+	assert.Equal(t, "local", j.FileManager)
+	assert.Equal(t, "Job OK", j.StatusDescription)
+	assert.Equal(t, int64(1), j.ItineraryID)
+	assert.Equal(t, asyncTaskId, j.AsyncTaskID)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -120,8 +120,8 @@ func TestFileJobDefaultFindAliveById_Error(t *testing.T) {
 		WithArgs(itineraryID).
 		WillReturnError(sqlmock.ErrCancelled)
 
-	job := &ItineraryFileJob{ItineraryID: itineraryID}
-	result, err := job.defaultFindAliveByItineraryId()
+	job := &ItineraryFileJob{}
+	result, err := job.defaultFindAliveByItineraryId(itineraryID)
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
@@ -755,12 +755,12 @@ func TestDefaultFindAliveLightweightById_Success(t *testing.T) {
 		WithArgs(jobID).
 		WillReturnRows(row)
 
-	job := &ItineraryFileJob{ID: jobID}
-	err = job.defaultFindAliveLightweightById()
+	job := &ItineraryFileJob{}
+	j, err := job.defaultFindAliveLightweightById(jobID)
 
 	assert.NoError(t, err)
-	assert.Equal(t, jobID, job.ID)
-	assert.Equal(t, itineraryID, job.ItineraryID)
+	assert.Equal(t, jobID, j.ID)
+	assert.Equal(t, itineraryID, j.ItineraryID)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -779,11 +779,11 @@ func TestDefaultFindAliveLightweightById_Error(t *testing.T) {
 		WithArgs(jobID).
 		WillReturnError(sqlmock.ErrCancelled)
 
-	job := &ItineraryFileJob{ID: jobID}
-	err = job.defaultFindAliveLightweightById()
+	job := &ItineraryFileJob{}
+	j, err := job.defaultFindAliveLightweightById(jobID)
 
 	assert.Error(t, err)
-	assert.Equal(t, jobID, job.ID) // ID should remain unchanged
+	assert.Nil(t, j)
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -862,7 +862,7 @@ func TestDefaultSoftDeleteJobsByItineraryId_Success(t *testing.T) {
 	}()
 	assert.NoError(t, err)
 
-	err = job.defaultSoftDeleteJobsByItineraryId(tx)
+	err = job.defaultSoftDeleteJobsByItineraryId(itineraryID, tx)
 	assert.NoError(t, err)
 
 	assert.NoError(t, err)
@@ -900,7 +900,7 @@ func TestDefaultSoftDeleteJobsByItineraryId_Error(t *testing.T) {
 	}()
 	assert.NoError(t, err)
 
-	err = job.defaultSoftDeleteJobsByItineraryId(tx)
+	err = job.defaultSoftDeleteJobsByItineraryId(itineraryID, tx)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to soft delete jobs by itinerary ID")
 
