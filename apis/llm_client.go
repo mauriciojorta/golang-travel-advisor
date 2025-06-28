@@ -3,6 +3,7 @@ package apis
 import (
 	"context"
 	"os"
+	"strconv"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -55,7 +56,43 @@ func InitLlmClient() error {
 var CallLlm = func(messages []llms.MessageContent) (*string, error) {
 
 	ctx := context.Background()
-	response, err := llmClient.GenerateContent(ctx, messages, llms.WithTemperature(0.8), llms.WithMinLength(1500), llms.WithMaxLength(2000))
+	temperatureStr := os.Getenv("LLM_TEMPERATURE")
+	if temperatureStr == "" {
+		log.Warn("LLM_TEMPERATURE environment variable is not set. Using default value of 0.8.")
+		temperatureStr = "0.8"
+	}
+
+	temperature, err := strconv.ParseFloat(temperatureStr, 64)
+	if err != nil {
+		log.Warnf("Failed to parse LLM_TEMPERATURE: %v. Using default value of 0.6.", err)
+		temperature = 0.6
+	}
+	log.Infof("Using LLM temperature: %f", temperature)
+
+	minLengthStr := os.Getenv("LLM_MIN_RESPONSE_LENGTH")
+	if minLengthStr == "" {
+		log.Warn("LLM_MIN_RESPONSE_LENGTH environment variable is not set. Using default value of 1500.")
+		minLengthStr = "1500"
+	}
+	minLength, err := strconv.Atoi(minLengthStr)
+	if err != nil {
+		log.Warnf("Failed to parse LLM_MIN_RESPONSE_LENGTH: %v. Using default value of 1500.", err)
+		minLength = 1500
+	}
+	log.Infof("Using LLM minimum length: %d", minLength)
+
+	maxLengthStr := os.Getenv("LLM_MAX_RESPONSE_LENGTH")
+	if maxLengthStr == "" {
+		log.Warn("LLM_MAX_RESPONSE_LENGTH environment variable is not set. Using default value of 3000.")
+		maxLengthStr = "3000"
+	}
+	maxLength, err := strconv.Atoi(maxLengthStr)
+	if err != nil {
+		log.Warnf("Failed to parse LLM_MAX_RESPONSE_LENGTH: %v. Using default value of 3000.", err)
+		maxLength = 3000
+	}
+
+	response, err := llmClient.GenerateContent(ctx, messages, llms.WithTemperature(temperature), llms.WithMinLength(minLength), llms.WithMaxLength(maxLength))
 
 	if err != nil {
 		log.Error(err)

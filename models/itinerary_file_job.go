@@ -268,7 +268,7 @@ func (ifj *ItineraryFileJob) defaultPrepareJob(itinerary *Itinerary) error {
 
 	// Insert the job into the database
 	query := `INSERT INTO itinerary_file_jobs (status, creation_date, file_manager, itinerary_id) VALUES (?, ?, ?, ?)`
-	res, err := db.DB.Exec(query, ifj.Status, time.Now(), ifj.FileManager, ifj.ItineraryID)
+	res, err := db.DB.Exec(query, ifj.Status, time.Now(), ifj.FileManager, itinerary.ID)
 	if err == nil {
 		id, err := res.LastInsertId()
 		if err == nil {

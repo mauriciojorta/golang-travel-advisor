@@ -159,3 +159,132 @@ func TestCallRealLlm_UsesLlmClient(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, response)
 }
+
+func TestCallLlm_DefaultParameters(t *testing.T) {
+	resetSingleton()
+	os.Setenv("OPENAI_API_KEY", "test_key")
+	defer os.Clearenv()
+
+	mock := &mockModel{}
+	llmClient = mock
+
+	os.Unsetenv("LLM_TEMPERATURE")
+	os.Unsetenv("LLM_MIN_RESPONSE_LENGTH")
+	os.Unsetenv("LLM_MAX_RESPONSE_LENGTH")
+
+	messages := []llms.MessageContent{
+		{
+			Role: llms.ChatMessageTypeSystem,
+			Parts: []llms.ContentPart{
+				llms.TextContent{Text: "Test default parameters."},
+			},
+		},
+	}
+
+	resp, err := CallLlm(messages)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.True(t, mock.generateContentCalled)
+}
+
+func TestCallLlm_CustomParameters(t *testing.T) {
+	resetSingleton()
+	os.Setenv("OPENAI_API_KEY", "test_key")
+	defer os.Clearenv()
+
+	mock := &mockModel{}
+	llmClient = mock
+
+	os.Setenv("LLM_TEMPERATURE", "0.2")
+	os.Setenv("LLM_MIN_RESPONSE_LENGTH", "123")
+	os.Setenv("LLM_MAX_RESPONSE_LENGTH", "456")
+
+	messages := []llms.MessageContent{
+		{
+			Role: llms.ChatMessageTypeSystem,
+			Parts: []llms.ContentPart{
+				llms.TextContent{Text: "Test custom parameters."},
+			},
+		},
+	}
+
+	resp, err := CallLlm(messages)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.True(t, mock.generateContentCalled)
+}
+
+func TestCallLlm_InvalidTemperature(t *testing.T) {
+	resetSingleton()
+	os.Setenv("OPENAI_API_KEY", "test_key")
+	defer os.Clearenv()
+
+	mock := &mockModel{}
+	llmClient = mock
+
+	os.Setenv("LLM_TEMPERATURE", "not-a-number")
+
+	messages := []llms.MessageContent{
+		{
+			Role: llms.ChatMessageTypeSystem,
+			Parts: []llms.ContentPart{
+				llms.TextContent{Text: "Test invalid temperature."},
+			},
+		},
+	}
+
+	resp, err := CallLlm(messages)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.True(t, mock.generateContentCalled)
+}
+
+func TestCallLlm_InvalidMinLength(t *testing.T) {
+	resetSingleton()
+	os.Setenv("OPENAI_API_KEY", "test_key")
+	defer os.Clearenv()
+
+	mock := &mockModel{}
+	llmClient = mock
+
+	os.Setenv("LLM_MIN_RESPONSE_LENGTH", "not-a-number")
+
+	messages := []llms.MessageContent{
+		{
+			Role: llms.ChatMessageTypeSystem,
+			Parts: []llms.ContentPart{
+				llms.TextContent{Text: "Test invalid min length."},
+			},
+		},
+	}
+
+	resp, err := CallLlm(messages)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.True(t, mock.generateContentCalled)
+}
+
+func TestCallLlm_InvalidMaxLength(t *testing.T) {
+	resetSingleton()
+	os.Setenv("OPENAI_API_KEY", "test_key")
+	defer os.Clearenv()
+
+	mock := &mockModel{}
+	llmClient = mock
+
+	os.Setenv("LLM_MAX_RESPONSE_LENGTH", "not-a-number")
+
+	messages := []llms.MessageContent{
+		{
+			Role: llms.ChatMessageTypeSystem,
+			Parts: []llms.ContentPart{
+				llms.TextContent{Text: "Test invalid max length."},
+			},
+		},
+	}
+
+	resp, err := CallLlm(messages)
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.True(t, mock.generateContentCalled)
+}

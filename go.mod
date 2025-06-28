@@ -50,6 +50,7 @@ require (
 	github.com/shopspring/decimal v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/spf13/cast v1.8.0 // indirect
+	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/tmc/langchaingo v0.1.13 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect

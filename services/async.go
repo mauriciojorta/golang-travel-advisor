@@ -12,20 +12,25 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-type AsyncqTaskQueueInterface interface {
+type AsyncTaskQueueInterface interface {
 	Close()
 	EnqueueItineraryFileJob(itineraryTaskPayload ItineraryFileAsyncTaskPayload) (*string, error)
 }
 
+type AsyncQueueClientInteface interface {
+	Enqueue(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error)
+	Close() error
+}
+
 type AsyncqTaskQueue struct {
-	Client *asynq.Client
+	Client AsyncQueueClientInteface
 }
 
 type ItineraryFileTaskQueue interface {
 	EnqueueItineraryFileJob(itineraryTaskPayload ItineraryFileAsyncTaskPayload) error
 }
 
-var NewAsyncqTaskQueue = func() (AsyncqTaskQueueInterface, error) {
+var NewAsyncqTaskQueue = func() (AsyncTaskQueueInterface, error) {
 	redisClientAddr := os.Getenv("REDIS_ADDR")
 	redisPasswr := os.Getenv("REDIS_PASSWORD")
 	if redisClientAddr == "" {

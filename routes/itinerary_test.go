@@ -519,7 +519,7 @@ func Test_runItineraryFileJob_InitAsyncTaskQueueClient_Error(t *testing.T) {
 	}
 	origQueue := services.NewAsyncqTaskQueue
 	defer func() { services.NewAsyncqTaskQueue = origQueue }()
-	services.NewAsyncqTaskQueue = func() (services.AsyncqTaskQueueInterface, error) {
+	services.NewAsyncqTaskQueue = func() (services.AsyncTaskQueueInterface, error) {
 		return nil, errors.New("REDIS_PASSWORD environment variable is not set")
 	}
 	w := httptest.NewRecorder()
@@ -549,7 +549,7 @@ func Test_runItineraryFileJob_Enqueue_Error(t *testing.T) {
 	}
 	origQueue := services.NewAsyncqTaskQueue
 	defer func() { services.NewAsyncqTaskQueue = origQueue }()
-	services.NewAsyncqTaskQueue = func() (services.AsyncqTaskQueueInterface, error) {
+	services.NewAsyncqTaskQueue = func() (services.AsyncTaskQueueInterface, error) {
 		return &mockAsyncqTaskQueue{EnqueueErr: errors.New("enqueue error")}, nil
 	}
 	w := httptest.NewRecorder()
@@ -580,7 +580,7 @@ func Test_runItineraryFileJob_AddAsyncTaskId_Error(t *testing.T) {
 	}
 	origQueue := services.NewAsyncqTaskQueue
 	defer func() { services.NewAsyncqTaskQueue = origQueue }()
-	services.NewAsyncqTaskQueue = func() (services.AsyncqTaskQueueInterface, error) {
+	services.NewAsyncqTaskQueue = func() (services.AsyncTaskQueueInterface, error) {
 		return &mockAsyncqTaskQueue{EnqueueId: "taskid"}, nil
 	}
 	w := httptest.NewRecorder()
@@ -610,7 +610,7 @@ func Test_runItineraryFileJob_Success(t *testing.T) {
 	}
 	origQueue := services.NewAsyncqTaskQueue
 	defer func() { services.NewAsyncqTaskQueue = origQueue }()
-	services.NewAsyncqTaskQueue = func() (services.AsyncqTaskQueueInterface, error) {
+	services.NewAsyncqTaskQueue = func() (services.AsyncTaskQueueInterface, error) {
 		return &mockAsyncqTaskQueue{EnqueueId: "taskid"}, nil
 	}
 	w := httptest.NewRecorder()
@@ -1941,4 +1941,7 @@ func Test_downloadItineraryJobFile_FileStat_Error(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-// Note: A full success test for file download would require more advanced file and http mocking.
+// Note: It is not possible to unit test the success case for downloadItineraryJobFile
+// in a pure unit test, because http.ServeContent writes directly to the http.ResponseWriter
+// and expects an *os.File for Stat(). Mocking *os.File is not feasible in Go.
+// Integration tests with a real file are required for a true success case.

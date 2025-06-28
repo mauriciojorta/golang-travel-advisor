@@ -467,9 +467,7 @@ func TestDefaultPrepareJob_SuccessDefaultFileManager(t *testing.T) {
 		Description: "A test trip",
 		OwnerID:     7,
 	}
-	job := &ItineraryFileJob{
-		ItineraryID: itinerary.ID,
-	}
+	job := &ItineraryFileJob{}
 
 	mock.ExpectExec(`INSERT INTO itinerary_file_jobs \(status, creation_date, file_manager, itinerary_id\) VALUES \(\?, \?, \?, \?\)`).
 		WithArgs("pending", sqlmock.AnyArg(), "local", itinerary.ID).
@@ -498,9 +496,7 @@ func TestDefaultPrepareJob_SuccessEnvironmentVariableFileManager(t *testing.T) {
 		Description: "A test trip",
 		OwnerID:     7,
 	}
-	job := &ItineraryFileJob{
-		ItineraryID: itinerary.ID,
-	}
+	job := &ItineraryFileJob{}
 
 	// Set the environment variable for file manager
 	t.Setenv("FILE_MANAGER", "s3")
@@ -532,9 +528,7 @@ func TestDefaultPrepareJob_InsertError(t *testing.T) {
 		Description: "A test trip",
 		OwnerID:     7,
 	}
-	job := &ItineraryFileJob{
-		ItineraryID: itinerary.ID,
-	}
+	job := &ItineraryFileJob{}
 
 	mock.ExpectExec(`INSERT INTO itinerary_file_jobs \(status, creation_date, file_manager, itinerary_id\) VALUES \(\?, \?, \?. \?\)`).
 		WithArgs("pending", sqlmock.AnyArg(), "local", itinerary.ID).
