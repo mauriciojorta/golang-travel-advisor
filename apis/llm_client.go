@@ -58,8 +58,8 @@ var CallLlm = func(messages []llms.MessageContent) (*string, error) {
 	ctx := context.Background()
 	temperatureStr := os.Getenv("LLM_TEMPERATURE")
 	if temperatureStr == "" {
-		log.Warn("LLM_TEMPERATURE environment variable is not set. Using default value of 0.8.")
-		temperatureStr = "0.8"
+		log.Warn("LLM_TEMPERATURE environment variable is not set. Using default value of 0.6.")
+		temperatureStr = "0.6"
 	}
 
 	temperature, err := strconv.ParseFloat(temperatureStr, 64)
@@ -67,7 +67,7 @@ var CallLlm = func(messages []llms.MessageContent) (*string, error) {
 		log.Warnf("Failed to parse LLM_TEMPERATURE: %v. Using default value of 0.6.", err)
 		temperature = 0.6
 	}
-	log.Infof("Using LLM temperature: %f", temperature)
+	log.Debugf("Using LLM temperature: %f", temperature)
 
 	minLengthStr := os.Getenv("LLM_MIN_RESPONSE_LENGTH")
 	if minLengthStr == "" {
@@ -79,7 +79,7 @@ var CallLlm = func(messages []llms.MessageContent) (*string, error) {
 		log.Warnf("Failed to parse LLM_MIN_RESPONSE_LENGTH: %v. Using default value of 1500.", err)
 		minLength = 1500
 	}
-	log.Infof("Using LLM minimum length: %d", minLength)
+	log.Debugf("Using LLM minimum length: %d", minLength)
 
 	maxLengthStr := os.Getenv("LLM_MAX_RESPONSE_LENGTH")
 	if maxLengthStr == "" {
@@ -91,6 +91,7 @@ var CallLlm = func(messages []llms.MessageContent) (*string, error) {
 		log.Warnf("Failed to parse LLM_MAX_RESPONSE_LENGTH: %v. Using default value of 3000.", err)
 		maxLength = 3000
 	}
+	log.Debugf("Using LLM maximum length: %d", maxLength)
 
 	response, err := llmClient.GenerateContent(ctx, messages, llms.WithTemperature(temperature), llms.WithMinLength(minLength), llms.WithMaxLength(maxLength))
 
