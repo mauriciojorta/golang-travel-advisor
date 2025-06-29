@@ -2,6 +2,8 @@ package db
 
 import (
 	"database/sql"
+	"os"
+	"strconv"
 
 	_ "modernc.org/sqlite"
 )
@@ -10,14 +12,43 @@ var DB *sql.DB
 
 func InitDB() {
 	var err error
-	DB, err = sql.Open("sqlite", "api.sql")
+
+	// Load environment variables
+	dbDriver := os.Getenv("DB_DRIVER")
+	if dbDriver == "" {
+		panic("DB_DRIVER environment variable is not set!")
+	}
+
+	dbDataSource := os.Getenv("DB_DATASOURCE")
+	if dbDataSource == "" {
+		panic("DB_DATASOURCE environment variable is not set!")
+	}
+
+	DB, err = sql.Open(dbDriver, dbDataSource)
 
 	if err != nil {
 		panic("Could not connect to the database!")
 	}
+	maxOpenConnections := os.Getenv("DB_MAX_OPEN_CONNECTIONS")
+	if maxOpenConnections == "" {
+		panic("DB_MAX_OPEN_CONNECTIONS environment variable is not set!")
+	}
+	maxIdleConnections := os.Getenv("DB_MAX_IDLE_CONNECTIONS")
+	if maxIdleConnections == "" {
+		panic("DB_MAX_IDLE_CONNECTIONS environment variable is not set!")
+	}
 
-	DB.SetMaxOpenConns(10)
-	DB.SetMaxIdleConns(5)
+	maxOpenConnsInt, err := strconv.Atoi(maxOpenConnections)
+	if err != nil {
+		panic("DB_MAX_OPEN_CONNECTIONS must be an integer!")
+	}
+	maxIdleConnsInt, err := strconv.Atoi(maxIdleConnections)
+	if err != nil {
+		panic("DB_MAX_IDLE_CONNECTIONS must be an integer!")
+	}
+
+	DB.SetMaxOpenConns(maxOpenConnsInt)
+	DB.SetMaxIdleConns(maxIdleConnsInt)
 
 	createTables()
 }
