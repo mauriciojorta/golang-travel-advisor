@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"example.com/travel-advisor/models"
+	log "github.com/sirupsen/logrus"
 )
 
 type ItineraryServiceInterface interface {
@@ -32,6 +33,7 @@ var GetItineraryService = func() ItineraryServiceInterface {
 // FindById retrieves the itinerary by its ID
 func (is *ItineraryService) FindById(id int64, includeDestinations bool) (*models.Itinerary, error) {
 	if id <= 0 {
+		log.Error("Invalid itinerary ID provided")
 		return nil, errors.New("invalid itinerary ID")
 	}
 	itinerary := models.InitItinerary() // Create a new Itinerary instance
@@ -41,6 +43,7 @@ func (is *ItineraryService) FindById(id int64, includeDestinations bool) (*model
 // FindById retrieves a "lightweight" itinerary instance (just the ID and owner ID) by its ID
 func (is *ItineraryService) FindLightweightById(id int64) (*models.Itinerary, error) {
 	if id <= 0 {
+		log.Error("Invalid itinerary ID provided")
 		return nil, errors.New("invalid itinerary ID")
 	}
 	itinerary := models.InitItinerary() // Create a new Itinerary instance
@@ -50,6 +53,7 @@ func (is *ItineraryService) FindLightweightById(id int64) (*models.Itinerary, er
 // FindByOwnerId retrieves itineraries by owner ID
 func (is *ItineraryService) FindByOwnerId(ownerId int64) (*[]models.Itinerary, error) {
 	if ownerId <= 0 {
+		log.Error("Invalid owner ID provided")
 		return nil, errors.New("invalid owner ID")
 	}
 	itinerary := models.InitItinerary() // Create a new Itinerary instance
@@ -59,6 +63,7 @@ func (is *ItineraryService) FindByOwnerId(ownerId int64) (*[]models.Itinerary, e
 // Create creates a new itinerary
 func (is *ItineraryService) Create(itinerary *models.Itinerary) error {
 	if itinerary == nil {
+		log.Error("Itinerary instance is nil")
 		return errors.New("itinerary instance is nil")
 	}
 	return itinerary.Create()
@@ -67,6 +72,7 @@ func (is *ItineraryService) Create(itinerary *models.Itinerary) error {
 // Update updates the itinerary
 func (is *ItineraryService) Update(itinerary *models.Itinerary) error {
 	if itinerary == nil {
+		log.Error("Itinerary instance is nil")
 		return errors.New("itinerary instance is nil")
 	}
 	return itinerary.Update()
@@ -75,6 +81,7 @@ func (is *ItineraryService) Update(itinerary *models.Itinerary) error {
 // Delete deletes the itinerary
 func (is *ItineraryService) Delete(id int64) error {
 	if id <= 0 {
+		log.Error("Invalid itinerary ID provided")
 		return errors.New("invalid itinerary ID")
 	}
 	itinerary := models.InitItinerary() // Create a new Itinerary instance
@@ -83,11 +90,13 @@ func (is *ItineraryService) Delete(id int64) error {
 }
 func (is *ItineraryService) ValidateItineraryDestinationsDates(destinations *[]models.ItineraryTravelDestination) error {
 	if len(*destinations) == 0 {
-		return fmt.Errorf("At least one destination is required")
+		log.Error("At least one destination is required")
+		return fmt.Errorf("at least one destination is required")
 	}
 
 	if len(*destinations) > 20 {
-		return fmt.Errorf("The itinerary cannot have more than 20 destinations")
+		log.Error("The itinerary cannot have more than 20 destinations")
+		return fmt.Errorf("the itinerary cannot have more than 20 destinations")
 	}
 
 	// Find oldest arrival and latest departure
@@ -107,7 +116,8 @@ func (is *ItineraryService) ValidateItineraryDestinationsDates(destinations *[]m
 	}
 
 	if latestDeparture.Sub(oldestArrival).Hours()/24 > 30 {
-		return fmt.Errorf("The itinerary cannot span more than 30 days")
+		log.Error("The itinerary cannot span more than 30 days")
+		return fmt.Errorf("the itinerary cannot span more than 30 days")
 	}
 
 	return nil

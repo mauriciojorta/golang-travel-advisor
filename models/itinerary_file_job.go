@@ -288,8 +288,8 @@ func (ifj *ItineraryFileJob) defaultStartJob() error {
 	query := `UPDATE itinerary_file_jobs SET status = ?, start_date = ? WHERE id = ?`
 	_, err := db.DB.Exec(query, ifj.Status, ifj.StartDate, ifj.ID)
 	if err != nil {
-		log.Warnf("Error updating job status in database: %v", err)
-		return fmt.Errorf("failed to update job status in database: %w", err)
+		log.Errorf("Error updating job status to 'running' in database: %v", err)
+		return fmt.Errorf("failed to update job status to 'running' in database: %w", err)
 	}
 	return nil
 }
@@ -303,8 +303,8 @@ func (ifj *ItineraryFileJob) defaultFailJob(errorDescription string) error {
 	query := `UPDATE itinerary_file_jobs SET status = ?, status_description = ?, end_date = ? WHERE id = ?`
 	_, err := db.DB.Exec(query, ifj.Status, ifj.StatusDescription, ifj.EndDate, ifj.ID)
 	if err != nil {
-		log.Warnf("Error updating job status in database: %v", err)
-		return fmt.Errorf("failed to update job status in database: %w", err)
+		log.Warnf("Error updating job status to 'failed' in database: %v", err)
+		return fmt.Errorf("failed to update job status to 'failed' in database: %w", err)
 	}
 	return nil
 }
@@ -331,9 +331,10 @@ func (ifj *ItineraryFileJob) defaultStopJob() error {
 		query := `UPDATE itinerary_file_jobs SET status = ?, status_description = ?, end_date = ? WHERE id = ?`
 		_, err := db.DB.Exec(query, ifj.Status, ifj.StatusDescription, ifj.EndDate, ifj.ID)
 		if err != nil {
+			log.Errorf("Error updating job status to 'stopped' in database: %v", err)
 			ifj.Status = prevJobStatus // Revert status if update fails
+			return fmt.Errorf("failed to update job status to 'stopped' in database: %w", err)
 		}
-		return err
 	}
 	return nil // If the job is not running, nothing to stop
 }
@@ -347,8 +348,8 @@ func (ifj *ItineraryFileJob) defaultCompleteJob() error {
 	query := `UPDATE itinerary_file_jobs SET status = ?, status_description = ?, file_path = ?, end_date = ? WHERE id = ?`
 	_, err := db.DB.Exec(query, ifj.Status, ifj.StatusDescription, ifj.Filepath, ifj.EndDate, ifj.ID)
 	if err != nil {
-		log.Warnf("Error updating job status in database: %v", err)
-		return fmt.Errorf("failed to update job status in database: %w", err)
+		log.Errorf("Error updating job status to 'completed' in database: %v", err)
+		return fmt.Errorf("failed to update job status to 'completed' in database: %w", err)
 	}
 	return nil
 }
@@ -356,6 +357,10 @@ func (ifj *ItineraryFileJob) defaultCompleteJob() error {
 func (ifj *ItineraryFileJob) defaultDeleteJob() error {
 	query := `DELETE FROM itinerary_file_jobs WHERE id = ?`
 	_, err := db.DB.Exec(query, ifj.ID)
+	if err != nil {
+		log.Errorf("Error deleting job from database: %v", err)
+		return fmt.Errorf("failed to delete job from database: %w", err)
+	}
 	return err
 }
 

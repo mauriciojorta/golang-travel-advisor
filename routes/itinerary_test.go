@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
-	"time"
 
 	"example.com/travel-advisor/models"
 	"example.com/travel-advisor/services"
@@ -1833,29 +1832,6 @@ type fakeReadSeekCloser struct {
 
 func (f *fakeReadSeekCloser) Close() error                                 { return nil }
 func (f *fakeReadSeekCloser) Seek(offset int64, whence int) (int64, error) { return 0, nil }
-
-type fakeFile struct {
-	fakeReadSeekCloser
-	name string
-	size int64
-}
-
-func (f *fakeFile) Stat() (os.FileInfo, error) {
-	return &fakeFileInfo{name: f.name, size: f.size}, nil
-}
-func (f *fakeFile) Name() string { return f.name }
-
-type fakeFileInfo struct {
-	name string
-	size int64
-}
-
-func (fi *fakeFileInfo) Name() string           { return fi.name }
-func (fi *fakeFileInfo) Size() int64            { return fi.size }
-func (fi *fakeFileInfo) Mode() os.FileMode      { return 0444 }
-func (fi *fakeFileInfo) ModTime() (t time.Time) { return }
-func (fi *fakeFileInfo) IsDir() bool            { return false }
-func (fi *fakeFileInfo) Sys() interface{}       { return nil }
 
 func Test_downloadItineraryJobFile_OpenFile_Error(t *testing.T) {
 	origIt := services.GetItineraryService

@@ -107,8 +107,6 @@ func TestCallLlm_UsesLlmClient(t *testing.T) {
 	mock := &mockModel{}
 	llmClient = mock
 
-	// CallLlm prints to stdout and may call log.Fatal on error, so we only test that GenerateContent is called.
-	// To avoid os.Exit from log.Fatal, we do not trigger error paths.
 	messages := []llms.MessageContent{
 		{
 			Role: llms.ChatMessageTypeSystem,

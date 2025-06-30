@@ -107,9 +107,11 @@ func (ifjs *ItineraryFileJobService) FindAliveByItineraryId(itineraryId int64) (
 
 func (itineraryFileJobService *ItineraryFileJobService) OpenItineraryJobFile(itineraryFileJob *models.ItineraryFileJob) (io.ReadSeekCloser, error) {
 	if itineraryFileJob == nil {
+		log.Error("itinerary file job instance is nil")
 		return nil, errors.New("itinerary file job instance is nil")
 	}
 	if itineraryFileJob.Filepath == "" {
+		log.Error("itinerary file job filepath is empty")
 		return nil, errors.New("itinerary file job filepath is empty")
 	}
 
@@ -126,6 +128,7 @@ func (itineraryFileJobService *ItineraryFileJobService) OpenItineraryJobFile(iti
 // GetJobsRunningOfUserCount retrieves the count of running jobs for a user
 func (ifjs *ItineraryFileJobService) GetJobsRunningOfUserCount(userId int64) (int, error) {
 	if userId <= 0 {
+		log.Error("invalid user ID")
 		return 0, errors.New("invalid user ID")
 	}
 	job := models.InitItineraryFileJob()
@@ -158,9 +161,11 @@ func (ifjs *ItineraryFileJobService) PrepareJob(itinerary *models.Itinerary) (*I
 // AddAsyncTaskId adds an async task ID to the job
 func (ifjs *ItineraryFileJobService) AddAsyncTaskId(asyncTaskId string, itineraryFileJob *models.ItineraryFileJob) error {
 	if asyncTaskId == "" {
+		log.Error("async task ID cannot be empty")
 		return errors.New("async task ID cannot be empty")
 	}
 	if itineraryFileJob == nil {
+		log.Error("itinerary file job instance is nil")
 		return errors.New("itinerary file job instance is nil")
 	}
 
@@ -176,9 +181,11 @@ func (ifjs *ItineraryFileJobService) AddAsyncTaskId(asyncTaskId string, itinerar
 // FailJob marks the job as failed with a description
 func (ifjs *ItineraryFileJobService) FailJob(errorDescription string, itineraryFileJob *models.ItineraryFileJob) error {
 	if itineraryFileJob == nil {
+		log.Error("itinerary file job instance is nil")
 		return errors.New("itinerary file job instance is nil")
 	}
 	if errorDescription == "" {
+		log.Error("error description cannot be empty")
 		return errors.New("error description cannot be empty")
 	}
 
@@ -194,10 +201,12 @@ func (ifjs *ItineraryFileJobService) FailJob(errorDescription string, itineraryF
 // StopJob stops the job
 func (ifjs *ItineraryFileJobService) StopJob(itineraryFileJob *models.ItineraryFileJob) error {
 	if itineraryFileJob == nil {
+		log.Error("itinerary file job instance is nil")
 		return errors.New("itinerary file job instance is nil")
 	}
 
 	if itineraryFileJob.Status == "completed" {
+		log.Error("itinerary file job instance is already completed. It cannot be stopped")
 		return errors.New("itinerary file job instance is already completed. It cannot be stopped")
 	}
 
@@ -229,10 +238,12 @@ func (ifjs *ItineraryFileJobService) StopJob(itineraryFileJob *models.ItineraryF
 // SoftDeleteJob marks the job as deleted without removing it from the database
 func (ifjs *ItineraryFileJobService) SoftDeleteJob(itineraryFileJob *models.ItineraryFileJob) error {
 	if itineraryFileJob == nil {
+		log.Error("itinerary file job instance is nil")
 		return errors.New("itinerary file job instance is nil")
 	}
 	err := itineraryFileJob.SoftDeleteJob()
 	if err != nil {
+		log.Errorf("failed to soft delete job: %v", err)
 		return errors.New("failed to soft delete job")
 	}
 	return nil
@@ -241,10 +252,12 @@ func (ifjs *ItineraryFileJobService) SoftDeleteJob(itineraryFileJob *models.Itin
 // SoftDeleteJobByItineraryId soft deletes jobs by itinerary ID
 func (ifjs *ItineraryFileJobService) SoftDeleteJobsByItineraryId(itineraryId int64, tx *sql.Tx) error {
 	if itineraryId <= 0 {
+		log.Error("invalid itinerary ID")
 		return errors.New("invalid itinerary ID")
 	}
 
 	if tx == nil {
+		log.Error("transaction instance is nil")
 		return errors.New("transaction instance is nil")
 	}
 
@@ -260,10 +273,12 @@ func (ifjs *ItineraryFileJobService) SoftDeleteJobsByItineraryId(itineraryId int
 // Deletes a single job
 func (ifjs *ItineraryFileJobService) DeleteJob(itineraryFileJob *models.ItineraryFileJob) error {
 	if itineraryFileJob == nil {
+		log.Error("itinerary file job instance is nil")
 		return errors.New("itinerary file job instance is nil")
 	}
 
 	if itineraryFileJob.Status != "deleted" {
+		log.Error("itinerary file job cannot be deleted because it is not marked for full deletion")
 		return errors.New("itinerary file job cannot be deleted because it is not marked for full deletion")
 	}
 
@@ -349,6 +364,7 @@ func HandleItineraryFileJob(ctx context.Context, t *asynq.Task) error {
 
 	err := job.StartJob()
 	if err != nil {
+		log.Errorf("failed to start job: %v", err)
 		job.FailJob("Failed to start job: " + err.Error())
 		return err
 	}
@@ -356,6 +372,7 @@ func HandleItineraryFileJob(ctx context.Context, t *asynq.Task) error {
 	// Generate the LLM messages for the itinerary
 	prompt, err := buildItineraryLlmPrompt(itinerary)
 	if err != nil {
+		log.Errorf("failed to build itinerary prompt: %v", err)
 		job.FailJob("Failed to build itinerary prompt: " + err.Error())
 		return err
 	}
@@ -378,6 +395,7 @@ func HandleItineraryFileJob(ctx context.Context, t *asynq.Task) error {
 
 	response, err := apis.CallLlm(messages)
 	if err != nil {
+		log.Errorf("failed to call LLM: %v", err)
 		job.FailJob("Failed to generate itinerary: " + err.Error())
 		return err
 	}
@@ -394,6 +412,7 @@ func HandleItineraryFileJob(ctx context.Context, t *asynq.Task) error {
 	// Write the LLM response to the specified file path using the file manager set in configuration
 	err = fileManager.SaveContentInFile(job.Filepath, response)
 	if err != nil {
+		log.Errorf("failed to write itinerary to file: %v", err)
 		job.FailJob("Failed to write itinerary to file: " + err.Error())
 		return err
 	}
@@ -414,6 +433,7 @@ func HandleItineraryFileJob(ctx context.Context, t *asynq.Task) error {
 	// Update the job in the database
 	err = job.CompleteJob()
 	if err != nil {
+		log.Errorf("failed to complete job: %v", err)
 		job.FailJob("Failed to complete job: " + err.Error())
 		return err
 	}

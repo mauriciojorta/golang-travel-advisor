@@ -63,6 +63,7 @@ func (q *AsyncqTaskQueue) EnqueueItineraryFileJob(itineraryTaskPayload Itinerary
 
 	asyncTaskPayloadJson, err := json.Marshal(itineraryTaskPayload)
 	if err != nil {
+		log.Errorf("could not marshal itinerary file job payload: %v", err)
 		return nil, err
 	}
 
@@ -71,6 +72,7 @@ func (q *AsyncqTaskQueue) EnqueueItineraryFileJob(itineraryTaskPayload Itinerary
 	if asyncTaskTimeoutStr != "" {
 		asyncTaskTimeoutMinutes, err = strconv.Atoi(asyncTaskTimeoutStr)
 		if err != nil {
+			log.Errorf("The format of ASYNC_TASK_TIMEOUT_MINUTES environment property is incorrect: %v", err)
 			return nil, err
 		}
 	} else {

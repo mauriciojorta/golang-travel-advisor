@@ -60,11 +60,11 @@ func TestUser_FindUser_Success(t *testing.T) {
 		WithArgs("test@example.com").
 		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 
-	user := NewUser("test@example.com", "password123")
+	user := InitUser()
 
-	err = user.FindByEmail()
+	u, err := user.FindByEmail("test@example.com")
 	assert.NoError(t, err)
-	assert.Equal(t, int64(1), user.ID)
+	assert.Equal(t, int64(1), u.ID)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -79,9 +79,9 @@ func TestUser_FindUser_NotFound(t *testing.T) {
 		WithArgs("test@example.com").
 		WillReturnRows(sqlmock.NewRows([]string{"id"})) // No rows returned
 
-	user := NewUser("test@example.com", "password123")
+	user := InitUser()
 
-	err = user.FindByEmail()
+	_, err = user.FindByEmail("test@example.com")
 	assert.Error(t, err)
 	assert.Equal(t, "sql: no rows in result set", err.Error())
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -98,9 +98,9 @@ func TestUser_FindUser_DBError(t *testing.T) {
 		WithArgs("test@example.com").
 		WillReturnError(errors.New("database error"))
 
-	user := NewUser("test@example.com", "password123")
+	user := InitUser()
 
-	err = user.FindByEmail()
+	_, err = user.FindByEmail("test@example.com")
 	assert.Error(t, err)
 	assert.Equal(t, "database error", err.Error())
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -124,9 +124,10 @@ func TestUser_ValidateCredentials(t *testing.T) {
 		WithArgs("test@example.com").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "password"}).AddRow(1, hashedPassword))
 
-	user := NewUser("test@example.com", "password123")
+	user := InitUser()
+	user.Email = "test@example.com"
 
-	err = user.ValidateCredentials()
+	err = user.ValidateCredentials("password123")
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), user.ID)
 	assert.NoError(t, mock.ExpectationsWereMet())
@@ -143,10 +144,11 @@ func TestUser_ValidateCredentials_Invalid(t *testing.T) {
 		WithArgs("test@example.com").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "password"}).AddRow(1, "hashedPassword"))
 
-	user := NewUser("test@example.com", "wrongPassword")
+	user := InitUser()
+	user.Email = "test@example.com"
 
-	err = user.ValidateCredentials()
+	err = user.ValidateCredentials("password123")
 	assert.Error(t, err)
-	assert.Equal(t, "Credentials invalid.", err.Error())
+	assert.Equal(t, "credentials invalid.", err.Error())
 	assert.NoError(t, mock.ExpectationsWereMet())
 }

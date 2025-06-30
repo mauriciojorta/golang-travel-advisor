@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"example.com/travel-advisor/db"
+	log "github.com/sirupsen/logrus"
 )
 
 type Itinerary struct {
@@ -61,6 +62,7 @@ func (i *Itinerary) defaultFindById(id int64, includeDestinations bool) (*Itiner
 	itinerary := &Itinerary{}
 	err := row.Scan(&itinerary.ID, &itinerary.Title, &itinerary.Description, &itinerary.Notes, &itinerary.OwnerID, &itinerary.CreationDate, &itinerary.UpdateDate)
 	if err != nil {
+		log.Errorf("Error fetching itinerary by ID %d: %v", id, err)
 		return nil, err
 	}
 
@@ -70,6 +72,7 @@ func (i *Itinerary) defaultFindById(id int64, includeDestinations bool) (*Itiner
 
 		travelDestinations, err := destinationEntity.FindByItineraryId(id)
 		if err != nil {
+			log.Errorf("Error fetching travel destinations for itinerary ID %d: %v", id, err)
 			return nil, err
 		}
 
@@ -89,6 +92,7 @@ func (i *Itinerary) defaultFindLightweightById(id int64) (*Itinerary, error) {
 
 	err := row.Scan(&itinerary.ID, &itinerary.OwnerID)
 	if err != nil {
+		log.Errorf("Error fetching lightweight itinerary by ID %d: %v", id, err)
 		return nil, err
 	}
 
@@ -120,6 +124,7 @@ func (i *Itinerary) defaultFindByOwnerId(ownerId int64) (*[]Itinerary, error) {
 
 		travelDestinations, err := destinationEntity.FindByItineraryId(itinerary.ID)
 		if err != nil {
+			log.Errorf("Error fetching travel destinations for itinerary ID %d: %v", itinerary.ID, err)
 			return nil, err
 		}
 
@@ -134,11 +139,13 @@ func (i *Itinerary) defaultFindByOwnerId(ownerId int64) (*[]Itinerary, error) {
 func (i *Itinerary) defaultCreate() error {
 	tx, err := db.DB.Begin()
 	if err != nil {
+		log.Errorf("Error starting transaction for itinerary creation: %v", err)
 		return err
 	}
 
 	defer db.HandleTransaction(tx, &err)
 	if err != nil {
+		log.Errorf("Error starting transaction for itinerary creation: %v", err)
 		return err
 	}
 
@@ -147,17 +154,20 @@ func (i *Itinerary) defaultCreate() error {
 
 	stmt, err := tx.Prepare(queryItinerary)
 	if err != nil {
+		log.Errorf("Error preparing insert for itinerary: %v", err)
 		return err
 	}
 	defer stmt.Close()
 
 	result, err := stmt.Exec(i.Title, i.Description, i.Notes, i.OwnerID, time.Now(), time.Now())
 	if err != nil {
+		log.Errorf("Error executing insert for itinerary: %v", err)
 		return err
 	}
 
 	itineraryId, err := result.LastInsertId()
 	if err != nil {
+		log.Errorf("Error getting last insert ID for itinerary: %v", err)
 		return err
 	}
 
@@ -168,6 +178,7 @@ func (i *Itinerary) defaultCreate() error {
 		travelDestination = *NewItineraryTravelDestination(travelDestination.Country, travelDestination.City, travelDestination.ItineraryID, travelDestination.ArrivalDate, travelDestination.DepartureDate)
 		err = travelDestination.Create(tx)
 		if err != nil {
+			log.Errorf("Error creating travel destination for itinerary ID %d: %v", itineraryId, err)
 			return err
 		}
 	}
@@ -178,23 +189,27 @@ func (i *Itinerary) defaultCreate() error {
 func (i *Itinerary) defaultUpdate() error {
 	tx, err := db.DB.Begin()
 	if err != nil {
+		log.Errorf("Error starting transaction for itinerary update: %v", err)
 		return err
 	}
 
 	defer db.HandleTransaction(tx, &err)
 	if err != nil {
+		log.Errorf("Error starting transaction for itinerary update: %v", err)
 		return err
 	}
 
 	query := `UPDATE itineraries SET title = ?, description = ?, notes = ?, update_date = ? WHERE id = ?`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
+		log.Errorf("Error preparing update for itinerary: %v", err)
 		return err
 	}
 	defer stmt.Close()
 
 	_, err = stmt.Exec(i.Title, i.Description, i.Notes, time.Now(), i.ID)
 	if err != nil {
+		log.Errorf("Error executing update for itinerary ID %d: %v", i.ID, err)
 		return err
 	}
 
@@ -203,6 +218,7 @@ func (i *Itinerary) defaultUpdate() error {
 	// Clear existing travel destinations for this itinerary
 	err = destination.DeleteByItineraryIdTx(i.ID, tx)
 	if err != nil {
+		log.Errorf("Error deleting existing travel destinations for itinerary ID %d: %v", i.ID, err)
 		return err
 	}
 
@@ -212,6 +228,7 @@ func (i *Itinerary) defaultUpdate() error {
 		travelDestination = *NewItineraryTravelDestination(travelDestination.Country, travelDestination.City, travelDestination.ItineraryID, travelDestination.ArrivalDate, travelDestination.DepartureDate)
 		err = travelDestination.Create(tx)
 		if err != nil {
+			log.Errorf("Error creating travel destination for itinerary ID %d: %v", i.ID, err)
 			return err
 		}
 	}
@@ -222,11 +239,13 @@ func (i *Itinerary) defaultUpdate() error {
 func (i *Itinerary) defaultDelete() error {
 	tx, err := db.DB.Begin()
 	if err != nil {
+		log.Errorf("Error starting transaction for itinerary deletion: %v", err)
 		return err
 	}
 
 	defer db.HandleTransaction(tx, &err)
 	if err != nil {
+		log.Errorf("Error starting transaction for itinerary deletion: %v", err)
 		return err
 	}
 
@@ -234,6 +253,7 @@ func (i *Itinerary) defaultDelete() error {
 	job := InitItineraryFileJob()
 	err = job.SoftDeleteJobsByItineraryIdTx(i.ID, tx)
 	if err != nil {
+		log.Errorf("Error marking jobs for deletion for itinerary ID %d: %v", i.ID, err)
 		return err
 	}
 
@@ -241,6 +261,7 @@ func (i *Itinerary) defaultDelete() error {
 	destination := InitItineraryTravelDestination()
 	err = destination.DeleteByItineraryIdTx(i.ID, tx)
 	if err != nil {
+		log.Errorf("Error deleting existing travel destinations for itinerary ID %d: %v", i.ID, err)
 		return err
 	}
 
@@ -248,12 +269,14 @@ func (i *Itinerary) defaultDelete() error {
 	query := `DELETE FROM itineraries WHERE id = ?`
 	stmt, err := tx.Prepare(query)
 	if err != nil {
+		log.Errorf("Error preparing delete for itinerary ID %d: %v", i.ID, err)
 		return err
 	}
 	defer stmt.Close()
 
 	_, err = stmt.Exec(i.ID)
 	if err != nil {
+		log.Errorf("Error executing delete for itinerary ID %d: %v", i.ID, err)
 		return err
 	}
 

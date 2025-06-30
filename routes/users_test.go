@@ -19,7 +19,7 @@ import (
 type mockUserService struct {
 	findByEmailFunc         func(email string) (*models.User, error)
 	createFunc              func(user *models.User) error
-	validateCredentialsFunc func(user *models.User) error
+	validateCredentialsFunc func(user *models.User, password string) error
 }
 
 func (m *mockUserService) FindByEmail(email string) (*models.User, error) {
@@ -28,8 +28,8 @@ func (m *mockUserService) FindByEmail(email string) (*models.User, error) {
 func (m *mockUserService) Create(user *models.User) error {
 	return m.createFunc(user)
 }
-func (m *mockUserService) ValidateCredentials(user *models.User) error {
-	return m.validateCredentialsFunc(user)
+func (m *mockUserService) ValidateCredentials(user *models.User, password string) error {
+	return m.validateCredentialsFunc(user, password)
 }
 
 // Patch services.GetUserService to return our mock
@@ -134,7 +134,7 @@ func TestSignUp_CreateError(t *testing.T) {
 func TestLogin_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockSvc := &mockUserService{
-		validateCredentialsFunc: func(user *models.User) error { return nil },
+		validateCredentialsFunc: func(user *models.User, password string) error { return nil },
 	}
 	restoreSvc := setMockUserService(mockSvc)
 	defer restoreSvc()
@@ -172,7 +172,7 @@ func TestLogin_BadRequest(t *testing.T) {
 func TestLogin_InvalidCredentials(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockSvc := &mockUserService{
-		validateCredentialsFunc: func(user *models.User) error { return errors.New("invalid") },
+		validateCredentialsFunc: func(user *models.User, password string) error { return errors.New("invalid") },
 	}
 	restore := setMockUserService(mockSvc)
 	defer restore()
@@ -193,7 +193,7 @@ func TestLogin_InvalidCredentials(t *testing.T) {
 func TestLogin_TokenError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockSvc := &mockUserService{
-		validateCredentialsFunc: func(user *models.User) error { return nil },
+		validateCredentialsFunc: func(user *models.User, password string) error { return nil },
 	}
 	restoreSvc := setMockUserService(mockSvc)
 	defer restoreSvc()

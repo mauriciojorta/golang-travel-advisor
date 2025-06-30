@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"example.com/travel-advisor/db"
 )
 
@@ -57,6 +59,7 @@ func (d *ItineraryTravelDestination) defaultFindByItineraryId(itineraryId int64)
 	FROM itinerary_travel_destinations WHERE itinerary_id = ? ORDER BY arrival_date ASC`
 	destRows, err := db.DB.Query(query, itineraryId)
 	if err != nil {
+		log.Errorf("Error querying itinerary travel destinations: %v", err)
 		return nil, err
 	}
 
@@ -66,6 +69,7 @@ func (d *ItineraryTravelDestination) defaultFindByItineraryId(itineraryId int64)
 		var destination ItineraryTravelDestination
 		err := destRows.Scan(&destination.ID, &destination.Country, &destination.City, &destination.ItineraryID, &destination.ArrivalDate, &destination.DepartureDate, &destination.CreationDate, &destination.UpdateDate)
 		if err != nil {
+			log.Errorf("Error scanning itinerary travel destination: %v", err)
 			destRows.Close()
 			return nil, err
 		}
@@ -82,6 +86,7 @@ func (d *ItineraryTravelDestination) defaultCreate(tx *sql.Tx) error {
 
 	stmt, err := tx.Prepare(query)
 	if err != nil {
+		log.Errorf("Error preparing insert for itinerary travel destination: %v", err)
 		return err
 	}
 
@@ -89,11 +94,13 @@ func (d *ItineraryTravelDestination) defaultCreate(tx *sql.Tx) error {
 
 	result, err := stmt.Exec(d.Country, d.City, d.ItineraryID, d.ArrivalDate, d.DepartureDate, time.Now(), time.Now())
 	if err != nil {
+		log.Errorf("Error executing insert for itinerary travel destination: %v", err)
 		return err
 	}
 
 	travelDestinationId, err := result.LastInsertId()
 	if err != nil {
+		log.Errorf("Error getting last insert ID for itinerary travel destination: %v", err)
 		return err
 	}
 
@@ -107,6 +114,7 @@ func (d *ItineraryTravelDestination) defaultUpdate() error {
 
 	stmt, err := db.DB.Prepare(query)
 	if err != nil {
+		log.Errorf("Error preparing update for itinerary travel destination: %v", err)
 		return err
 	}
 
@@ -114,6 +122,7 @@ func (d *ItineraryTravelDestination) defaultUpdate() error {
 
 	_, err = stmt.Exec(d.Country, d.City, d.ArrivalDate, d.DepartureDate, time.Now(), d.ID)
 	if err != nil {
+		log.Errorf("Error executing update for itinerary travel destination: %v", err)
 		return err
 	}
 
@@ -125,6 +134,7 @@ func (d *ItineraryTravelDestination) defaultDelete() error {
 
 	stmt, err := db.DB.Prepare(query)
 	if err != nil {
+		log.Errorf("Error preparing delete for itinerary travel destination: %v", err)
 		return err
 	}
 
@@ -132,6 +142,7 @@ func (d *ItineraryTravelDestination) defaultDelete() error {
 
 	_, err = stmt.Exec(d.ID)
 	if err != nil {
+		log.Errorf("Error executing delete for itinerary travel destination: %v", err)
 		return err
 	}
 
@@ -143,6 +154,7 @@ func (d *ItineraryTravelDestination) defaultDeleteByItineraryIdTx(itineraryId in
 
 	stmt, err := tx.Prepare(query)
 	if err != nil {
+		log.Errorf("Error preparing delete for itinerary travel destinations by itinerary ID: %v", err)
 		return err
 	}
 
@@ -150,6 +162,7 @@ func (d *ItineraryTravelDestination) defaultDeleteByItineraryIdTx(itineraryId in
 
 	_, err = stmt.Exec(itineraryId)
 	if err != nil {
+		log.Errorf("Error executing delete for itinerary travel destinations by itinerary ID: %v", err)
 		return err
 	}
 
