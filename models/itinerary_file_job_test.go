@@ -583,7 +583,7 @@ func TestDefaultStartJob_Error(t *testing.T) {
 
 	err = job.defaultStartJob()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to update job status in database")
+	assert.Contains(t, err.Error(), "failed to update job status to 'running' in database")
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -631,7 +631,7 @@ func TestDefaultFailJob_Error(t *testing.T) {
 
 	err = job.defaultFailJob("fail reason")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to update job status in database")
+	assert.Contains(t, err.Error(), "failed to update job status to 'failed' in database")
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
@@ -727,7 +727,7 @@ func TestDefaultCompleteJob_Error(t *testing.T) {
 
 	err = job.defaultCompleteJob()
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to update job status in database")
+	assert.Contains(t, err.Error(), "failed to update job status to 'completed' in database")
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)

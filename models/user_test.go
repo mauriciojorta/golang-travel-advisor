@@ -149,6 +149,6 @@ func TestUser_ValidateCredentials_Invalid(t *testing.T) {
 
 	err = user.ValidateCredentials("password123")
 	assert.Error(t, err)
-	assert.Equal(t, "credentials invalid.", err.Error())
+	assert.Equal(t, "credentials invalid", err.Error())
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
