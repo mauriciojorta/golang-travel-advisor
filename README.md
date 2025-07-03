@@ -56,25 +56,25 @@
 
 ### Authentication
 
-- `POST /signup` — Register a new user.
-- `POST /login` — Login and receive a JWT token.
+- `POST /api/v1/signup` — Register a new user.
+- `POST /api/v1/login` — Login and receive a JWT token.
 
 ### Itineraries (Authenticated)
 
-- `POST /itineraries` — Create a new itinerary.
-- `PUT /itineraries` — Update an existing itinerary.
-- `GET /itineraries` — List all itineraries for the authenticated user.
-- `GET /itineraries/:itineraryId` — Get details of a specific itinerary.
-- `DELETE /itineraries/:itineraryId` — Delete an itinerary.
+- `POST /api/v1/itineraries` — Create a new itinerary.
+- `PUT /api/v1/itineraries` — Update an existing itinerary.
+- `GET /api/v1/itineraries` — List all itineraries for the authenticated user.
+- `GET /api/v1/itineraries/:itineraryId` — Get details of a specific itinerary.
+- `DELETE /api/v1/itineraries/:itineraryId` — Delete an itinerary.
 
 ### Itinerary File Jobs (Authenticated)
 
-- `POST /itineraries/:itineraryId/jobs` — Start a file generation job for an itinerary.
-- `GET /itineraries/:itineraryId/jobs` — List all jobs for an itinerary.
-- `GET /itineraries/:itineraryId/jobs/:itineraryJobId` — Get job status/details.
-- `GET /itineraries/:itineraryId/jobs/:itineraryJobId/file` — Download the generated file.
-- `PUT /itineraries/:itineraryId/jobs/:itineraryJobId/stop` — Stop a running job.
-- `DELETE /itineraries/:itineraryId/jobs/:itineraryJobId` — Delete a job.
+- `POST /api/v1/itineraries/:itineraryId/jobs` — Start a file generation job for an itinerary.
+- `GET /api/v1/itineraries/:itineraryId/jobs` — List all jobs for an itinerary.
+- `GET /api/v1/itineraries/:itineraryId/jobs/:itineraryJobId` — Get job status/details.
+- `GET /api/v1/itineraries/:itineraryId/jobs/:itineraryJobId/file` — Download the generated file.
+- `PUT /api/v1/itineraries/:itineraryId/jobs/:itineraryJobId/stop` — Stop a running job.
+- `DELETE /api/v1/itineraries/:itineraryId/jobs/:itineraryJobId` — Delete a job.
 
 ---
 
@@ -97,6 +97,7 @@ See .env.example.txt for all available configuration options. Key variables incl
 - The API uses Gin for HTTP routing and Logrus for logging.
 - Background jobs are managed with [Asynq](https://github.com/hibiken/asynq) and require a running Redis instance.
 - Periodic cleanup of deleted jobs is handled automatically.
+- Swagger documentation is available at `/swagger/index.html` after running the server.
 
 ---
 

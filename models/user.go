@@ -10,12 +10,12 @@ import (
 )
 
 type User struct {
-	ID            int64      `json:"id"`
-	Email         string     `json:"email" binding:"required"`
-	Password      string     `json:"password"`
-	CreationDate  *time.Time `json:"creationDate"`
-	UpdateDate    *time.Time `json:"updateDate"`
-	LastLoginDate *time.Time `json:"lastLoginDate"`
+	ID            int64      `json:"id" example:"1"`
+	Email         string     `json:"email" binding:"required" example:"test@example.com"`
+	Password      string     `json:"password" example:"password123"`
+	CreationDate  *time.Time `json:"creationDate" example:"2024-01-01T00:00:00Z"`
+	UpdateDate    *time.Time `json:"updateDate" example:"2024-01-01T00:00:00Z"`
+	LastLoginDate *time.Time `json:"lastLoginDate" example:"2024-01-01T00:00:00Z"`
 
 	FindByEmail         func(email string) (*User, error) `json:"-"`
 	Create              func() error                      `json:"-"`
@@ -111,7 +111,7 @@ func (u *User) defaultValidateCredentials(password string) error {
 	isValid := utils.CheckPasswordHash(retrievedPassword, password)
 	if !isValid {
 		log.Errorf("Invalid credentials for user with email: %s", u.Email)
-		return errors.New("credentials invalid.")
+		return errors.New("credentials invalid")
 	}
 
 	return nil

@@ -12,18 +12,18 @@ import (
 )
 
 type ItineraryFileJob struct {
-	ID                int64  `json:"id"`
-	Status            string `json:"status"`
-	StatusDescription string `json:"statusDescription"`
+	ID                int64  `json:"id" example:"1"`
+	Status            string `json:"status" example:"completed"`
+	StatusDescription string `json:"statusDescription,omitempty" example:"Job completed successfully"`
 	// Status can be "running", "completed", "failed", or "stopped"
-	CreationDate time.Time `json:"creationDate"`
+	CreationDate time.Time `json:"creationDate" example:"2024-06-01T00:00:00Z"` // CreationDate is set when the job is created
 	// CreationDate is set when the job is created
-	StartDate   time.Time `json:"startDate"`
-	EndDate     time.Time `json:"endDate"`
-	Filepath    string    `json:"filepath"`
-	FileManager string    `json:"fileManager,omitempty"` // Optional, used for file management
-	ItineraryID int64     `json:"itineraryId"`
-	AsyncTaskID string    `json:"asyncTaskId,omitempty"` // Optional, used for tracking async tasks
+	StartDate   time.Time `json:"startDate" example:"2024-06-01T00:00:00Z"`                             // StartDate is set when the job starts
+	EndDate     time.Time `json:"endDate,omitempty" example:"2024-06-01T00:01:00Z"`                     // EndDate is set when the job ends
+	Filepath    string    `json:"filepath,omitempty" example:"/path/to/file.txt"`                       // Optional, used for file storage
+	FileManager string    `json:"fileManager,omitempty" example:"local"`                                // Optional, used for file management
+	ItineraryID int64     `json:"itineraryId" example:"123"`                                            // ItineraryID is the ID of the itinerary associated with this job
+	AsyncTaskID string    `json:"asyncTaskId,omitempty" example:"e2467dd0-db8a-49db-a5cb-9474f8e63933"` // Optional, async task ID from task manager
 
 	FindAliveById                 func(id int64) (*ItineraryFileJob, error)            `json:"-"`
 	FindAliveLightweightById      func(id int64) (*ItineraryFileJob, error)            `json:"-"`

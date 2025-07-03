@@ -8,15 +8,14 @@ import (
 )
 
 type Itinerary struct {
-	ID                 int64                         `json:"id"`
-	Title              string                        `json:"title" binding:"required"`
-	Description        string                        `json:"description"`
-	CreationDate       *time.Time                    `json:"creationDate"`
-	UpdateDate         *time.Time                    `json:"updateDate"`
-	TravelDestinations *[]ItineraryTravelDestination `json:"travelDestinations"`
-	OwnerID            int64                         `json:"ownerId"`
-	FileJobs           []ItineraryFileJob            `json:"fileJobs"`
-	Notes              *string                       `json:"notes"`
+	ID                 int64                         `json:"id" example:"1"`
+	Title              string                        `json:"title" binding:"required" example:"Trip to Spain"`
+	Description        string                        `json:"description" example:"Summer vacation in Spain"`
+	CreationDate       *time.Time                    `json:"creationDate,omitempty" example:"2024-06-01T00:00:00Z"`
+	UpdateDate         *time.Time                    `json:"updateDate,omitempty" example:"2024-06-01T00:00:00Z"`
+	TravelDestinations *[]ItineraryTravelDestination `json:"travelDestinations,omitempty"`
+	OwnerID            int64                         `json:"ownerId" example:"1"`
+	Notes              *string                       `json:"notes,omitempty" example:"I want to enjoy the nightlife"`
 
 	FindById            func(id int64, includeDestinations bool) (*Itinerary, error) `json:"-"`
 	FindLightweightById func(id int64) (*Itinerary, error)                           `json:"-"`

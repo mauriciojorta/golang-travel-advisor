@@ -3,14 +3,22 @@ package routes
 import (
 	"example.com/travel-advisor/middlewares"
 	"github.com/gin-gonic/gin"
+
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger" // gin-swagger middleware
 )
 
+type ErrorResponse struct {
+	Message string `json:"message" example:"An error occurred."`
+}
+
 func RegisterRoutes(server *gin.Engine) {
+	api := server.Group("/api/v1")
 
-	server.POST("/signup", signUp)
-	server.POST("/login", login)
+	api.POST("/signup", signUp)
+	api.POST("/login", login)
 
-	authenticated := server.Group("/")
+	authenticated := api.Group("/")
 	authenticated.Use(middlewares.Authenticate)
 	authenticated.POST("/itineraries", createItinerary)
 	authenticated.PUT("/itineraries", updateItinerary)
@@ -24,4 +32,5 @@ func RegisterRoutes(server *gin.Engine) {
 	authenticated.PUT("/itineraries/:itineraryId/jobs/:itineraryJobId/stop", stopItineraryJob)
 	authenticated.DELETE("/itineraries/:itineraryId/jobs/:itineraryJobId", deleteItineraryJob)
 
+	api.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 }

@@ -5,6 +5,8 @@ import (
 	"strconv"
 	"time"
 
+	_ "example.com/travel-advisor/docs" // This is required for Swagger documentation generation
+
 	"example.com/travel-advisor/apis"
 	"example.com/travel-advisor/db"
 	"example.com/travel-advisor/logger"
@@ -17,6 +19,22 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// @title           Golang Travel Advisor API
+// @version         1.0
+// @description     This is a sample API for a travel advisor application built with Golang.
+
+// @license.name  MIT License
+// @license.url   https://opensource.org/license/mit/
+
+// @host      localhost:8080
+// @BasePath  /api/v1
+
+// @securityDefinitions.apikey Auth
+// @in header
+// @name Authorization
+
+// @externalDocs.description  OpenAPI
+// @externalDocs.url          https://swagger.io/resources/open-api/
 func main() {
 	err := godotenv.Load()
 	if err != nil {

@@ -10,14 +10,14 @@ import (
 )
 
 type ItineraryTravelDestination struct {
-	ID            int64      `json:"id"`
-	Country       string     `json:"country" binding:"required"`
-	City          string     `json:"city" binding:"required"`
-	ItineraryID   int64      `json:"itineraryId"`
-	ArrivalDate   time.Time  `json:"arrivalDate" binding:"required"`
-	DepartureDate time.Time  `json:"departureDate" binding:"required"`
-	CreationDate  *time.Time `json:"creationDate"`
-	UpdateDate    *time.Time `json:"updateDate"`
+	ID            int64      `json:"id" example:"1"`
+	Country       string     `json:"country" binding:"required" example:"Spain"`
+	City          string     `json:"city" binding:"required" example:"Madrid"`
+	ItineraryID   int64      `json:"itineraryId" example:"1"`
+	ArrivalDate   time.Time  `json:"arrivalDate" binding:"required" example:"2024-07-01T00:00:00Z"`
+	DepartureDate time.Time  `json:"departureDate" binding:"required" example:"2024-07-05T00:00:00Z"`
+	CreationDate  *time.Time `json:"creationDate,omitempty" example:"2024-06-01T00:00:00Z"`
+	UpdateDate    *time.Time `json:"updateDate,omitempty" example:"2024-06-01T00:00:00Z"`
 
 	FindByItineraryId     func(itineraryId int64) (*[]ItineraryTravelDestination, error) `json:"-"`
 	Create                func(*sql.Tx) error                                            `json:"-"`
