@@ -849,9 +849,15 @@ func TestDefaultSoftDeleteJobsByItineraryId_Success(t *testing.T) {
 			tx.Rollback()
 			panic(p)
 		} else if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				t.Fatalf("Failed to rollback transaction: %v", err)
+			}
 		} else {
 			err = tx.Commit()
+			if err != nil {
+				t.Fatalf("Failed to commit transaction: %v", err)
+			}
 		}
 	}()
 	assert.NoError(t, err)
@@ -864,6 +870,7 @@ func TestDefaultSoftDeleteJobsByItineraryId_Success(t *testing.T) {
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
+	mock.ExpectCommit()
 }
 
 func TestDefaultSoftDeleteJobsByItineraryId_Error(t *testing.T) {
@@ -887,9 +894,15 @@ func TestDefaultSoftDeleteJobsByItineraryId_Error(t *testing.T) {
 			tx.Rollback()
 			panic(p)
 		} else if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				t.Fatalf("Failed to rollback transaction: %v", err)
+			}
 		} else {
 			err = tx.Commit()
+			if err != nil {
+				t.Fatalf("Failed to commit transaction: %v", err)
+			}
 		}
 	}()
 	assert.NoError(t, err)
@@ -898,9 +911,8 @@ func TestDefaultSoftDeleteJobsByItineraryId_Error(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to soft delete jobs by itinerary ID")
 
-	_ = tx.Rollback()
-
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
 	}
+	mock.ExpectRollback()
 }

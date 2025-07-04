@@ -3,7 +3,9 @@ package services
 import (
 	"errors"
 
+	"example.com/travel-advisor/db"
 	"example.com/travel-advisor/models" // Replace with the actual path to the User struct
+	"example.com/travel-advisor/utils"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -11,6 +13,7 @@ type UserServiceInterface interface {
 	FindByEmail(email string) (*models.User, error)
 	Create(user *models.User) error
 	ValidateCredentials(user *models.User, password string) error
+	GenerateLoginToken(user *models.User) (string, error)
 }
 
 type UserService struct{}
@@ -53,4 +56,35 @@ func (us *UserService) ValidateCredentials(user *models.User, password string) e
 		return errors.New("password cannot be empty")
 	}
 	return user.ValidateCredentials(password)
+}
+
+func (us *UserService) GenerateLoginToken(user *models.User) (string, error) {
+	token, err := utils.GenerateToken(user.Email, user.ID)
+	if err != nil {
+		log.Errorf("Error generating token: %v", err)
+		return "", errors.New("error generating token")
+	}
+
+	tx, err := db.DB.Begin()
+	if err != nil {
+		log.Errorf("Error starting transaction for login auditing: %v", err)
+		return "", err
+	}
+
+	defer db.HandleTransaction(tx, &err)
+
+	err = user.UpdateLastLoginDate(tx)
+	if err != nil {
+		log.Errorf("Error updating last login date: %v", err)
+		return "", errors.New("error updating last login date")
+	}
+
+	auditEvent := models.NewAuditEvent(user.ID, "User login")
+	err = auditEvent.CreateAuditEvent(tx)
+	if err != nil {
+		log.Errorf("Error saving login event: %v", err)
+		return "", errors.New("error saving login event")
+	}
+
+	return token, nil
 }

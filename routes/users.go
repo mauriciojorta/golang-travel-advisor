@@ -5,7 +5,6 @@ import (
 
 	"example.com/travel-advisor/models"
 	"example.com/travel-advisor/services"
-	"example.com/travel-advisor/utils"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
@@ -113,10 +112,10 @@ func login(context *gin.Context) {
 		return
 	}
 
-	token, err := utils.GenerateToken(user.Email, user.ID)
+	token, err := userService.GenerateLoginToken(user)
 	if err != nil {
 		log.Errorf("Error generating token: %v", err)
-		context.JSON(http.StatusUnauthorized, &ErrorResponse{Message: "Wrong user credentials."})
+		context.JSON(http.StatusUnauthorized, &ErrorResponse{Message: "Unexpected error."})
 		return
 	}
 

@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 
+	log "github.com/sirupsen/logrus"
 	_ "modernc.org/sqlite"
 )
 
@@ -68,6 +69,7 @@ func createTables() {
 	_, err := DB.Exec(createUsersTable)
 
 	if err != nil {
+		log.Errorf("Error creating users table: %v", err)
 		panic("Could not create users table!")
 	}
 
@@ -85,6 +87,7 @@ func createTables() {
 	`
 	_, err = DB.Exec(createItinerariesTable)
 	if err != nil {
+		log.Errorf("Error creating itineraries table: %v", err)
 		panic("Could not create itineraries table!")
 	}
 
@@ -104,6 +107,7 @@ func createTables() {
 	`
 	_, err = DB.Exec(createItinerariesTravelDestinationsTable)
 	if err != nil {
+		log.Errorf("Error creating itineraries travel destinations table: %v", err)
 		panic("Could not create itineraries travel destinations table!")
 	}
 
@@ -124,7 +128,44 @@ func createTables() {
 	`
 	_, err = DB.Exec(createItinerariesFileJobsTable)
 	if err != nil {
+		log.Errorf("Error creating itineraries file jobs table: %v", err)
 		panic("Could not create itineraries file jobs table!")
+	}
+
+	createItinerariesFileJobsIndex := `
+	CREATE INDEX IF NOT EXISTS idx_itinerary_file_jobs_status 
+	ON itinerary_file_jobs (status, status_description, creation_date, start_date, end_date)
+	`
+	_, err = DB.Exec(createItinerariesFileJobsIndex)
+	if err != nil {
+		log.Errorf("Error creating itineraries file jobs index: %v", err)
+		panic("Could not create itineraries file jobs index!")
+	}
+
+	createAuditEventsTable := `
+		CREATE TABLE IF NOT EXISTS audit_events (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			user_id INTEGER NOT NULL,
+			event_description TEXT,
+			event_date DATETIME,
+			FOREIGN KEY (user_id) REFERENCES users(id)
+		)
+	`
+
+	_, err = DB.Exec(createAuditEventsTable)
+	if err != nil {
+		log.Errorf("Error creating audit events table: %v", err)
+		panic("Could not create audit events table!")
+	}
+
+	createAuditEventsIndex := `
+		CREATE INDEX IF NOT EXISTS idx_event_details 
+		ON audit_events (event_date, event_description, user_id)
+	`
+	_, err = DB.Exec(createAuditEventsIndex)
+	if err != nil {
+		log.Errorf("Error creating audit events index: %v", err)
+		panic("Could not create audit events index!")
 	}
 
 }

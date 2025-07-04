@@ -98,6 +98,7 @@ See .env.example.txt for all available configuration options. Key variables incl
 - Background jobs are managed with [Asynq](https://github.com/hibiken/asynq) and require a running Redis instance.
 - Periodic cleanup of deleted jobs is handled automatically.
 - Swagger documentation is available at `/swagger/index.html` after running the server.
+- Run tests with `go test ./...` to ensure everything is working correctly.
 
 ---
 

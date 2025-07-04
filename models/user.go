@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"errors"
 	"time"
 
@@ -20,6 +21,7 @@ type User struct {
 	FindByEmail         func(email string) (*User, error) `json:"-"`
 	Create              func() error                      `json:"-"`
 	ValidateCredentials func(password string) error       `json:"-"`
+	UpdateLastLoginDate func(*sql.Tx) error               `json:"-"`
 }
 
 var InitUser = func() *User {
@@ -27,10 +29,11 @@ var InitUser = func() *User {
 }
 
 var InitUserFunctions = func(user *User) *User {
-	// Set default implementations for FindByEmail, Create, and ValidateCredentials
+	// Set default implementations for FindByEmail, Create, ValidateCredentials and UpdateLastLoginDate
 	user.FindByEmail = user.defaultFindUser
 	user.Create = user.defaultCreate
 	user.ValidateCredentials = user.defaultValidateCredentials
+	user.UpdateLastLoginDate = user.defaultUpdateLastLoginDate
 
 	return user
 }
@@ -113,6 +116,27 @@ func (u *User) defaultValidateCredentials(password string) error {
 		log.Errorf("Invalid credentials for user with email: %s", u.Email)
 		return errors.New("credentials invalid")
 	}
+
+	return nil
+}
+
+func (u *User) defaultUpdateLastLoginDate(tx *sql.Tx) error {
+	query := "UPDATE users SET last_login_date = ? WHERE id = ?"
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		log.Errorf("Error preparing statement for updating last login date: %v", err)
+		return err
+	}
+	defer stmt.Close()
+
+	now := time.Now()
+	_, err = stmt.Exec(now, u.ID)
+	if err != nil {
+		log.Errorf("Error executing statement for updating last login date: %v", err)
+		return err
+	}
+
+	u.LastLoginDate = &now
 
 	return nil
 }

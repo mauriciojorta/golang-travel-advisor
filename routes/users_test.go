@@ -9,7 +9,6 @@ import (
 
 	"example.com/travel-advisor/models"
 	"example.com/travel-advisor/services"
-	"example.com/travel-advisor/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
@@ -20,6 +19,7 @@ type mockUserService struct {
 	findByEmailFunc         func(email string) (*models.User, error)
 	createFunc              func(user *models.User) error
 	validateCredentialsFunc func(user *models.User, password string) error
+	generateLoginTokenFunc  func(user *models.User) (string, error)
 }
 
 func (m *mockUserService) FindByEmail(email string) (*models.User, error) {
@@ -31,6 +31,9 @@ func (m *mockUserService) Create(user *models.User) error {
 func (m *mockUserService) ValidateCredentials(user *models.User, password string) error {
 	return m.validateCredentialsFunc(user, password)
 }
+func (m *mockUserService) GenerateLoginToken(user *models.User) (string, error) {
+	return m.generateLoginTokenFunc(user)
+}
 
 // Patch services.GetUserService to return our mock
 func setMockUserService(mock services.UserServiceInterface) func() {
@@ -39,15 +42,6 @@ func setMockUserService(mock services.UserServiceInterface) func() {
 		return mock
 	}
 	return func() { services.GetUserService = orig }
-}
-
-// Patch utils.GenerateToken
-func setMockGenerateToken(token string, err error) func() {
-	orig := utils.GenerateToken
-	utils.GenerateToken = func(email string, userId int64) (string, error) {
-		return token, err
-	}
-	return func() { utils.GenerateToken = orig }
 }
 
 // --- Tests ---
@@ -135,11 +129,10 @@ func TestLogin_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockSvc := &mockUserService{
 		validateCredentialsFunc: func(user *models.User, password string) error { return nil },
+		generateLoginTokenFunc:  func(user *models.User) (string, error) { return "mocktoken", nil },
 	}
 	restoreSvc := setMockUserService(mockSvc)
 	defer restoreSvc()
-	restoreToken := setMockGenerateToken("mocktoken", nil)
-	defer restoreToken()
 
 	body := []byte(`{"email":"test@example.com","password":"pass123"}`)
 	req, _ := http.NewRequest("POST", "/login", bytes.NewBuffer(body))
@@ -194,11 +187,10 @@ func TestLogin_TokenError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	mockSvc := &mockUserService{
 		validateCredentialsFunc: func(user *models.User, password string) error { return nil },
+		generateLoginTokenFunc:  func(user *models.User) (string, error) { return "", errors.New("error generating token") },
 	}
 	restoreSvc := setMockUserService(mockSvc)
 	defer restoreSvc()
-	restoreToken := setMockGenerateToken("", errors.New("token error"))
-	defer restoreToken()
 
 	body := []byte(`{"email":"test@example.com","password":"pass123"}`)
 	req, _ := http.NewRequest("POST", "/login", bytes.NewBuffer(body))
@@ -210,5 +202,5 @@ func TestLogin_TokenError(t *testing.T) {
 	login(c)
 
 	assert.Equal(t, http.StatusUnauthorized, w.Code)
-	assert.Contains(t, w.Body.String(), "Wrong user credentials")
+	assert.Contains(t, w.Body.String(), "Unexpected error.")
 }

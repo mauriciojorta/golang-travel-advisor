@@ -104,9 +104,15 @@ func TestDestinationCreate_Success(t *testing.T) {
 			tx.Rollback()
 			panic(p)
 		} else if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				t.Fatalf("Failed to rollback transaction: %v", err)
+			}
 		} else {
 			err = tx.Commit()
+			if err != nil {
+				t.Fatalf("Failed to commit transaction: %v", err)
+			}
 		}
 	}()
 
@@ -130,6 +136,7 @@ func TestDestinationCreate_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), destination.ID)
 	assert.NoError(t, mock.ExpectationsWereMet())
+	mock.ExpectCommit()
 }
 
 func TestDestinationCreate_PrepareError(t *testing.T) {
@@ -148,9 +155,15 @@ func TestDestinationCreate_PrepareError(t *testing.T) {
 			tx.Rollback()
 			panic(p)
 		} else if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				t.Fatalf("Failed to rollback transaction: %v", err)
+			}
 		} else {
 			err = tx.Commit()
+			if err != nil {
+				t.Fatalf("Failed to commit transaction: %v", err)
+			}
 		}
 	}()
 
@@ -172,6 +185,7 @@ func TestDestinationCreate_PrepareError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, sql.ErrConnDone, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
+	mock.ExpectRollback()
 }
 
 func TestDestinationCreate_ExecError(t *testing.T) {
@@ -190,9 +204,15 @@ func TestDestinationCreate_ExecError(t *testing.T) {
 			tx.Rollback()
 			panic(p)
 		} else if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				t.Fatalf("Failed to rollback transaction: %v", err)
+			}
 		} else {
 			err = tx.Commit()
+			if err != nil {
+				t.Fatalf("Failed to commit transaction: %v", err)
+			}
 		}
 	}()
 
@@ -217,6 +237,7 @@ func TestDestinationCreate_ExecError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, sql.ErrNoRows, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
+	mock.ExpectRollback()
 }
 
 func TestDestinationUpdate_Success(t *testing.T) {
@@ -397,9 +418,15 @@ func TestDestinationDeleteByItineraryIdTx_Success(t *testing.T) {
 			tx.Rollback()
 			panic(p)
 		} else if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				t.Fatalf("Failed to rollback transaction: %v", err)
+			}
 		} else {
 			err = tx.Commit()
+			if err != nil {
+				t.Fatalf("Failed to commit transaction: %v", err)
+			}
 		}
 	}()
 
@@ -420,6 +447,7 @@ func TestDestinationDeleteByItineraryIdTx_Success(t *testing.T) {
 	// Assert
 	assert.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
+	mock.ExpectCommit()
 }
 
 func TestDestinationDeleteByItineraryIdTx_PrepareError(t *testing.T) {
@@ -438,9 +466,15 @@ func TestDestinationDeleteByItineraryIdTx_PrepareError(t *testing.T) {
 			tx.Rollback()
 			panic(p)
 		} else if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				t.Fatalf("Failed to rollback transaction: %v", err)
+			}
 		} else {
 			err = tx.Commit()
+			if err != nil {
+				t.Fatalf("Failed to commit transaction: %v", err)
+			}
 		}
 	}()
 
@@ -460,6 +494,7 @@ func TestDestinationDeleteByItineraryIdTx_PrepareError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, sql.ErrConnDone, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
+	mock.ExpectRollback()
 }
 
 func TestDestinationDeleteByItineraryIdTx_ExecError(t *testing.T) {
@@ -478,9 +513,15 @@ func TestDestinationDeleteByItineraryIdTx_ExecError(t *testing.T) {
 			tx.Rollback()
 			panic(p)
 		} else if err != nil {
-			tx.Rollback()
+			err = tx.Rollback()
+			if err != nil {
+				t.Fatalf("Failed to rollback transaction: %v", err)
+			}
 		} else {
 			err = tx.Commit()
+			if err != nil {
+				t.Fatalf("Failed to commit transaction: %v", err)
+			}
 		}
 	}()
 
@@ -503,4 +544,5 @@ func TestDestinationDeleteByItineraryIdTx_ExecError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, sql.ErrNoRows, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
+	mock.ExpectRollback()
 }

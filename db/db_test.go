@@ -9,7 +9,7 @@ import (
 func setTestEnv() {
 	// Use a named in-memory database with shared cache so all connections share the same DB
 	os.Setenv("DB_DRIVER", "sqlite")
-	os.Setenv("DB_DATASOURCE", "file:testdb?mode=memory&cache=shared")
+	os.Setenv("DB_DATASOURCE", "file::memory:?cache=shared")
 	os.Setenv("DB_MAX_OPEN_CONNECTIONS", "1")
 	os.Setenv("DB_MAX_IDLE_CONNECTIONS", "1")
 }
@@ -41,7 +41,7 @@ func TestInitDB_Success(t *testing.T) {
 	}
 
 	// Check if tables exist
-	tables := []string{"users", "itineraries", "itinerary_travel_destinations", "itinerary_file_jobs"}
+	tables := []string{"users", "itineraries", "itinerary_travel_destinations", "itinerary_file_jobs", "audit_events"}
 	for _, table := range tables {
 		query := "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
 		row := DB.QueryRow(query, table)
