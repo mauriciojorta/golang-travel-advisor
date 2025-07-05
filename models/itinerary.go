@@ -13,7 +13,7 @@ type Itinerary struct {
 	Description        string                        `json:"description" example:"Summer vacation in Spain"`
 	CreationDate       *time.Time                    `json:"creationDate,omitempty" example:"2024-06-01T00:00:00Z"`
 	UpdateDate         *time.Time                    `json:"updateDate,omitempty" example:"2024-06-01T00:00:00Z"`
-	TravelDestinations *[]ItineraryTravelDestination `json:"travelDestinations,omitempty"`
+	TravelDestinations []*ItineraryTravelDestination `json:"travelDestinations,omitempty"`
 	OwnerID            int64                         `json:"ownerId" example:"1"`
 	Notes              *string                       `json:"notes,omitempty" example:"I want to enjoy the nightlife"`
 
@@ -41,7 +41,7 @@ var InitItineraryFunctions = func(itinerary *Itinerary) *Itinerary {
 	return itinerary
 }
 
-var NewItinerary = func(title string, description string, notes *string, travelDestinations *[]ItineraryTravelDestination) *Itinerary {
+var NewItinerary = func(title string, description string, notes *string, travelDestinations []*ItineraryTravelDestination) *Itinerary {
 	itinerary := &Itinerary{
 		Title:              title,
 		Description:        description,
@@ -172,10 +172,9 @@ func (i *Itinerary) defaultCreate() error {
 
 	i.ID = itineraryId
 
-	for _, travelDestination := range *i.TravelDestinations {
-		travelDestination.ItineraryID = itineraryId
-		travelDestination = *NewItineraryTravelDestination(travelDestination.Country, travelDestination.City, travelDestination.ItineraryID, travelDestination.ArrivalDate, travelDestination.DepartureDate)
-		err = travelDestination.Create(tx)
+	for idx := range i.TravelDestinations {
+		i.TravelDestinations[idx].ItineraryID = itineraryId
+		err = i.TravelDestinations[idx].Create(tx)
 		if err != nil {
 			log.Errorf("Error creating travel destination for itinerary ID %d: %v", itineraryId, err)
 			return err
@@ -222,10 +221,9 @@ func (i *Itinerary) defaultUpdate() error {
 	}
 
 	// Insert new travel destinations
-	for _, travelDestination := range *i.TravelDestinations {
-		travelDestination.ItineraryID = i.ID
-		travelDestination = *NewItineraryTravelDestination(travelDestination.Country, travelDestination.City, travelDestination.ItineraryID, travelDestination.ArrivalDate, travelDestination.DepartureDate)
-		err = travelDestination.Create(tx)
+	for idx := range i.TravelDestinations {
+		(i.TravelDestinations)[idx].ItineraryID = i.ID
+		err = (i.TravelDestinations)[idx].Create(tx)
 		if err != nil {
 			log.Errorf("Error creating travel destination for itinerary ID %d: %v", i.ID, err)
 			return err

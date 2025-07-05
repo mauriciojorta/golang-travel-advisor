@@ -55,7 +55,30 @@ func (us *UserService) ValidateCredentials(user *models.User, password string) e
 		log.Error("Password cannot be empty")
 		return errors.New("password cannot be empty")
 	}
-	return user.ValidateCredentials(password)
+
+	err := user.ValidateCredentials(password)
+	if err != nil {
+		log.Errorf("Invalid user credentials for user %v: %v", user.Email, err)
+
+		tx, err := db.DB.Begin()
+		if err != nil {
+			log.Errorf("Error starting transaction for login auditing: %v", err)
+			return errors.New("unexpected error starting transaction")
+		}
+
+		defer db.HandleTransaction(tx, &err)
+
+		auditEvent := models.NewAuditEvent(user.ID, "Failed user login due to invalid credentials")
+		err = auditEvent.CreateAuditEvent(tx)
+		if err != nil {
+			log.Errorf("Error saving login event: %v", err)
+			return errors.New("error saving login event")
+		}
+
+		return errors.New("invalid user credentials")
+	}
+
+	return err
 }
 
 func (us *UserService) GenerateLoginToken(user *models.User) (string, error) {
@@ -68,7 +91,8 @@ func (us *UserService) GenerateLoginToken(user *models.User) (string, error) {
 	tx, err := db.DB.Begin()
 	if err != nil {
 		log.Errorf("Error starting transaction for login auditing: %v", err)
-		return "", err
+		return "", errors.New("unexpected error starting transaction")
+
 	}
 
 	defer db.HandleTransaction(tx, &err)
@@ -79,7 +103,7 @@ func (us *UserService) GenerateLoginToken(user *models.User) (string, error) {
 		return "", errors.New("error updating last login date")
 	}
 
-	auditEvent := models.NewAuditEvent(user.ID, "User login")
+	auditEvent := models.NewAuditEvent(user.ID, "Successful user login")
 	err = auditEvent.CreateAuditEvent(tx)
 	if err != nil {
 		log.Errorf("Error saving login event: %v", err)

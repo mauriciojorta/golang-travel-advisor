@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -16,18 +17,25 @@ import (
 )
 
 type CreateItineraryRequest struct {
-	Title        string                               `json:"title" binding:"required" example:"Trip to Spain"`
-	Description  string                               `json:"description" example:"Summer vacation in Spain"`
-	Notes        *string                              `json:"notes" example:"I want to enjoy the nightlife"`
-	Destinations *[]models.ItineraryTravelDestination `json:"destinations" binding:"required,dive"`
+	Title        string             `json:"title" binding:"required" example:"Trip to Spain"`
+	Description  string             `json:"description" example:"Summer vacation in Spain"`
+	Notes        *string            `json:"notes" example:"I want to enjoy the nightlife"`
+	Destinations *[]DestinationItem `json:"destinations" binding:"required,dive"`
 }
 
 type UpdateItineraryRequest struct {
-	ID           int64                                `json:"id" binding:"required" example:"1"`
-	Title        string                               `json:"title" binding:"required" example:"Trip to Spain"`
-	Description  string                               `json:"description" example:"Summer vacation in Spain"`
-	Notes        *string                              `json:"notes" example:"I want to enjoy the nightlife"`
-	Destinations *[]models.ItineraryTravelDestination `json:"destinations" binding:"required,dive"`
+	ID           int64              `json:"id" binding:"required" example:"1"`
+	Title        string             `json:"title" binding:"required" example:"Trip to Spain"`
+	Description  string             `json:"description" example:"Summer vacation in Spain"`
+	Notes        *string            `json:"notes" example:"I want to enjoy the nightlife"`
+	Destinations *[]DestinationItem `json:"destinations" binding:"required,dive"`
+}
+
+type DestinationItem struct {
+	Country       string    `json:"country" binding:"required" example:"Spain"`
+	City          string    `json:"city" binding:"required" example:"Madrid"`
+	ArrivalDate   time.Time `json:"arrivalDate" binding:"required" example:"2024-07-01T00:00:00Z"`
+	DepartureDate time.Time `json:"departureDate" binding:"required" example:"2024-07-05T00:00:00Z"`
 }
 
 type CreateItineraryResponse struct {
@@ -36,11 +44,11 @@ type CreateItineraryResponse struct {
 }
 
 type GetItineraryResponse struct {
-	Itinerary *models.Itinerary `json:"itinerary" example:"{\"id\": 1, \"title\": \"Trip to Spain\", \"description\": \"Summer vacation in Spain\", \"notes\": \"I want to enjoy the nightlife\", \"ownerId\": 42, \"travelDestinations\": [{\"id\": 1, \"country\": \"Spain\", \"city\": \"Madrid\", \"arrivalDate\": \"2024-07-01T00:00:00Z\", \"departureDate\": \"2024-07-05T00:00:00Z\"}]}"` // Example JSON representation
+	Itinerary *models.Itinerary `json:"itinerary"` // Example JSON representation
 }
 
 type GetItinerariesResponse struct {
-	Itineraries *[]models.Itinerary `json:"itineraries" example:"[{\"id\": 1, \"title\": \"Trip to Spain\", \"description\": \"Summer vacation in Spain\", \"notes\": \"I want to enjoy the nightlife\", \"ownerId\": 42, \"travelDestinations\": [{\"id\": 1, \"country\": \"Spain\", \"city\": \"Madrid\", \"arrivalDate\": \"2024-07-01T00:00:00Z\", \"departureDate\": \"2024-07-05T00:00:00Z\"}]}]"` // Example JSON representation
+	Itineraries *[]models.Itinerary `json:"itineraries"` // Example JSON representation
 }
 
 type StartItineraryJobResponse struct {
@@ -53,11 +61,11 @@ type StopItineraryJobResponse struct {
 }
 
 type GetItineraryJobResponse struct {
-	Job *models.ItineraryFileJob `json:"job" example:"{\"id\": 1, \"itineraryId\": 1, \"status\": \"running\", \"createdAt\": \"2024-07-01T00:00:00Z\", \"updatedAt\": \"2024-07-01T00:00:00Z\"}"` // Example JSON representation
+	Job *models.ItineraryFileJob `json:"job"` // Example JSON representation
 }
 
 type GetItineraryJobsResponse struct {
-	Jobs *[]models.ItineraryFileJob `json:"job" example:"[{\"id\": 1, \"itineraryId\": 1, \"status\": \"running\", \"createdAt\": \"2024-07-01T00:00:00Z\", \"updatedAt\": \"2024-07-01T00:00:00Z\"}]"`
+	Jobs *[]models.ItineraryFileJob `json:"job"`
 }
 
 type UpdateItineraryResponse struct {
@@ -80,7 +88,7 @@ type DeleteItineraryJobResponse struct {
 // @Produce      json
 // @Security     Auth
 // @Param        itinerary  body  CreateItineraryRequest true  "Itinerary data"
-// @Success      201  {object}  CreateItineraryResponse  "Itinerary created."  example({"message": "Itinerary created.", "itineraryId": 123})
+// @Success      201  {object}  CreateItineraryResponse  "Itinerary created."
 // @Failure      400  {object}  ErrorResponse       "Could not parse request data or invalid destinations."
 // @Failure      401  {object}  ErrorResponse      "Not authorized."
 // @Failure      500  {object}  ErrorResponse      "Could not create itinerary. Try again later."
@@ -104,7 +112,13 @@ func createItinerary(context *gin.Context) {
 
 	itineraryService := services.GetItineraryService()
 
-	itinerary := models.NewItinerary(input.Title, input.Description, input.Notes, input.Destinations)
+	var itineraryTravelDestinations []*models.ItineraryTravelDestination
+	for _, destination := range *input.Destinations {
+		itineraryTravelDestination := models.NewItineraryTravelDestination(destination.Country, destination.City, destination.ArrivalDate, destination.DepartureDate)
+		itineraryTravelDestinations = append(itineraryTravelDestinations, itineraryTravelDestination)
+	}
+
+	itinerary := models.NewItinerary(input.Title, input.Description, input.Notes, itineraryTravelDestinations)
 
 	itinerary.OwnerID = userId.(int64)
 
@@ -184,7 +198,14 @@ func updateItinerary(context *gin.Context) {
 	itinerary.Title = input.Title
 	itinerary.Description = input.Description
 	itinerary.Notes = input.Notes
-	itinerary.TravelDestinations = input.Destinations
+
+	var itineraryTravelDestinations []*models.ItineraryTravelDestination
+	for _, destination := range *input.Destinations {
+		itineraryTravelDestination := models.NewItineraryTravelDestination(destination.Country, destination.City, destination.ArrivalDate, destination.DepartureDate)
+		itineraryTravelDestinations = append(itineraryTravelDestinations, itineraryTravelDestination)
+	}
+
+	itinerary.TravelDestinations = itineraryTravelDestinations
 
 	err = itineraryService.ValidateItineraryDestinationsDates(itinerary.TravelDestinations)
 	if err != nil {
@@ -244,7 +265,7 @@ func deleteItinerary(context *gin.Context) {
 // @Tags         itineraries
 // @Produce      json
 // @Security     Auth
-// @Success      200  {object}  []models.Itinerary  "List of itineraries"  example({"itineraries": [{"id": 1, "title": "Trip to Spain", "description": "Summer vacation", "notes": "Pack sunscreen", "ownerId": 42, "travelDestinations": [{"id": 1, "country": "Spain", "city": "Madrid", "arrivalDate": "2024-07-01T00:00:00Z", "departureDate": "2024-07-05T00:00:00Z"}]}]})
+// @Success      200  {object}  GetItinerariesResponse  "List of itineraries"
 // @Failure      401  {object}  ErrorResponse  "Not authorized."
 // @Failure      500  {object}  ErrorResponse  "Could not retrieve itineraries. Try again later."
 // @Router       /itineraries [get]
@@ -278,7 +299,7 @@ func getOwnersItineraries(context *gin.Context) {
 // @Produce      json
 // @Security     Auth
 // @Param        itineraryId  path  int  true  "Itinerary ID"
-// @Success      200  {object}  models.Itinerary  "Itinerary details"
+// @Success      200  {object}  GetItineraryResponse  "Itinerary details"
 // @Failure      401  {object}  ErrorResponse  "Not authorized."
 // @Failure      403  {object}  ErrorResponse  "You do not have permission to access this resource."
 // @Failure      404  {object}  ErrorResponse  "Itinerary not found."
@@ -303,7 +324,7 @@ func getItinerary(context *gin.Context) {
 // @Produce      json
 // @Security     Auth
 // @Param        itineraryId  path  int  true  "Itinerary ID"
-// @Success      202  {object}  map[string]interface{}  "Job started successfully."
+// @Success      202  {object}  StartItineraryJobResponse  "Job started successfully."
 // @Failure      401  {object}  ErrorResponse       "Not authorized."
 // @Failure      403  {object}  ErrorResponse       "You do not have permission to access this resource."
 // @Failure      404  {object}  ErrorResponse       "Itinerary not found."
@@ -400,7 +421,7 @@ func runItineraryFileJob(context *gin.Context) {
 // @Security     Auth
 // @Param        itineraryId     path  int  true  "Itinerary ID"
 // @Param        itineraryJobId  path  int  true  "Itinerary Job ID"
-// @Success      200  {object}  models.ItineraryFileJob  "Itinerary file job details"  example({"job": {"id": 1, "status": "completed", "statusDescription": "Job OK", "creationDate": "2024-07-01T00:00:00Z", "startDate": "2024-07-01T01:00:00Z", "endDate": "2024-07-01T02:00:00Z", "filePath": "/path/to/file", "fileManager": "local", "itineraryId": 1, "asyncTaskId": "a1b2c3"}})
+// @Success      200  {object}  GetItineraryJobResponse "Itinerary file job details"
 // @Failure      400  {object}  ErrorResponse  "Bad request."
 // @Failure      401  {object}  ErrorResponse  "Not authorized."
 // @Failure      403  {object}  ErrorResponse  "You do not have permission to access this resource."
@@ -561,7 +582,7 @@ func downloadItineraryJobFile(context *gin.Context) {
 // @Security     Auth
 // @Param        itineraryId     path  int  true  "Itinerary ID"
 // @Param        itineraryJobId  path  int  true  "Itinerary Job ID"
-// @Success      200  {object}  StopItineraryJobResponse  "Itinerary job stopped."  example({"message": "Itinerary job stopped."})
+// @Success      200  {object}  StopItineraryJobResponse  "Itinerary job stopped."
 // @Failure      400  {object}  ErrorResponse  "Bad request."
 // @Failure      401  {object}  ErrorResponse  "Not authorized."
 // @Failure      403  {object}  ErrorResponse  "You do not have permission to access this resource."
@@ -627,7 +648,7 @@ func stopItineraryJob(context *gin.Context) {
 // @Security     Auth
 // @Param        itineraryId     path  int  true  "Itinerary ID"
 // @Param        itineraryJobId  path  int  true  "Itinerary Job ID"
-// @Success      200  {object}  DeleteItineraryJobResponse "Itinerary job deleted."  example({"message": "Itinerary job deleted."})
+// @Success      200  {object}  DeleteItineraryJobResponse "Itinerary job deleted."
 // @Failure      400  {object}  ErrorResponse  "Bad request."
 // @Failure      401  {object}  ErrorResponse  "Not authorized."
 // @Failure      403  {object}  ErrorResponse  "You do not have permission to access this resource."
@@ -697,7 +718,7 @@ func deleteItineraryJob(context *gin.Context) {
 // @Produce      json
 // @Security     Auth
 // @Param        itineraryId  path  int  true  "Itinerary ID"
-// @Success      200  {object}  []models.ItineraryFileJob  "List of itinerary file jobs"  example({"jobs": [{"id": 1, "status": "completed", "statusDescription": "Job OK", "creationDate": "2024-07-01T00:00:00Z", "startDate": "2024-07-01T01:00:00Z", "endDate": "2024-07-01T02:00:00Z", "filePath": "/path/to/file", "fileManager": "local", "itineraryId": 1, "asyncTaskId": "a1b2c3"}]})
+// @Success      200  {object}  GetItineraryJobsResponse  "List of itinerary file jobs"
 // @Failure      401  {object}  ErrorResponse  "Not authorized."
 // @Failure      403  {object}  ErrorResponse  "You do not have permission to access this resource."
 // @Failure      404  {object}  ErrorResponse  "Itinerary not found."

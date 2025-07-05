@@ -19,7 +19,7 @@ type ItineraryTravelDestination struct {
 	CreationDate  *time.Time `json:"creationDate,omitempty" example:"2024-06-01T00:00:00Z"`
 	UpdateDate    *time.Time `json:"updateDate,omitempty" example:"2024-06-01T00:00:00Z"`
 
-	FindByItineraryId     func(itineraryId int64) (*[]ItineraryTravelDestination, error) `json:"-"`
+	FindByItineraryId     func(itineraryId int64) ([]*ItineraryTravelDestination, error) `json:"-"`
 	Create                func(*sql.Tx) error                                            `json:"-"`
 	Update                func() error                                                   `json:"-"`
 	Delete                func() error                                                   `json:"-"`
@@ -41,11 +41,10 @@ var initItineraryTravelDestinationFunctions = func(destination *ItineraryTravelD
 	return destination
 }
 
-var NewItineraryTravelDestination = func(country string, city string, itineraryId int64, arrivalDate time.Time, departureDate time.Time) *ItineraryTravelDestination {
+var NewItineraryTravelDestination = func(country string, city string, arrivalDate time.Time, departureDate time.Time) *ItineraryTravelDestination {
 	destination := &ItineraryTravelDestination{
 		Country:       country,
 		City:          city,
-		ItineraryID:   itineraryId,
 		ArrivalDate:   arrivalDate,
 		DepartureDate: departureDate,
 	}
@@ -53,7 +52,7 @@ var NewItineraryTravelDestination = func(country string, city string, itineraryI
 	return initItineraryTravelDestinationFunctions(destination)
 }
 
-func (d *ItineraryTravelDestination) defaultFindByItineraryId(itineraryId int64) (*[]ItineraryTravelDestination, error) {
+func (d *ItineraryTravelDestination) defaultFindByItineraryId(itineraryId int64) ([]*ItineraryTravelDestination, error) {
 
 	query := `SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date
 	FROM itinerary_travel_destinations WHERE itinerary_id = ? ORDER BY arrival_date ASC`
@@ -63,7 +62,7 @@ func (d *ItineraryTravelDestination) defaultFindByItineraryId(itineraryId int64)
 		return nil, err
 	}
 
-	var travelDestinations []ItineraryTravelDestination
+	var travelDestinations []*ItineraryTravelDestination
 
 	for destRows.Next() {
 		var destination ItineraryTravelDestination
@@ -73,11 +72,11 @@ func (d *ItineraryTravelDestination) defaultFindByItineraryId(itineraryId int64)
 			destRows.Close()
 			return nil, err
 		}
-		travelDestinations = append(travelDestinations, destination)
+		travelDestinations = append(travelDestinations, &destination)
 	}
 	destRows.Close()
 
-	return &travelDestinations, nil
+	return travelDestinations, nil
 }
 
 func (d *ItineraryTravelDestination) defaultCreate(tx *sql.Tx) error {

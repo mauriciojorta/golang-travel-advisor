@@ -124,52 +124,6 @@ func TestUserService_Create_Error(t *testing.T) {
 	}
 }
 
-func TestUserService_ValidateCredentials_Success(t *testing.T) {
-	mockUser := &models.User{Email: "test@example.com"}
-	called := false
-	mockUser.ValidateCredentials = func(password string) error {
-		called = true
-		return nil
-	}
-	us := &UserService{}
-	err := us.ValidateCredentials(mockUser, "password123")
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if !called {
-		t.Error("expected ValidateCredentials to be called")
-	}
-}
-
-func TestUserService_ValidateCredentials_NilUser(t *testing.T) {
-	us := &UserService{}
-	err := us.ValidateCredentials(nil, "password123")
-	if err == nil {
-		t.Error("expected error for nil user, got nil")
-	}
-}
-
-func TestUserService_ValidateCredentials_EmptyPassword(t *testing.T) {
-	mockUser := &models.User{Email: "test@example.com"}
-	us := &UserService{}
-	err := us.ValidateCredentials(mockUser, "")
-	if err == nil {
-		t.Error("expected error for nil user, got nil")
-	}
-}
-
-func TestUserService_ValidateCredentials_Error(t *testing.T) {
-	mockUser := &models.User{}
-	mockUser.ValidateCredentials = func(password string) error {
-		return errors.New("invalid credentials")
-	}
-	us := &UserService{}
-	err := us.ValidateCredentials(mockUser, "password123")
-	if err == nil {
-		t.Error("expected error, got nil")
-	}
-}
-
 func TestUserService_GenerateLoginToken_Success(t *testing.T) {
 	origGenerateToken := utils.GenerateToken
 	dbMock, mock, err := sqlmock.New()
@@ -319,4 +273,114 @@ func TestUserService_GenerateLoginToken_ErrorCreateAuditEvent(t *testing.T) {
 	if err == nil || token != "" {
 		t.Error("expected error when creating audit event")
 	}
+}
+func TestUserService_ValidateCredentials_Success(t *testing.T) {
+	mockUser := &models.User{Email: "test@example.com", ID: 1}
+	called := false
+	mockUser.ValidateCredentials = func(password string) error {
+		called = true
+		if password == "goodpass" {
+			return nil
+		}
+		return errors.New("bad password")
+	}
+	us := &UserService{}
+	err := us.ValidateCredentials(mockUser, "goodpass")
+	assert.NoError(t, err)
+	assert.True(t, called, "ValidateCredentials should be called")
+}
+
+func TestUserService_ValidateCredentials_NilUser(t *testing.T) {
+	us := &UserService{}
+	err := us.ValidateCredentials(nil, "password")
+	assert.Error(t, err)
+	assert.Equal(t, "user instance is nil", err.Error())
+}
+
+func TestUserService_ValidateCredentials_EmptyPassword(t *testing.T) {
+	mockUser := &models.User{}
+	us := &UserService{}
+	err := us.ValidateCredentials(mockUser, "")
+	assert.Error(t, err)
+	assert.Equal(t, "password cannot be empty", err.Error())
+}
+
+func TestUserService_ValidateCredentials_InvalidCredentials_AuditSuccess(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	mock.ExpectBegin()
+	mock.ExpectCommit()
+
+	mockUser := &models.User{Email: "fail@example.com", ID: 2}
+	mockUser.ValidateCredentials = func(password string) error {
+		return errors.New("invalid credentials")
+	}
+
+	origNewAuditEvent := models.NewAuditEvent
+	defer func() { models.NewAuditEvent = origNewAuditEvent }()
+	mockAuditEvent := &models.AuditEvent{}
+	calledCreateAudit := false
+	mockAuditEvent.CreateAuditEvent = func(tx *sql.Tx) error {
+		calledCreateAudit = true
+		return nil
+	}
+	models.NewAuditEvent = func(userID int64, event string) *models.AuditEvent {
+		return mockAuditEvent
+	}
+
+	us := &UserService{}
+	err = us.ValidateCredentials(mockUser, "badpass")
+	assert.Error(t, err)
+	assert.Equal(t, "invalid user credentials", err.Error())
+	assert.True(t, calledCreateAudit, "CreateAuditEvent should be called")
+}
+
+func TestUserService_ValidateCredentials_InvalidCredentials_AuditError(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	mock.ExpectBegin()
+	mock.ExpectRollback()
+
+	mockUser := &models.User{Email: "fail@example.com", ID: 2}
+	mockUser.ValidateCredentials = func(password string) error {
+		return errors.New("invalid credentials")
+	}
+
+	origNewAuditEvent := models.NewAuditEvent
+	defer func() { models.NewAuditEvent = origNewAuditEvent }()
+	mockAuditEvent := &models.AuditEvent{}
+	mockAuditEvent.CreateAuditEvent = func(tx *sql.Tx) error {
+		return errors.New("audit error")
+	}
+	models.NewAuditEvent = func(userID int64, event string) *models.AuditEvent {
+		return mockAuditEvent
+	}
+
+	us := &UserService{}
+	err = us.ValidateCredentials(mockUser, "badpass")
+	assert.Error(t, err)
+	assert.Equal(t, "error saving login event", err.Error())
+}
+
+func TestUserService_ValidateCredentials_InvalidCredentials_BeginTxError(t *testing.T) {
+	dbMock, _, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	mockUser := &models.User{Email: "fail@example.com", ID: 2}
+	mockUser.ValidateCredentials = func(password string) error {
+		return errors.New("invalid credentials")
+	}
+
+	us := &UserService{}
+	err = us.ValidateCredentials(mockUser, "badpass")
+	assert.Error(t, err)
+	assert.Equal(t, "unexpected error starting transaction", err.Error())
 }

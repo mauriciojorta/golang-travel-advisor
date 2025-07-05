@@ -16,7 +16,7 @@ type ItineraryServiceInterface interface {
 	Create(itinerary *models.Itinerary) error
 	Update(itinerary *models.Itinerary) error
 	Delete(id int64) error
-	ValidateItineraryDestinationsDates(destinations *[]models.ItineraryTravelDestination) error
+	ValidateItineraryDestinationsDates(destinations []*models.ItineraryTravelDestination) error
 }
 
 type ItineraryService struct {
@@ -88,20 +88,20 @@ func (is *ItineraryService) Delete(id int64) error {
 	itinerary.ID = id                   // Set the ID for the itinerary instance
 	return itinerary.Delete()
 }
-func (is *ItineraryService) ValidateItineraryDestinationsDates(destinations *[]models.ItineraryTravelDestination) error {
-	if len(*destinations) == 0 {
+func (is *ItineraryService) ValidateItineraryDestinationsDates(destinations []*models.ItineraryTravelDestination) error {
+	if len(destinations) == 0 {
 		log.Error("At least one destination is required")
 		return fmt.Errorf("at least one destination is required")
 	}
 
-	if len(*destinations) > 20 {
+	if len(destinations) > 20 {
 		log.Error("The itinerary cannot have more than 20 destinations")
 		return fmt.Errorf("the itinerary cannot have more than 20 destinations")
 	}
 
 	// Find oldest arrival and latest departure
 	var oldestArrival, latestDeparture time.Time
-	for i, dest := range *destinations {
+	for i, dest := range destinations {
 		if i == 0 {
 			oldestArrival = dest.ArrivalDate
 			latestDeparture = dest.DepartureDate

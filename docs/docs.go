@@ -36,12 +36,9 @@ const docTemplate = `{
                 "summary": "Get all itineraries of the authenticated user",
                 "responses": {
                     "200": {
-                        "description": "List of itineraries\"  example({\"itineraries\": [{\"id\": 1, \"title\": \"Trip to Spain\", \"description\": \"Summer vacation\", \"notes\": \"Pack sunscreen\", \"ownerId\": 42, \"travelDestinations\": [{\"id\": 1, \"country\": \"Spain\", \"city\": \"Madrid\", \"arrivalDate\": \"2024-07-01T00:00:00Z\", \"departureDate\": \"2024-07-05T00:00:00Z\"}]}]})",
+                        "description": "List of itineraries",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/models.Itinerary"
-                            }
+                            "$ref": "#/definitions/routes.GetItinerariesResponse"
                         }
                     },
                     "401": {
@@ -155,7 +152,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Itinerary created.\"  example({\"message\": \"Itinerary created.\", \"itineraryId\": 123})",
+                        "description": "Itinerary created.",
                         "schema": {
                             "$ref": "#/definitions/routes.CreateItineraryResponse"
                         }
@@ -209,7 +206,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Itinerary details",
                         "schema": {
-                            "$ref": "#/definitions/models.Itinerary"
+                            "$ref": "#/definitions/routes.GetItineraryResponse"
                         }
                     },
                     "401": {
@@ -321,12 +318,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of itinerary file jobs\"  example({\"jobs\": [{\"id\": 1, \"status\": \"completed\", \"statusDescription\": \"Job OK\", \"creationDate\": \"2024-07-01T00:00:00Z\", \"startDate\": \"2024-07-01T01:00:00Z\", \"endDate\": \"2024-07-01T02:00:00Z\", \"filePath\": \"/path/to/file\", \"fileManager\": \"local\", \"itineraryId\": 1, \"asyncTaskId\": \"a1b2c3\"}]})",
+                        "description": "List of itinerary file jobs",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/models.ItineraryFileJob"
-                            }
+                            "$ref": "#/definitions/routes.GetItineraryJobsResponse"
                         }
                     },
                     "401": {
@@ -382,8 +376,7 @@ const docTemplate = `{
                     "202": {
                         "description": "Job started successfully.",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/routes.StartItineraryJobResponse"
                         }
                     },
                     "401": {
@@ -452,9 +445,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Itinerary file job details\"  example({\"job\": {\"id\": 1, \"status\": \"completed\", \"statusDescription\": \"Job OK\", \"creationDate\": \"2024-07-01T00:00:00Z\", \"startDate\": \"2024-07-01T01:00:00Z\", \"endDate\": \"2024-07-01T02:00:00Z\", \"filePath\": \"/path/to/file\", \"fileManager\": \"local\", \"itineraryId\": 1, \"asyncTaskId\": \"a1b2c3\"}})",
+                        "description": "Itinerary file job details",
                         "schema": {
-                            "$ref": "#/definitions/models.ItineraryFileJob"
+                            "$ref": "#/definitions/routes.GetItineraryJobResponse"
                         }
                     },
                     "400": {
@@ -521,7 +514,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Itinerary job deleted.\"  example({\"message\": \"Itinerary job deleted.\"})",
+                        "description": "Itinerary job deleted.",
                         "schema": {
                             "$ref": "#/definitions/routes.DeleteItineraryJobResponse"
                         }
@@ -663,7 +656,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Itinerary job stopped.\"  example({\"message\": \"Itinerary job stopped.\"})",
+                        "description": "Itinerary job stopped.",
                         "schema": {
                             "$ref": "#/definitions/routes.StopItineraryJobResponse"
                         }
@@ -946,7 +939,7 @@ const docTemplate = `{
                 "destinations": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.ItineraryTravelDestination"
+                        "$ref": "#/definitions/routes.DestinationItem"
                     }
                 },
                 "notes": {
@@ -990,12 +983,88 @@ const docTemplate = `{
                 }
             }
         },
+        "routes.DestinationItem": {
+            "type": "object",
+            "required": [
+                "arrivalDate",
+                "city",
+                "country",
+                "departureDate"
+            ],
+            "properties": {
+                "arrivalDate": {
+                    "type": "string",
+                    "example": "2024-07-01T00:00:00Z"
+                },
+                "city": {
+                    "type": "string",
+                    "example": "Madrid"
+                },
+                "country": {
+                    "type": "string",
+                    "example": "Spain"
+                },
+                "departureDate": {
+                    "type": "string",
+                    "example": "2024-07-05T00:00:00Z"
+                }
+            }
+        },
         "routes.ErrorResponse": {
             "type": "object",
             "properties": {
                 "message": {
                     "type": "string",
                     "example": "An error occurred."
+                }
+            }
+        },
+        "routes.GetItinerariesResponse": {
+            "type": "object",
+            "properties": {
+                "itineraries": {
+                    "description": "Example JSON representation",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Itinerary"
+                    }
+                }
+            }
+        },
+        "routes.GetItineraryJobResponse": {
+            "type": "object",
+            "properties": {
+                "job": {
+                    "description": "Example JSON representation",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ItineraryFileJob"
+                        }
+                    ]
+                }
+            }
+        },
+        "routes.GetItineraryJobsResponse": {
+            "type": "object",
+            "properties": {
+                "job": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ItineraryFileJob"
+                    }
+                }
+            }
+        },
+        "routes.GetItineraryResponse": {
+            "type": "object",
+            "properties": {
+                "itinerary": {
+                    "description": "Example JSON representation",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Itinerary"
+                        }
+                    ]
                 }
             }
         },
@@ -1059,6 +1128,19 @@ const docTemplate = `{
                 }
             }
         },
+        "routes.StartItineraryJobResponse": {
+            "type": "object",
+            "properties": {
+                "jobId": {
+                    "type": "integer",
+                    "example": 123
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Job started successfully."
+                }
+            }
+        },
         "routes.StopItineraryJobResponse": {
             "type": "object",
             "properties": {
@@ -1083,7 +1165,7 @@ const docTemplate = `{
                 "destinations": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.ItineraryTravelDestination"
+                        "$ref": "#/definitions/routes.DestinationItem"
                     }
                 },
                 "id": {

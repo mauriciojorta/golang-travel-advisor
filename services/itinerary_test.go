@@ -227,8 +227,8 @@ func TestDelete_ErrorFromModel(t *testing.T) {
 
 func TestValidateItineraryDestinationsDates_Empty(t *testing.T) {
 	svc := &ItineraryService{}
-	dest := []models.ItineraryTravelDestination{}
-	err := svc.ValidateItineraryDestinationsDates(&dest)
+	dest := []*models.ItineraryTravelDestination{}
+	err := svc.ValidateItineraryDestinationsDates(dest)
 	if err == nil {
 		t.Errorf("expected error for empty destinations")
 	}
@@ -236,8 +236,8 @@ func TestValidateItineraryDestinationsDates_Empty(t *testing.T) {
 
 func TestValidateItineraryDestinationsDates_TooMany(t *testing.T) {
 	svc := &ItineraryService{}
-	dest := make([]models.ItineraryTravelDestination, 21)
-	err := svc.ValidateItineraryDestinationsDates(&dest)
+	dest := make([]*models.ItineraryTravelDestination, 21)
+	err := svc.ValidateItineraryDestinationsDates(dest)
 	if err == nil {
 		t.Errorf("expected error for too many destinations")
 	}
@@ -246,10 +246,10 @@ func TestValidateItineraryDestinationsDates_TooMany(t *testing.T) {
 func TestValidateItineraryDestinationsDates_TooLongSpan(t *testing.T) {
 	svc := &ItineraryService{}
 	now := time.Now()
-	dest := []models.ItineraryTravelDestination{
+	dest := []*models.ItineraryTravelDestination{
 		{ArrivalDate: now, DepartureDate: now.Add(31 * 24 * time.Hour)},
 	}
-	err := svc.ValidateItineraryDestinationsDates(&dest)
+	err := svc.ValidateItineraryDestinationsDates(dest)
 	if err == nil {
 		t.Errorf("expected error for span > 30 days")
 	}
@@ -258,11 +258,11 @@ func TestValidateItineraryDestinationsDates_TooLongSpan(t *testing.T) {
 func TestValidateItineraryDestinationsDates_Valid(t *testing.T) {
 	svc := &ItineraryService{}
 	now := time.Now()
-	dest := []models.ItineraryTravelDestination{
+	dest := []*models.ItineraryTravelDestination{
 		{ArrivalDate: now, DepartureDate: now.Add(10 * 24 * time.Hour)},
 		{ArrivalDate: now.Add(2 * 24 * time.Hour), DepartureDate: now.Add(12 * 24 * time.Hour)},
 	}
-	err := svc.ValidateItineraryDestinationsDates(&dest)
+	err := svc.ValidateItineraryDestinationsDates(dest)
 	if err != nil {
 		t.Errorf("expected valid, got err=%v", err)
 	}

@@ -32,7 +32,7 @@ type mockItineraryService struct {
 	FindByOwnerErr         error
 }
 
-func (m *mockItineraryService) ValidateItineraryDestinationsDates(_ *[]models.ItineraryTravelDestination) error {
+func (m *mockItineraryService) ValidateItineraryDestinationsDates(_ []*models.ItineraryTravelDestination) error {
 	return m.ValidateErr
 }
 func (m *mockItineraryService) Create(_ *models.Itinerary) error {

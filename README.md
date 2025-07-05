@@ -97,7 +97,7 @@ See .env.example.txt for all available configuration options. Key variables incl
 - The API uses Gin for HTTP routing and Logrus for logging.
 - Background jobs are managed with [Asynq](https://github.com/hibiken/asynq) and require a running Redis instance.
 - Periodic cleanup of deleted jobs is handled automatically.
-- Swagger documentation is available at `/swagger/index.html` after running the server.
+- Swagger documentation is available at `/swagger/index.html` after running the server. To use the itinerary endpoints, you need to authenticate first and obtain a JWT token by logging in with a user account. The JWT token should be included in the `Authorization` header of your requests to the itinerary endpoints.
 - Run tests with `go test ./...` to ensure everything is working correctly.
 
 ---

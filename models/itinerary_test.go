@@ -44,10 +44,10 @@ func TestItineraryDefaultFindById_WithDestinationsSuccess(t *testing.T) {
 	assert.Equal(t, "Test Description", it.Description)
 	assert.Equal(t, "A test trip", *it.Notes)
 	assert.Equal(t, int64(2), it.OwnerID)
-	assert.Len(t, (*it.TravelDestinations), 2)
-	assert.Equal(t, int64(10), (*it.TravelDestinations)[0].ID)
-	assert.Equal(t, "Country1", (*it.TravelDestinations)[0].Country)
-	assert.Equal(t, "City1", (*it.TravelDestinations)[0].City)
+	assert.Len(t, (it.TravelDestinations), 2)
+	assert.Equal(t, int64(10), (it.TravelDestinations)[0].ID)
+	assert.Equal(t, "Country1", (it.TravelDestinations)[0].Country)
+	assert.Equal(t, "City1", (it.TravelDestinations)[0].City)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -111,10 +111,10 @@ func TestItineraryDefaultFindById_WithDestinationsSuccessNullNotes(t *testing.T)
 	assert.Equal(t, "Test Description", it.Description)
 	assert.Nil(t, it.Notes)
 	assert.Equal(t, int64(2), it.OwnerID)
-	assert.Len(t, (*it.TravelDestinations), 2)
-	assert.Equal(t, int64(10), (*it.TravelDestinations)[0].ID)
-	assert.Equal(t, "Country1", (*it.TravelDestinations)[0].Country)
-	assert.Equal(t, "City1", (*it.TravelDestinations)[0].City)
+	assert.Len(t, (it.TravelDestinations), 2)
+	assert.Equal(t, int64(10), (it.TravelDestinations)[0].ID)
+	assert.Equal(t, "Country1", (it.TravelDestinations)[0].Country)
+	assert.Equal(t, "City1", (it.TravelDestinations)[0].City)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -430,9 +430,9 @@ func TestItineraryItinerary_Create_Success(t *testing.T) {
 		Description: "Test Description",
 		Notes:       &testNotes,
 		OwnerID:     1,
-		TravelDestinations: &[]ItineraryTravelDestination{
-			{ID: 1, Country: "Country 1", City: "City 1", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
-			{ID: 2, Country: "Country 2", City: "City 2", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
+		TravelDestinations: []*ItineraryTravelDestination{
+			NewItineraryTravelDestination("Country 1", "City 1", time.Now(), time.Now().Add(24*time.Hour)),
+			NewItineraryTravelDestination("Country 2", "City 2", time.Now(), time.Now().Add(24*time.Hour)),
 		},
 	}
 
@@ -443,9 +443,9 @@ func TestItineraryItinerary_Create_Success(t *testing.T) {
 		WithArgs("Test Title", "Test Description", "A test trip", int64(1), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	for _, destination := range *itinerary.TravelDestinations {
+	for _, destination := range itinerary.TravelDestinations {
 		mock.ExpectPrepare(`INSERT INTO itinerary_travel_destinations`).ExpectExec().
-			WithArgs(destination.Country, destination.City, destination.ItineraryID, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+			WithArgs(destination.Country, destination.City, int64(1), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 			WillReturnResult(sqlmock.NewResult(0, 1))
 	}
 
@@ -454,6 +454,17 @@ func TestItineraryItinerary_Create_Success(t *testing.T) {
 	err = itinerary.defaultCreate()
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), itinerary.ID)
+	assert.Equal(t, itinerary.Title, "Test Title")
+	assert.Equal(t, itinerary.Description, "Test Description")
+	assert.Equal(t, &testNotes, itinerary.Notes)
+	assert.Equal(t, int64(1), itinerary.OwnerID)
+	assert.Len(t, itinerary.TravelDestinations, 2)
+	assert.Equal(t, itinerary.ID, itinerary.TravelDestinations[0].ItineraryID)
+	assert.Equal(t, "Country 1", itinerary.TravelDestinations[0].Country)
+	assert.Equal(t, "City 1", itinerary.TravelDestinations[0].City)
+	assert.Equal(t, itinerary.ID, itinerary.TravelDestinations[1].ItineraryID)
+	assert.Equal(t, "Country 2", itinerary.TravelDestinations[1].Country)
+	assert.Equal(t, "City 2", itinerary.TravelDestinations[1].City)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -469,9 +480,9 @@ func TestItineraryItinerary_Create_SuccessNullNotes(t *testing.T) {
 		Description: "Test Description",
 		Notes:       nil,
 		OwnerID:     1,
-		TravelDestinations: &[]ItineraryTravelDestination{
-			{ID: 1, Country: "Country 1", City: "City 1", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
-			{ID: 2, Country: "Country 2", City: "City 2", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
+		TravelDestinations: []*ItineraryTravelDestination{
+			NewItineraryTravelDestination("Country 1", "City 1", time.Now(), time.Now().Add(24*time.Hour)),
+			NewItineraryTravelDestination("Country 2", "City 2", time.Now(), time.Now().Add(24*time.Hour)),
 		},
 	}
 
@@ -482,9 +493,9 @@ func TestItineraryItinerary_Create_SuccessNullNotes(t *testing.T) {
 		WithArgs("Test Title", "Test Description", sqlmock.AnyArg(), int64(1), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	for _, destination := range *itinerary.TravelDestinations {
+	for _, destination := range itinerary.TravelDestinations {
 		mock.ExpectPrepare(`INSERT INTO itinerary_travel_destinations`).ExpectExec().
-			WithArgs(destination.Country, destination.City, destination.ItineraryID, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+			WithArgs(destination.Country, destination.City, int64(1), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 			WillReturnResult(sqlmock.NewResult(0, 1))
 	}
 
@@ -493,6 +504,17 @@ func TestItineraryItinerary_Create_SuccessNullNotes(t *testing.T) {
 	err = itinerary.defaultCreate()
 	assert.NoError(t, err)
 	assert.Equal(t, int64(1), itinerary.ID)
+	assert.Equal(t, itinerary.Title, "Test Title")
+	assert.Equal(t, itinerary.Description, "Test Description")
+	assert.Nil(t, itinerary.Notes)
+	assert.Equal(t, int64(1), itinerary.OwnerID)
+	assert.Len(t, itinerary.TravelDestinations, 2)
+	assert.Equal(t, itinerary.ID, itinerary.TravelDestinations[0].ItineraryID)
+	assert.Equal(t, "Country 1", itinerary.TravelDestinations[0].Country)
+	assert.Equal(t, "City 1", itinerary.TravelDestinations[0].City)
+	assert.Equal(t, itinerary.ID, itinerary.TravelDestinations[1].ItineraryID)
+	assert.Equal(t, "Country 2", itinerary.TravelDestinations[1].Country)
+	assert.Equal(t, "City 2", itinerary.TravelDestinations[1].City)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -584,9 +606,9 @@ func TestItineraryItinerary_Create_TravelDestinationError(t *testing.T) {
 		Title:       "Test Title",
 		Description: "Test Description",
 		OwnerID:     1,
-		TravelDestinations: &[]ItineraryTravelDestination{
-			{ID: 1, Country: "Country 1", City: "City 1", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
-			{ID: 2, Country: "Country 2", City: "City 2", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
+		TravelDestinations: []*ItineraryTravelDestination{
+			NewItineraryTravelDestination("Country 1", "City 1", time.Now(), time.Now().Add(24*time.Hour)),
+			NewItineraryTravelDestination("Country 2", "City 2", time.Now(), time.Now().Add(24*time.Hour)),
 		},
 	}
 
@@ -622,10 +644,11 @@ func TestItineraryUpdate_Success(t *testing.T) {
 		ID:          1,
 		Title:       "Updated Title",
 		Description: "Updated Description",
+		OwnerID:     1,
 		Notes:       &testNotes,
-		TravelDestinations: &[]ItineraryTravelDestination{
-			{ID: 1, Country: "Country 1", City: "City 1", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
-			{ID: 2, Country: "Country 2", City: "City 2", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
+		TravelDestinations: []*ItineraryTravelDestination{
+			NewItineraryTravelDestination("Country 1", "City 1", time.Now(), time.Now().Add(24*time.Hour)),
+			NewItineraryTravelDestination("Country 2", "City 2", time.Now(), time.Now().Add(24*time.Hour)),
 		},
 	}
 
@@ -640,9 +663,9 @@ func TestItineraryUpdate_Success(t *testing.T) {
 		WithArgs(itinerary.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	for _, destination := range *itinerary.TravelDestinations {
+	for _, destination := range itinerary.TravelDestinations {
 		mock.ExpectPrepare(`INSERT INTO itinerary_travel_destinations`).ExpectExec().
-			WithArgs(destination.Country, destination.City, destination.ItineraryID, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+			WithArgs(destination.Country, destination.City, int64(1), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 			WillReturnResult(sqlmock.NewResult(0, 1))
 	}
 
@@ -653,6 +676,18 @@ func TestItineraryUpdate_Success(t *testing.T) {
 
 	// Assert
 	assert.NoError(t, err)
+	assert.Equal(t, int64(1), itinerary.ID)
+	assert.Equal(t, itinerary.Title, "Updated Title")
+	assert.Equal(t, itinerary.Description, "Updated Description")
+	assert.Equal(t, &testNotes, itinerary.Notes)
+	assert.Equal(t, int64(1), itinerary.OwnerID)
+	assert.Len(t, itinerary.TravelDestinations, 2)
+	assert.Equal(t, itinerary.ID, itinerary.TravelDestinations[0].ItineraryID)
+	assert.Equal(t, "Country 1", itinerary.TravelDestinations[0].Country)
+	assert.Equal(t, "City 1", itinerary.TravelDestinations[0].City)
+	assert.Equal(t, itinerary.ID, itinerary.TravelDestinations[1].ItineraryID)
+	assert.Equal(t, "Country 2", itinerary.TravelDestinations[1].Country)
+	assert.Equal(t, "City 2", itinerary.TravelDestinations[1].City)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -668,10 +703,11 @@ func TestItineraryUpdate_SuccessNullNotes(t *testing.T) {
 		ID:          1,
 		Title:       "Updated Title",
 		Description: "Updated Description",
+		OwnerID:     1,
 		Notes:       nil,
-		TravelDestinations: &[]ItineraryTravelDestination{
-			{ID: 1, Country: "Country 1", City: "City 1", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
-			{ID: 2, Country: "Country 2", City: "City 2", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
+		TravelDestinations: []*ItineraryTravelDestination{
+			NewItineraryTravelDestination("Country 1", "City 1", time.Now(), time.Now().Add(24*time.Hour)),
+			NewItineraryTravelDestination("Country 2", "City 2", time.Now(), time.Now().Add(24*time.Hour)),
 		},
 	}
 
@@ -686,9 +722,9 @@ func TestItineraryUpdate_SuccessNullNotes(t *testing.T) {
 		WithArgs(itinerary.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
-	for _, destination := range *itinerary.TravelDestinations {
+	for _, destination := range itinerary.TravelDestinations {
 		mock.ExpectPrepare(`INSERT INTO itinerary_travel_destinations`).ExpectExec().
-			WithArgs(destination.Country, destination.City, destination.ItineraryID, sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+			WithArgs(destination.Country, destination.City, int64(1), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 			WillReturnResult(sqlmock.NewResult(0, 1))
 	}
 
@@ -699,6 +735,18 @@ func TestItineraryUpdate_SuccessNullNotes(t *testing.T) {
 
 	// Assert
 	assert.NoError(t, err)
+	assert.Equal(t, int64(1), itinerary.ID)
+	assert.Equal(t, itinerary.Title, "Updated Title")
+	assert.Equal(t, itinerary.Description, "Updated Description")
+	assert.Nil(t, itinerary.Notes)
+	assert.Equal(t, int64(1), itinerary.OwnerID)
+	assert.Len(t, itinerary.TravelDestinations, 2)
+	assert.Equal(t, itinerary.ID, itinerary.TravelDestinations[0].ItineraryID)
+	assert.Equal(t, "Country 1", itinerary.TravelDestinations[0].Country)
+	assert.Equal(t, "City 1", itinerary.TravelDestinations[0].City)
+	assert.Equal(t, itinerary.ID, itinerary.TravelDestinations[1].ItineraryID)
+	assert.Equal(t, "Country 2", itinerary.TravelDestinations[1].Country)
+	assert.Equal(t, "City 2", itinerary.TravelDestinations[1].City)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -776,9 +824,9 @@ func TestItineraryUpdate_InsertDestinationsError(t *testing.T) {
 		ID:          1,
 		Title:       "Updated Title",
 		Description: "Updated Description",
-		TravelDestinations: &[]ItineraryTravelDestination{
-			{ID: 1, Country: "Country 1", City: "City 1", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
-			{ID: 2, Country: "Country 2", City: "City 2", ItineraryID: 1, ArrivalDate: time.Now(), DepartureDate: time.Now().Add(24 * time.Hour)},
+		TravelDestinations: []*ItineraryTravelDestination{
+			NewItineraryTravelDestination("Country 1", "City 1", time.Now(), time.Now().Add(24*time.Hour)),
+			NewItineraryTravelDestination("Country 2", "City 2", time.Now(), time.Now().Add(24*time.Hour)),
 		},
 	}
 

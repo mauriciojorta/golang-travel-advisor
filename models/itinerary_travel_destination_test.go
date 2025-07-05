@@ -33,10 +33,10 @@ func TestDestinationTravelDestination_Find_Success(t *testing.T) {
 
 	// Assert
 	assert.NoError(t, err)
-	assert.Len(t, *destinations, 1)
-	assert.Equal(t, int64(1), (*destinations)[0].ID)
-	assert.Equal(t, "Test Country", (*destinations)[0].Country)
-	assert.Equal(t, "Test City", (*destinations)[0].City)
+	assert.Len(t, destinations, 1)
+	assert.Equal(t, int64(1), (destinations)[0].ID)
+	assert.Equal(t, "Test Country", (destinations)[0].Country)
+	assert.Equal(t, "Test City", (destinations)[0].City)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 

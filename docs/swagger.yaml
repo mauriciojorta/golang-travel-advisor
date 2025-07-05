@@ -109,7 +109,7 @@ definitions:
         type: string
       destinations:
         items:
-          $ref: '#/definitions/models.ItineraryTravelDestination'
+          $ref: '#/definitions/routes.DestinationItem'
         type: array
       notes:
         example: I want to enjoy the nightlife
@@ -142,11 +142,60 @@ definitions:
         example: Itinerary deleted.
         type: string
     type: object
+  routes.DestinationItem:
+    properties:
+      arrivalDate:
+        example: "2024-07-01T00:00:00Z"
+        type: string
+      city:
+        example: Madrid
+        type: string
+      country:
+        example: Spain
+        type: string
+      departureDate:
+        example: "2024-07-05T00:00:00Z"
+        type: string
+    required:
+    - arrivalDate
+    - city
+    - country
+    - departureDate
+    type: object
   routes.ErrorResponse:
     properties:
       message:
         example: An error occurred.
         type: string
+    type: object
+  routes.GetItinerariesResponse:
+    properties:
+      itineraries:
+        description: Example JSON representation
+        items:
+          $ref: '#/definitions/models.Itinerary'
+        type: array
+    type: object
+  routes.GetItineraryJobResponse:
+    properties:
+      job:
+        allOf:
+        - $ref: '#/definitions/models.ItineraryFileJob'
+        description: Example JSON representation
+    type: object
+  routes.GetItineraryJobsResponse:
+    properties:
+      job:
+        items:
+          $ref: '#/definitions/models.ItineraryFileJob'
+        type: array
+    type: object
+  routes.GetItineraryResponse:
+    properties:
+      itinerary:
+        allOf:
+        - $ref: '#/definitions/models.Itinerary'
+        description: Example JSON representation
     type: object
   routes.LoginRequest:
     properties:
@@ -190,6 +239,15 @@ definitions:
         example: test@example.com
         type: string
     type: object
+  routes.StartItineraryJobResponse:
+    properties:
+      jobId:
+        example: 123
+        type: integer
+      message:
+        example: Job started successfully.
+        type: string
+    type: object
   routes.StopItineraryJobResponse:
     properties:
       message:
@@ -203,7 +261,7 @@ definitions:
         type: string
       destinations:
         items:
-          $ref: '#/definitions/models.ItineraryTravelDestination'
+          $ref: '#/definitions/routes.DestinationItem'
         type: array
       id:
         example: 1
@@ -245,14 +303,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: 'List of itineraries"  example({"itineraries": [{"id": 1, "title":
-            "Trip to Spain", "description": "Summer vacation", "notes": "Pack sunscreen",
-            "ownerId": 42, "travelDestinations": [{"id": 1, "country": "Spain", "city":
-            "Madrid", "arrivalDate": "2024-07-01T00:00:00Z", "departureDate": "2024-07-05T00:00:00Z"}]}]})'
+          description: List of itineraries
           schema:
-            items:
-              $ref: '#/definitions/models.Itinerary'
-            type: array
+            $ref: '#/definitions/routes.GetItinerariesResponse'
         "401":
           description: Not authorized.
           schema:
@@ -281,8 +334,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: 'Itinerary created."  example({"message": "Itinerary created.",
-            "itineraryId": 123})'
+          description: Itinerary created.
           schema:
             $ref: '#/definitions/routes.CreateItineraryResponse'
         "400":
@@ -396,7 +448,7 @@ paths:
         "200":
           description: Itinerary details
           schema:
-            $ref: '#/definitions/models.Itinerary'
+            $ref: '#/definitions/routes.GetItineraryResponse'
         "401":
           description: Not authorized.
           schema:
@@ -432,15 +484,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: 'List of itinerary file jobs"  example({"jobs": [{"id": 1,
-            "status": "completed", "statusDescription": "Job OK", "creationDate":
-            "2024-07-01T00:00:00Z", "startDate": "2024-07-01T01:00:00Z", "endDate":
-            "2024-07-01T02:00:00Z", "filePath": "/path/to/file", "fileManager": "local",
-            "itineraryId": 1, "asyncTaskId": "a1b2c3"}]})'
+          description: List of itinerary file jobs
           schema:
-            items:
-              $ref: '#/definitions/models.ItineraryFileJob'
-            type: array
+            $ref: '#/definitions/routes.GetItineraryJobsResponse'
         "401":
           description: Not authorized.
           schema:
@@ -478,8 +524,7 @@ paths:
         "202":
           description: Job started successfully.
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/routes.StartItineraryJobResponse'
         "401":
           description: Not authorized.
           schema:
@@ -525,8 +570,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: 'Itinerary job deleted."  example({"message": "Itinerary job
-            deleted."})'
+          description: Itinerary job deleted.
           schema:
             $ref: '#/definitions/routes.DeleteItineraryJobResponse'
         "400":
@@ -571,13 +615,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: 'Itinerary file job details"  example({"job": {"id": 1, "status":
-            "completed", "statusDescription": "Job OK", "creationDate": "2024-07-01T00:00:00Z",
-            "startDate": "2024-07-01T01:00:00Z", "endDate": "2024-07-01T02:00:00Z",
-            "filePath": "/path/to/file", "fileManager": "local", "itineraryId": 1,
-            "asyncTaskId": "a1b2c3"}})'
+          description: Itinerary file job details
           schema:
-            $ref: '#/definitions/models.ItineraryFileJob'
+            $ref: '#/definitions/routes.GetItineraryJobResponse'
         "400":
           description: Bad request.
           schema:
@@ -669,8 +709,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: 'Itinerary job stopped."  example({"message": "Itinerary job
-            stopped."})'
+          description: Itinerary job stopped.
           schema:
             $ref: '#/definitions/routes.StopItineraryJobResponse'
         "400":
