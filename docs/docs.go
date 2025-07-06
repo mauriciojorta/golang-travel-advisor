@@ -630,7 +630,7 @@ const docTemplate = `{
                         "Auth": []
                     }
                 ],
-                "description": "Stops an active itinerary file job for the authenticated user. The user must own the itinerary.",
+                "description": "Stops an active itinerary file job for the authenticated user in case it gets stuck after the expected time. The user must own the itinerary.",
                 "produces": [
                     "application/json"
                 ],

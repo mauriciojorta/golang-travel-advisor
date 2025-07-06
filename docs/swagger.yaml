@@ -692,8 +692,8 @@ paths:
       - itineraries
   /itineraries/{itineraryId}/jobs/{itineraryJobId}/stop:
     put:
-      description: Stops an active itinerary file job for the authenticated user.
-        The user must own the itinerary.
+      description: Stops an active itinerary file job for the authenticated user in
+        case it gets stuck after the expected time. The user must own the itinerary.
       parameters:
       - description: Itinerary ID
         in: path

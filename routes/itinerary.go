@@ -578,7 +578,7 @@ func downloadItineraryJobFile(context *gin.Context) {
 
 // stopItineraryJob godoc
 // @Summary      Stop an itinerary file job
-// @Description  Stops an active itinerary file job for the authenticated user. The user must own the itinerary.
+// @Description  Stops an active itinerary file job for the authenticated user in case it gets stuck after the expected time. The user must own the itinerary.
 // @Tags         itineraries
 // @Produce      json
 // @Security     Auth

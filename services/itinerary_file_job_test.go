@@ -227,14 +227,6 @@ func TestItineraryFileJobAddAsyncTaskId_Fail(t *testing.T) {
 		return errors.New("fail")
 	}
 
-	origInitItineraryFileJobFunctions := models.InitItineraryFileJobFunctions
-	models.InitItineraryFileJobFunctions = func(job *models.ItineraryFileJob) *models.ItineraryFileJob {
-		return ifj
-	}
-	defer func() {
-		models.InitItineraryFileJobFunctions = origInitItineraryFileJobFunctions
-	}()
-
 	err := (&ItineraryFileJobService{}).AddAsyncTaskId("taskid", ifj)
 	assert.Error(t, err)
 }
@@ -247,14 +239,6 @@ func TestItineraryFileJobAddAsyncTaskId_Success(t *testing.T) {
 	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
 		return ifj
 	}
-
-	origInitItineraryFileJobFunctions := models.InitItineraryFileJobFunctions
-	models.InitItineraryFileJobFunctions = func(job *models.ItineraryFileJob) *models.ItineraryFileJob {
-		return ifj
-	}
-	defer func() {
-		models.InitItineraryFileJobFunctions = origInitItineraryFileJobFunctions
-	}()
 
 	err := (&ItineraryFileJobService{}).AddAsyncTaskId("taskid", ifj)
 	assert.NoError(t, err)
@@ -279,14 +263,6 @@ func TestItineraryFileJobFailJob_Fail(t *testing.T) {
 		return errors.New("fail")
 	}
 
-	origInitItineraryFileJobFunctions := models.InitItineraryFileJobFunctions
-	models.InitItineraryFileJobFunctions = func(job *models.ItineraryFileJob) *models.ItineraryFileJob {
-		return ifj
-	}
-	defer func() {
-		models.InitItineraryFileJobFunctions = origInitItineraryFileJobFunctions
-	}()
-
 	err := (&ItineraryFileJobService{}).FailJob("desc", ifj)
 	assert.Error(t, err)
 }
@@ -296,14 +272,6 @@ func TestItineraryFileJobFailJob_Success(t *testing.T) {
 	ifj.FailJob = func(desc string) error {
 		return nil // Simulate successful failure of job
 	}
-
-	origInitItineraryFileJobFunctions := models.InitItineraryFileJobFunctions
-	models.InitItineraryFileJobFunctions = func(job *models.ItineraryFileJob) *models.ItineraryFileJob {
-		return ifj
-	}
-	defer func() {
-		models.InitItineraryFileJobFunctions = origInitItineraryFileJobFunctions
-	}()
 
 	err := (&ItineraryFileJobService{}).FailJob("desc", ifj)
 	assert.NoError(t, err)
@@ -343,14 +311,6 @@ func TestItineraryFileJobStopJob_Fail(t *testing.T) {
 		return errors.New("fail")
 	}
 
-	origInitItineraryFileJobFunctions := models.InitItineraryFileJobFunctions
-	models.InitItineraryFileJobFunctions = func(job *models.ItineraryFileJob) *models.ItineraryFileJob {
-		return ifj
-	}
-	defer func() {
-		models.InitItineraryFileJobFunctions = origInitItineraryFileJobFunctions
-	}()
-
 	err := (&ItineraryFileJobService{}).StopJob(ifj)
 	assert.Error(t, err)
 }
@@ -365,14 +325,6 @@ func TestItineraryFileJobStopJob_Success(t *testing.T) {
 	ifj.StopJob = func() error {
 		return nil // Simulate successful stopping of job
 	}
-
-	origInitItineraryFileJobFunctions := models.InitItineraryFileJobFunctions
-	models.InitItineraryFileJobFunctions = func(job *models.ItineraryFileJob) *models.ItineraryFileJob {
-		return ifj
-	}
-	defer func() {
-		models.InitItineraryFileJobFunctions = origInitItineraryFileJobFunctions
-	}()
 
 	err := (&ItineraryFileJobService{}).StopJob(ifj)
 	assert.NoError(t, err)
@@ -391,14 +343,6 @@ func TestItineraryFileJobStopJob_Success_CustomTimeout(t *testing.T) {
 	ifj.StopJob = func() error {
 		return nil // Simulate successful stopping of job
 	}
-
-	origInitItineraryFileJobFunctions := models.InitItineraryFileJobFunctions
-	models.InitItineraryFileJobFunctions = func(job *models.ItineraryFileJob) *models.ItineraryFileJob {
-		return ifj
-	}
-	defer func() {
-		models.InitItineraryFileJobFunctions = origInitItineraryFileJobFunctions
-	}()
 
 	err := (&ItineraryFileJobService{}).StopJob(ifj)
 	assert.NoError(t, err)
@@ -658,13 +602,6 @@ func TestItineraryFileJobService_SoftDeleteJob_Fail(t *testing.T) {
 	ifj := mockItineraryFileJob()
 	ifj.SoftDeleteJob = func() error { return errors.New("fail soft delete") }
 
-	origInitItineraryFileJobFunctions := models.InitItineraryFileJobFunctions
-	models.InitItineraryFileJobFunctions = func(job *models.ItineraryFileJob) *models.ItineraryFileJob {
-		return ifj
-	}
-	defer func() {
-		models.InitItineraryFileJobFunctions = origInitItineraryFileJobFunctions
-	}()
 	err := (&ItineraryFileJobService{}).SoftDeleteJob(ifj)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to soft delete job")
@@ -674,13 +611,6 @@ func TestItineraryFileJobService_SoftDeleteJob_Success(t *testing.T) {
 	ifj := mockItineraryFileJob()
 	ifj.SoftDeleteJob = func() error { return nil }
 
-	origInitItineraryFileJobFunctions := models.InitItineraryFileJobFunctions
-	models.InitItineraryFileJobFunctions = func(job *models.ItineraryFileJob) *models.ItineraryFileJob {
-		return ifj
-	}
-	defer func() {
-		models.InitItineraryFileJobFunctions = origInitItineraryFileJobFunctions
-	}()
 	err := (&ItineraryFileJobService{}).SoftDeleteJob(ifj)
 	assert.NoError(t, err)
 }
@@ -756,14 +686,6 @@ func TestItineraryFileJobService_DeleteJob_FileDeleteFails(t *testing.T) {
 	GetFileManager = func(name string) FileManagerInterface { return mgr }
 	ifj.DeleteJob = func() error { return nil }
 
-	origInitItineraryFileJobFunctions := models.InitItineraryFileJobFunctions
-	models.InitItineraryFileJobFunctions = func(job *models.ItineraryFileJob) *models.ItineraryFileJob {
-		return ifj
-	}
-	defer func() {
-		models.InitItineraryFileJobFunctions = origInitItineraryFileJobFunctions
-	}()
-
 	err := (&ItineraryFileJobService{}).DeleteJob(ifj)
 	assert.NoError(t, err)
 	assert.True(t, mgr.deleteFileCalled)
@@ -776,14 +698,6 @@ func TestItineraryFileJobService_DeleteJob_DeleteJobFails(t *testing.T) {
 	mgr := &mockFileManager{}
 	GetFileManager = func(name string) FileManagerInterface { return mgr }
 	ifj.DeleteJob = func() error { return errors.New("delete job fail") }
-
-	origInitItineraryFileJobFunctions := models.InitItineraryFileJobFunctions
-	models.InitItineraryFileJobFunctions = func(job *models.ItineraryFileJob) *models.ItineraryFileJob {
-		return ifj
-	}
-	defer func() {
-		models.InitItineraryFileJobFunctions = origInitItineraryFileJobFunctions
-	}()
 
 	err := (&ItineraryFileJobService{}).DeleteJob(ifj)
 	assert.Error(t, err)
@@ -798,14 +712,6 @@ func TestItineraryFileJobService_DeleteJob_Success(t *testing.T) {
 	mgr := &mockFileManager{}
 	GetFileManager = func(name string) FileManagerInterface { return mgr }
 	ifj.DeleteJob = func() error { return nil }
-
-	origInitItineraryFileJobFunctions := models.InitItineraryFileJobFunctions
-	models.InitItineraryFileJobFunctions = func(job *models.ItineraryFileJob) *models.ItineraryFileJob {
-		return ifj
-	}
-	defer func() {
-		models.InitItineraryFileJobFunctions = origInitItineraryFileJobFunctions
-	}()
 
 	err := (&ItineraryFileJobService{}).DeleteJob(ifj)
 	assert.NoError(t, err)
