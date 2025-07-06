@@ -23,7 +23,7 @@ import (
 type ItineraryFileJobServiceInterface interface {
 	FindAliveById(id int64) (*models.ItineraryFileJob, error)
 	FindAliveLightweightById(id int64) (*models.ItineraryFileJob, error)
-	FindAliveByItineraryId(itineraryId int64) (*[]models.ItineraryFileJob, error)
+	FindAliveByItineraryId(itineraryId int64) ([]*models.ItineraryFileJob, error)
 	OpenItineraryJobFile(itineraryFileJob *models.ItineraryFileJob) (io.ReadSeekCloser, error)
 	GetJobsRunningOfUserCount(userId int64) (int, error)
 	PrepareJob(itinerary *models.Itinerary) (*ItineraryFileAsyncTaskPayload, error)
@@ -73,12 +73,7 @@ func (ifjs *ItineraryFileJobService) FindAliveById(id int64) (*models.ItineraryF
 		return nil, errors.New("invalid job ID")
 	}
 	job := models.InitItineraryFileJob()
-	j, err := job.FindAliveById(id)
-	if err != nil {
-		log.Errorf("failed to find job by ID: %v", err)
-		return nil, errors.New("failed to find job by ID")
-	}
-	return j, nil
+	return job.FindAliveById(id)
 }
 
 // FindAliveLightweightById retrieves the job by its ID as a object containing only the ID and itinerary ID (entity primary and foreign keys)
@@ -88,16 +83,12 @@ func (ifjs *ItineraryFileJobService) FindAliveLightweightById(id int64) (*models
 	}
 	job := models.InitItineraryFileJob()
 	job.ID = id
-	j, err := job.FindAliveLightweightById(id)
-	if err != nil {
-		log.Errorf("failed to find job by ID: %v", err)
-		return nil, errors.New("failed to find job by ID")
-	}
-	return j, nil
+	return job.FindAliveLightweightById(id)
+
 }
 
 // FindAliveByItineraryId retrieves jobs by itinerary ID
-func (ifjs *ItineraryFileJobService) FindAliveByItineraryId(itineraryId int64) (*[]models.ItineraryFileJob, error) {
+func (ifjs *ItineraryFileJobService) FindAliveByItineraryId(itineraryId int64) ([]*models.ItineraryFileJob, error) {
 	if itineraryId <= 0 {
 		return nil, errors.New("invalid itinerary ID")
 	}
@@ -313,11 +304,11 @@ func (ifjs *ItineraryFileJobService) DeleteDeadJobs(fetchLimit int) error {
 		log.Error("failed to find dead jobs", err)
 		return errors.New("failed to find dead jobs")
 	}
-	if len(*deadJobs) == 0 {
+	if len(deadJobs) == 0 {
 		log.Info("No dead jobs found to delete")
 		return nil
 	}
-	for _, deadJob := range *deadJobs {
+	for _, deadJob := range deadJobs {
 		log.Infof("Deleting dead job with ID: %d", deadJob.ID)
 
 		if deadJob.Filepath != "" {

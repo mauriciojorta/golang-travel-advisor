@@ -12,7 +12,7 @@ import (
 type ItineraryServiceInterface interface {
 	FindById(id int64, includeDestinations bool) (*models.Itinerary, error)
 	FindLightweightById(id int64) (*models.Itinerary, error)
-	FindByOwnerId(ownerId int64) (*[]models.Itinerary, error)
+	FindByOwnerId(ownerId int64) ([]*models.Itinerary, error)
 	Create(itinerary *models.Itinerary) error
 	Update(itinerary *models.Itinerary) error
 	Delete(id int64) error
@@ -51,7 +51,7 @@ func (is *ItineraryService) FindLightweightById(id int64) (*models.Itinerary, er
 }
 
 // FindByOwnerId retrieves itineraries by owner ID
-func (is *ItineraryService) FindByOwnerId(ownerId int64) (*[]models.Itinerary, error) {
+func (is *ItineraryService) FindByOwnerId(ownerId int64) ([]*models.Itinerary, error) {
 	if ownerId <= 0 {
 		log.Error("Invalid owner ID provided")
 		return nil, errors.New("invalid owner ID")

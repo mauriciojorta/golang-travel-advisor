@@ -82,6 +82,11 @@ func (us *UserService) ValidateCredentials(user *models.User, password string) e
 }
 
 func (us *UserService) GenerateLoginToken(user *models.User) (string, error) {
+	if user == nil {
+		log.Error("User instance is nil")
+		return "", errors.New("user instance is nil")
+	}
+
 	token, err := utils.GenerateToken(user.Email, user.ID)
 	if err != nil {
 		log.Errorf("Error generating token: %v", err)

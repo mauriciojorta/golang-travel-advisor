@@ -624,7 +624,7 @@ const docTemplate = `{
             }
         },
         "/itineraries/{itineraryId}/jobs/{itineraryJobId}/stop": {
-            "post": {
+            "put": {
                 "security": [
                     {
                         "Auth": []

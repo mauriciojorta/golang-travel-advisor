@@ -28,7 +28,7 @@ type mockItineraryService struct {
 	FindByIdErr            error
 	FindLightweightByIdIt  *models.Itinerary
 	FindLightweightByIdErr error
-	FindByOwner            *[]models.Itinerary
+	FindByOwner            []*models.Itinerary
 	FindByOwnerErr         error
 }
 
@@ -46,7 +46,7 @@ func (m *mockItineraryService) FindLightweightById(_ int64) (*models.Itinerary, 
 	return m.FindLightweightByIdIt, m.FindLightweightByIdErr
 }
 
-func (m *mockItineraryService) FindByOwnerId(_ int64) (*[]models.Itinerary, error) {
+func (m *mockItineraryService) FindByOwnerId(_ int64) ([]*models.Itinerary, error) {
 	return m.FindByOwner, m.FindByOwnerErr
 }
 
@@ -66,7 +66,7 @@ type mockJobsService struct {
 	PrepareJobErr                  error
 	StopJobErr                     error
 	AddAsyncTaskIdErr              error
-	FindByItineraryIdResult        *[]models.ItineraryFileJob
+	FindByItineraryIdResult        []*models.ItineraryFileJob
 	FindByItineraryIdErr           error
 	FindByIdResult                 *models.ItineraryFileJob
 	FindByIdErr                    error
@@ -97,7 +97,7 @@ func (m *mockJobsService) FindAliveLightweightById(_ int64) (*models.ItineraryFi
 	return m.FindAliveLightweightByIdResult, m.FindAliveLightweightByIdErr //unused in routes
 }
 
-func (m *mockJobsService) FindAliveByItineraryId(_ int64) (*[]models.ItineraryFileJob, error) {
+func (m *mockJobsService) FindAliveByItineraryId(_ int64) ([]*models.ItineraryFileJob, error) {
 	return m.FindByItineraryIdResult, m.FindByItineraryIdErr
 }
 
@@ -283,8 +283,8 @@ func Test_getOwnersItineraries_Success(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		itineraries := []models.Itinerary{{ID: 1}}
-		return &mockItineraryService{FindByOwner: &itineraries}
+		itineraries := []*models.Itinerary{{ID: 1}}
+		return &mockItineraryService{FindByOwner: itineraries}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -713,9 +713,9 @@ func Test_getAllItineraryFileJobs_Success(t *testing.T) {
 	}
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
-	jobs := []models.ItineraryFileJob{{ID: 1}, {ID: 2}}
+	jobs := []*models.ItineraryFileJob{{ID: 1}, {ID: 2}}
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
-		return &mockJobsService{FindByItineraryIdResult: &jobs}
+		return &mockJobsService{FindByItineraryIdResult: jobs}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)

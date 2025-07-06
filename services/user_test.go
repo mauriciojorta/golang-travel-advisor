@@ -180,7 +180,7 @@ func TestUserService_GenerateLoginToken_Success(t *testing.T) {
 	}
 }
 
-func TestUserService_GenerateLoginToken_ErrorGeneratingToken(t *testing.T) {
+func TestUserService_GenerateLoginToken_NullUserError(t *testing.T) {
 	origGenerateToken := utils.GenerateToken
 	defer func() { utils.GenerateToken = origGenerateToken }()
 
@@ -191,6 +191,14 @@ func TestUserService_GenerateLoginToken_ErrorGeneratingToken(t *testing.T) {
 	us := &UserService{}
 	mockUser := &models.User{Email: "fail@example.com", ID: 1}
 	token, err := us.GenerateLoginToken(mockUser)
+	if err == nil || token != "" {
+		t.Error("expected error when generating token")
+	}
+}
+
+func TestUserService_GenerateLoginToken_ErrorGeneratingToken(t *testing.T) {
+	us := &UserService{}
+	token, err := us.GenerateLoginToken(nil)
 	if err == nil || token != "" {
 		t.Error("expected error when generating token")
 	}

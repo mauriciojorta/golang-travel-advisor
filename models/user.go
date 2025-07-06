@@ -29,7 +29,8 @@ var InitUser = func() *User {
 }
 
 var InitUserFunctions = func(user *User) *User {
-	// Set default implementations for FindByEmail, Create, ValidateCredentials and UpdateLastLoginDate
+	// Set default SQL implementations for FindByEmail, Create, ValidateCredentials and UpdateLastLoginDate. In the future there could be implementations for
+	// other NoSQL DB systems like MongoDB
 	user.FindByEmail = user.defaultFindUser
 	user.Create = user.defaultCreate
 	user.ValidateCredentials = user.defaultValidateCredentials

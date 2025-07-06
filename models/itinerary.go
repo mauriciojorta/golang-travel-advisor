@@ -19,7 +19,7 @@ type Itinerary struct {
 
 	FindById            func(id int64, includeDestinations bool) (*Itinerary, error) `json:"-"`
 	FindLightweightById func(id int64) (*Itinerary, error)                           `json:"-"`
-	FindByOwnerId       func(ownerId int64) (*[]Itinerary, error)                    `json:"-"`
+	FindByOwnerId       func(ownerId int64) ([]*Itinerary, error)                    `json:"-"`
 	Create              func() error                                                 `json:"-"`
 	Update              func() error                                                 `json:"-"`
 	Delete              func() error                                                 `json:"-"`
@@ -30,7 +30,8 @@ var InitItinerary = func() *Itinerary {
 }
 
 var InitItineraryFunctions = func(itinerary *Itinerary) *Itinerary {
-	// Set default implementations for FindById, FindByOwnerId, Create, Update, Delete, and GenerateItineraryFile
+	// Set default SQL implementations for FindById, FindByOwnerId, Create, Update and Delete. In the future there could be implementations for
+	// other NoSQL DB systems like MongoDB
 	itinerary.FindById = itinerary.defaultFindById
 	itinerary.FindLightweightById = itinerary.defaultFindLightweightById
 	itinerary.FindByOwnerId = itinerary.defaultFindByOwnerId
@@ -99,7 +100,7 @@ func (i *Itinerary) defaultFindLightweightById(id int64) (*Itinerary, error) {
 
 }
 
-func (i *Itinerary) defaultFindByOwnerId(ownerId int64) (*[]Itinerary, error) {
+func (i *Itinerary) defaultFindByOwnerId(ownerId int64) ([]*Itinerary, error) {
 	query := `SELECT id, title, description, notes, owner_id, creation_date, update_date
 	FROM itineraries WHERE owner_id = ?`
 
@@ -109,7 +110,7 @@ func (i *Itinerary) defaultFindByOwnerId(ownerId int64) (*[]Itinerary, error) {
 	}
 	defer rows.Close()
 
-	var itineraries []Itinerary
+	var itineraries []*Itinerary
 
 	for rows.Next() {
 		var itinerary Itinerary
@@ -129,10 +130,10 @@ func (i *Itinerary) defaultFindByOwnerId(ownerId int64) (*[]Itinerary, error) {
 
 		itinerary.TravelDestinations = travelDestinations
 
-		itineraries = append(itineraries, itinerary)
+		itineraries = append(itineraries, &itinerary)
 	}
 
-	return &itineraries, nil
+	return itineraries, nil
 }
 
 func (i *Itinerary) defaultCreate() error {

@@ -48,7 +48,7 @@ type GetItineraryResponse struct {
 }
 
 type GetItinerariesResponse struct {
-	Itineraries *[]models.Itinerary `json:"itineraries"` // Example JSON representation
+	Itineraries []*models.Itinerary `json:"itineraries"` // Example JSON representation
 }
 
 type StartItineraryJobResponse struct {
@@ -65,7 +65,7 @@ type GetItineraryJobResponse struct {
 }
 
 type GetItineraryJobsResponse struct {
-	Jobs *[]models.ItineraryFileJob `json:"job"`
+	Jobs []*models.ItineraryFileJob `json:"job"`
 }
 
 type UpdateItineraryResponse struct {
@@ -189,6 +189,8 @@ func updateItinerary(context *gin.Context) {
 		return
 	}
 
+	itinerary = models.InitItineraryFunctions(itinerary)
+
 	if itinerary.OwnerID != userId.(int64) {
 		log.Errorf("User %d does not have permission to update itinerary %d", userId, input.ID)
 		context.JSON(http.StatusForbidden, &ErrorResponse{Message: "You do not have permission to update this itinerary."})
@@ -288,7 +290,7 @@ func getOwnersItineraries(context *gin.Context) {
 		return
 	}
 
-	log.Debugf("Retrieved itineraries for user %d: %d itineraries found", userId, len(*itineraries))
+	log.Debugf("Retrieved itineraries for user %d: %d itineraries found", userId, len(itineraries))
 	context.JSON(http.StatusOK, &GetItinerariesResponse{Itineraries: itineraries})
 }
 
@@ -588,7 +590,7 @@ func downloadItineraryJobFile(context *gin.Context) {
 // @Failure      403  {object}  ErrorResponse  "You do not have permission to access this resource."
 // @Failure      404  {object}  ErrorResponse  "Itinerary job not found."
 // @Failure      500  {object}  ErrorResponse  "Could not get itinerary job. Try again later."
-// @Router       /itineraries/{itineraryId}/jobs/{itineraryJobId}/stop [post]
+// @Router       /itineraries/{itineraryId}/jobs/{itineraryJobId}/stop [put]
 func stopItineraryJob(context *gin.Context) {
 	log.Debug("Stopping itinerary job")
 	itinerary := getAndValidateItinerary(context, false)
@@ -623,6 +625,8 @@ func stopItineraryJob(context *gin.Context) {
 		}
 		return
 	}
+
+	itineraryJob = models.InitItineraryFileJobFunctions(itineraryJob)
 
 	itineraryJob = validateItineraryJobOwnership(itinerary.ID, itineraryJob, context)
 	if itineraryJob == nil {
@@ -693,6 +697,8 @@ func deleteItineraryJob(context *gin.Context) {
 		return
 	}
 
+	itineraryJob = models.InitItineraryFileJobFunctions(itineraryJob)
+
 	itineraryJob = validateItineraryJobOwnership(itinerary.ID, itineraryJob, context)
 	if itineraryJob == nil {
 		return
@@ -741,7 +747,7 @@ func getAllItineraryFileJobs(context *gin.Context) {
 		return
 	}
 
-	log.Debugf("Retrieved %d itinerary file jobs for itinerary ID %d", len(*itineraryFileJobs), itinerary.ID)
+	log.Debugf("Retrieved %d itinerary file jobs for itinerary ID %d", len(itineraryFileJobs), itinerary.ID)
 	context.JSON(http.StatusOK, &GetItineraryJobsResponse{Jobs: itineraryFileJobs})
 }
 

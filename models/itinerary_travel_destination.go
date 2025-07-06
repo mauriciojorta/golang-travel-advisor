@@ -31,7 +31,8 @@ var InitItineraryTravelDestination = func() *ItineraryTravelDestination {
 }
 
 var initItineraryTravelDestinationFunctions = func(destination *ItineraryTravelDestination) *ItineraryTravelDestination {
-	// Set default implementations for Find, Create, Update, and Delete
+	// Set default SQL implementations for Find, Create, Update, and Delete. In the future there could be implementations for
+	// other NoSQL DB systems like MongoDB
 	destination.FindByItineraryId = destination.defaultFindByItineraryId
 	destination.Create = destination.defaultCreate
 	destination.Update = destination.defaultUpdate

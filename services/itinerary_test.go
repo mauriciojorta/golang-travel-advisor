@@ -17,9 +17,9 @@ func mockItinerary() *models.Itinerary {
 	it.FindLightweightById = func(id int64) (*models.Itinerary, error) {
 		return &models.Itinerary{}, nil
 	}
-	it.FindByOwnerId = func(ownerId int64) (*[]models.Itinerary, error) {
-		arr := []models.Itinerary{*it}
-		return &arr, nil
+	it.FindByOwnerId = func(ownerId int64) ([]*models.Itinerary, error) {
+		arr := []*models.Itinerary{it}
+		return arr, nil
 	}
 	it.Create = func() error { return nil }
 	it.Update = func() error { return nil }
@@ -102,10 +102,10 @@ func TestFindByOwnerId_Success(t *testing.T) {
 	it := mockItinerary()
 
 	called := false
-	it.FindByOwnerId = func(ownerId int64) (*[]models.Itinerary, error) {
+	it.FindByOwnerId = func(ownerId int64) ([]*models.Itinerary, error) {
 		called = true
-		arr := []models.Itinerary{*it}
-		return &arr, nil
+		arr := []*models.Itinerary{it}
+		return arr, nil
 	}
 	models.InitItinerary = func() *models.Itinerary {
 		return it
@@ -128,7 +128,7 @@ func TestFindByOwnerId_ErrorFromModel(t *testing.T) {
 	svc := &ItineraryService{}
 	it := mockItinerary()
 
-	it.FindByOwnerId = func(ownerId int64) (*[]models.Itinerary, error) { return nil, errors.New("fail") }
+	it.FindByOwnerId = func(ownerId int64) ([]*models.Itinerary, error) { return nil, errors.New("fail") }
 	models.InitItinerary = func() *models.Itinerary {
 		return it
 	}

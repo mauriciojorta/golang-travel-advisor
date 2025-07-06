@@ -17,7 +17,8 @@ type AuditEvent struct {
 }
 
 var InitAuditEventFunctions = func(auditEvent *AuditEvent) *AuditEvent {
-	// Set default implementations for CreateAuditEvent
+	// Set default SQL implementation for CreateAuditEvent. In the future there could be implementations for
+	// other NoSQL DB systems like MongoDB
 	auditEvent.CreateAuditEvent = auditEvent.defaultCreateAuditEvent
 
 	return auditEvent

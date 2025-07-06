@@ -691,7 +691,7 @@ paths:
       tags:
       - itineraries
   /itineraries/{itineraryId}/jobs/{itineraryJobId}/stop:
-    post:
+    put:
       description: Stops an active itinerary file job for the authenticated user.
         The user must own the itinerary.
       parameters:

@@ -271,13 +271,13 @@ func TestItineraryFindByOwnerId_Success(t *testing.T) {
 
 	// Assert
 	assert.NoError(t, err)
-	assert.Len(t, *itineraries, 1)
-	assert.Equal(t, int64(1), (*itineraries)[0].ID)
-	assert.Equal(t, "Test Title", (*itineraries)[0].Title)
-	assert.Equal(t, "Test Description", (*itineraries)[0].Description)
-	assert.Equal(t, "A test trip", *(*itineraries)[0].Notes)
-	assert.NotNil(t, *(*itineraries)[0].CreationDate)
-	assert.NotNil(t, *(*itineraries)[0].UpdateDate)
+	assert.Len(t, itineraries, 1)
+	assert.Equal(t, int64(1), (itineraries)[0].ID)
+	assert.Equal(t, "Test Title", (itineraries)[0].Title)
+	assert.Equal(t, "Test Description", (itineraries)[0].Description)
+	assert.Equal(t, "A test trip", *(itineraries)[0].Notes)
+	assert.NotNil(t, *(itineraries)[0].CreationDate)
+	assert.NotNil(t, *(itineraries)[0].UpdateDate)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -305,11 +305,11 @@ func TestItineraryFindByOwnerId_SuccessNullNotes(t *testing.T) {
 
 	// Assert
 	assert.NoError(t, err)
-	assert.Len(t, *itineraries, 1)
-	assert.Equal(t, int64(1), (*itineraries)[0].ID)
-	assert.Equal(t, "Test Title", (*itineraries)[0].Title)
-	assert.Equal(t, "Test Description", (*itineraries)[0].Description)
-	assert.Nil(t, (*itineraries)[0].Notes)
+	assert.Len(t, itineraries, 1)
+	assert.Equal(t, int64(1), (itineraries)[0].ID)
+	assert.Equal(t, "Test Title", (itineraries)[0].Title)
+	assert.Equal(t, "Test Description", (itineraries)[0].Description)
+	assert.Nil(t, (itineraries)[0].Notes)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 

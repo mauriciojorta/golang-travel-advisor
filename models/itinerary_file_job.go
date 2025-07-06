@@ -27,8 +27,8 @@ type ItineraryFileJob struct {
 
 	FindAliveById                 func(id int64) (*ItineraryFileJob, error)            `json:"-"`
 	FindAliveLightweightById      func(id int64) (*ItineraryFileJob, error)            `json:"-"`
-	FindAliveByItineraryId        func(itineraryId int64) (*[]ItineraryFileJob, error) `json:"-"`
-	FindDead                      func(fetchLimit int) (*[]ItineraryFileJob, error)    `json:"-"`
+	FindAliveByItineraryId        func(itineraryId int64) ([]*ItineraryFileJob, error) `json:"-"`
+	FindDead                      func(fetchLimit int) ([]*ItineraryFileJob, error)    `json:"-"`
 	GetJobsRunningOfUserCount     func(userId int64) (int, error)                      `json:"-"`
 	PrepareJob                    func(itinerary *Itinerary) error                     `json:"-"`
 	AddAsyncTaskId                func(asyncTaskId string) error                       `json:"-"` // Functions for job management
@@ -46,7 +46,8 @@ var InitItineraryFileJob = func() *ItineraryFileJob {
 }
 
 var InitItineraryFileJobFunctions = func(job *ItineraryFileJob) *ItineraryFileJob {
-	// Set default implementations for FindById, FindByItineraryId, RunJob, StopJob, and Delete
+	// Set default SQL implementations for FindById, FindByItineraryId, RunJob, StopJob, and Delete. In the future there could be implementations for
+	// other NoSQL DB systems like MongoDB
 	job.FindAliveById = job.defaultFindAliveById
 	job.FindAliveLightweightById = job.defaultFindAliveLightweightById
 	job.FindAliveByItineraryId = job.defaultFindAliveByItineraryId
@@ -134,7 +135,7 @@ func (ifj *ItineraryFileJob) defaultFindAliveLightweightById(id int64) (*Itinera
 	return itineraryFileJob, nil
 }
 
-func (ifj *ItineraryFileJob) defaultFindAliveByItineraryId(itineraryId int64) (*[]ItineraryFileJob, error) {
+func (ifj *ItineraryFileJob) defaultFindAliveByItineraryId(itineraryId int64) ([]*ItineraryFileJob, error) {
 	query := `SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id
 	FROM itinerary_file_jobs WHERE itinerary_id = ? AND status != 'deleted'`
 	rows, err := db.DB.Query(query, itineraryId)
@@ -142,7 +143,7 @@ func (ifj *ItineraryFileJob) defaultFindAliveByItineraryId(itineraryId int64) (*
 		return nil, err
 	}
 	defer rows.Close()
-	var jobs []ItineraryFileJob
+	var jobs []*ItineraryFileJob
 	for rows.Next() {
 		var job ItineraryFileJob
 		var statusDescription sql.NullString
@@ -181,15 +182,15 @@ func (ifj *ItineraryFileJob) defaultFindAliveByItineraryId(itineraryId int64) (*
 			job.AsyncTaskID = ""
 		}
 
-		jobs = append(jobs, job)
+		jobs = append(jobs, &job)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return &jobs, nil
+	return jobs, nil
 }
 
-func (ifj *ItineraryFileJob) defaultFindDead(fetchLimit int) (*[]ItineraryFileJob, error) {
+func (ifj *ItineraryFileJob) defaultFindDead(fetchLimit int) ([]*ItineraryFileJob, error) {
 	query := `SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id
 	FROM itinerary_file_jobs WHERE status = 'deleted' ORDER BY creation_date ASC LIMIT ?`
 	rows, err := db.DB.Query(query, fetchLimit)
@@ -197,7 +198,7 @@ func (ifj *ItineraryFileJob) defaultFindDead(fetchLimit int) (*[]ItineraryFileJo
 		return nil, err
 	}
 	defer rows.Close()
-	var jobs []ItineraryFileJob
+	var jobs []*ItineraryFileJob
 	for rows.Next() {
 		var job ItineraryFileJob
 		var statusDescription sql.NullString
@@ -236,12 +237,12 @@ func (ifj *ItineraryFileJob) defaultFindDead(fetchLimit int) (*[]ItineraryFileJo
 			job.AsyncTaskID = ""
 		}
 
-		jobs = append(jobs, job)
+		jobs = append(jobs, &job)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return &jobs, nil
+	return jobs, nil
 }
 
 func (ifj *ItineraryFileJob) defaultGetJobsRunningOfUserCount(userId int64) (int, error) {
