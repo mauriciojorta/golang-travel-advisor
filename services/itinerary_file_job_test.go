@@ -39,7 +39,7 @@ func mockItineraryFileJob() *models.ItineraryFileJob {
 	ifj.PrepareJob = func(it *models.Itinerary) error {
 		return nil
 	}
-	ifj.GetJobsRunningOfUserCount = func(userId int64) (int, error) {
+	ifj.GetInProgressJobsOfUserCount = func(userId int64) (int, error) {
 		return 0, nil
 	}
 	return ifj
@@ -143,16 +143,32 @@ func TestItineraryFileJobFindByItineraryId_Success(t *testing.T) {
 	assert.Equal(t, int64(1), (jobs)[0].ID)
 }
 
-func TestItineraryFileJobGetJobsRunningOfUserCount_InvalidUser(t *testing.T) {
+func TestItineraryFileJobGetInProgressJobsOfUserCount_InvalidUser(t *testing.T) {
 	svc := &ItineraryFileJobService{}
-	count, err := svc.GetJobsRunningOfUserCount(0)
+	count, err := svc.GetInProgressJobsOfUserCount(0)
 	assert.Equal(t, 0, count)
 	assert.Error(t, err)
 }
 
-func TestItineraryFileJobGetJobsRunningOfUserCount_Success(t *testing.T) {
+func TestItineraryFileJobService_GetInProgressJobsOfUserCount_Fail(t *testing.T) {
 	ifj := mockItineraryFileJob()
-	ifj.GetJobsRunningOfUserCount = func(userId int64) (int, error) {
+	ifj.GetInProgressJobsOfUserCount = func(userId int64) (int, error) {
+		return 0, errors.New("fail")
+	}
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
+		return ifj
+	}
+
+	svc := &ItineraryFileJobService{}
+	count, err := svc.GetInProgressJobsOfUserCount(1)
+	assert.Equal(t, 0, count)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "fail")
+}
+
+func TestItineraryFileJobGetInProgressJobsOfUserCount_Success(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.GetInProgressJobsOfUserCount = func(userId int64) (int, error) {
 		if userId == 5 {
 			return 3, nil // Simulate 3 running jobs for user ID 5
 		}
@@ -163,9 +179,51 @@ func TestItineraryFileJobGetJobsRunningOfUserCount_Success(t *testing.T) {
 	}
 
 	svc := &ItineraryFileJobService{}
-	count, err := svc.GetJobsRunningOfUserCount(5)
+	count, err := svc.GetInProgressJobsOfUserCount(5)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, count)
+}
+
+func TestItineraryFileJobService_GetInProgressJobsOfItineraryCount_InvalidID(t *testing.T) {
+	svc := &ItineraryFileJobService{}
+	count, err := svc.GetInProgressJobsOfItineraryCount(0)
+	assert.Equal(t, 0, count)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid itinerary ID")
+}
+
+func TestItineraryFileJobService_GetInProgressJobsOfItineraryCount_Fail(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.GetInProgressJobsOfItineraryCount = func(itineraryId int64) (int, error) {
+		return 0, errors.New("fail")
+	}
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
+		return ifj
+	}
+
+	svc := &ItineraryFileJobService{}
+	count, err := svc.GetInProgressJobsOfItineraryCount(1)
+	assert.Equal(t, 0, count)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "fail")
+}
+
+func TestItineraryFileJobService_GetInProgressJobsOfItineraryCount_Success(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.GetInProgressJobsOfItineraryCount = func(itineraryId int64) (int, error) {
+		if itineraryId == 10 {
+			return 2, nil
+		}
+		return 0, nil
+	}
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
+		return ifj
+	}
+
+	svc := &ItineraryFileJobService{}
+	count, err := svc.GetInProgressJobsOfItineraryCount(10)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, count)
 }
 
 func TestItineraryFileJobPrepareJob_NilItinerary(t *testing.T) {

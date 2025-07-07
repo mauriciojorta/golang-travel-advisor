@@ -25,7 +25,8 @@ type ItineraryFileJobServiceInterface interface {
 	FindAliveLightweightById(id int64) (*models.ItineraryFileJob, error)
 	FindAliveByItineraryId(itineraryId int64) ([]*models.ItineraryFileJob, error)
 	OpenItineraryJobFile(itineraryFileJob *models.ItineraryFileJob) (io.ReadSeekCloser, error)
-	GetJobsRunningOfUserCount(userId int64) (int, error)
+	GetInProgressJobsOfUserCount(userId int64) (int, error)
+	GetInProgressJobsOfItineraryCount(itineraryId int64) (int, error)
 	PrepareJob(itinerary *models.Itinerary) (*ItineraryFileAsyncTaskPayload, error)
 	AddAsyncTaskId(asyncTaskId string, itineraryFileJob *models.ItineraryFileJob) error
 	FailJob(errorDescription string, itineraryFileJob *models.ItineraryFileJob) error
@@ -116,14 +117,24 @@ func (itineraryFileJobService *ItineraryFileJobService) OpenItineraryJobFile(iti
 	return file, nil
 }
 
-// GetJobsRunningOfUserCount retrieves the count of running jobs for a user
-func (ifjs *ItineraryFileJobService) GetJobsRunningOfUserCount(userId int64) (int, error) {
+// GetInProgressJobsOfUserCount retrieves the count of running/pending jobs for a user
+func (ifjs *ItineraryFileJobService) GetInProgressJobsOfUserCount(userId int64) (int, error) {
 	if userId <= 0 {
 		log.Error("invalid user ID")
 		return 0, errors.New("invalid user ID")
 	}
 	job := models.InitItineraryFileJob()
-	return job.GetJobsRunningOfUserCount(userId)
+	return job.GetInProgressJobsOfUserCount(userId)
+}
+
+// GetInProgressJobsOfItineraryCount retrieves the count of running/pending jobs for an itinerary
+func (ifjs *ItineraryFileJobService) GetInProgressJobsOfItineraryCount(itineraryId int64) (int, error) {
+	if itineraryId <= 0 {
+		log.Error("invalid itinerary ID")
+		return 0, errors.New("invalid itinerary ID")
+	}
+	job := models.InitItineraryFileJob()
+	return job.GetInProgressJobsOfItineraryCount(itineraryId)
 }
 
 // PrepareJob prepares the job for execution
@@ -232,6 +243,7 @@ func (ifjs *ItineraryFileJobService) SoftDeleteJob(itineraryFileJob *models.Itin
 		log.Error("itinerary file job instance is nil")
 		return errors.New("itinerary file job instance is nil")
 	}
+
 	err := itineraryFileJob.SoftDeleteJob()
 	if err != nil {
 		log.Errorf("failed to soft delete job: %v", err)

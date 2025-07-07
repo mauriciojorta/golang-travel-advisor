@@ -264,7 +264,7 @@ func TestDefaultFindDead_RowsErr(t *testing.T) {
 	}
 }
 
-func TestDefaultGetJobsRunningOfUserCount_Success(t *testing.T) {
+func TestDefaultGetInProgressJobsOfUserCount_Success(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -272,12 +272,12 @@ func TestDefaultGetJobsRunningOfUserCount_Success(t *testing.T) {
 
 	userId := int64(1)
 
-	mock.ExpectQuery("SELECT COUNT\\(itinerary_file_jobs.id\\) FROM itinerary_file_jobs WHERE status = 'running' AND itinerary_id IN \\(SELECT itineraries.id FROM itineraries WHERE owner_id = \\?\\)").
+	mock.ExpectQuery("SELECT COUNT\\(itinerary_file_jobs.id\\) FROM itinerary_file_jobs WHERE status IN \\('pending','running'\\) AND itinerary_id IN \\(SELECT itineraries.id FROM itineraries WHERE owner_id = \\?\\)").
 		WithArgs(userId).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(2))
 
 	job := &ItineraryFileJob{}
-	count, err := job.defaultGetJobsRunningOfUserCount(userId)
+	count, err := job.defaultGetInProgressJobsOfUserCount(userId)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 2, count)
@@ -287,7 +287,7 @@ func TestDefaultGetJobsRunningOfUserCount_Success(t *testing.T) {
 	}
 }
 
-func TestDefaultGetJobsRunningOfUserCountZero_Success(t *testing.T) {
+func TestDefaultGetInProgressJobsfUserCountZero_Success(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -295,12 +295,12 @@ func TestDefaultGetJobsRunningOfUserCountZero_Success(t *testing.T) {
 
 	userId := int64(1)
 
-	mock.ExpectQuery("SELECT COUNT\\(itinerary_file_jobs.id\\) FROM itinerary_file_jobs WHERE status = 'running' AND itinerary_id IN \\(SELECT itineraries.id FROM itineraries WHERE owner_id = \\?\\)").
+	mock.ExpectQuery("SELECT COUNT\\(itinerary_file_jobs.id\\) FROM itinerary_file_jobs WHERE status IN \\('pending','running'\\) AND itinerary_id IN \\(SELECT itineraries.id FROM itineraries WHERE owner_id = \\?\\)").
 		WithArgs(userId).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
 
 	job := &ItineraryFileJob{}
-	count, err := job.defaultGetJobsRunningOfUserCount(userId)
+	count, err := job.defaultGetInProgressJobsOfUserCount(userId)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 0, count)
@@ -310,7 +310,7 @@ func TestDefaultGetJobsRunningOfUserCountZero_Success(t *testing.T) {
 	}
 }
 
-func TestDefaultGetJobsRunningOfUserCount_Error(t *testing.T) {
+func TestDefaultGetInProgressJobsOfUserCount_Error(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
 	defer dbMock.Close()
@@ -318,12 +318,81 @@ func TestDefaultGetJobsRunningOfUserCount_Error(t *testing.T) {
 
 	userId := int64(1)
 
-	mock.ExpectQuery("SELECT COUNT\\(itinerary_file_jobs.id\\) FROM itinerary_file_jobs WHERE status = 'running' AND itinerary_id IN \\(SELECT itineraries.id FROM itineraries WHERE owner_id = \\?\\)").
+	mock.ExpectQuery("SELECT COUNT\\(itinerary_file_jobs.id\\) FROM itinerary_file_jobs WHERE status IN \\('pending','running'\\) AND itinerary_id IN \\(SELECT itineraries.id FROM itineraries WHERE owner_id = \\?\\)").
 		WithArgs(userId).
 		WillReturnError(sqlmock.ErrCancelled)
 
 	job := &ItineraryFileJob{}
-	count, err := job.defaultGetJobsRunningOfUserCount(userId)
+	count, err := job.defaultGetInProgressJobsOfUserCount(userId)
+
+	assert.Error(t, err)
+	assert.Equal(t, 0, count)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultGetInProgressJobsOfItineraryCount_Success(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	itineraryId := int64(123)
+
+	mock.ExpectQuery(`SELECT COUNT\(itinerary_file_jobs.id\) FROM itinerary_file_jobs WHERE status IN \('pending','running'\) AND itinerary_id = \?`).
+		WithArgs(itineraryId).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(5))
+
+	job := &ItineraryFileJob{}
+	count, err := job.defaultGetInProgressJobsOfItineraryCount(itineraryId)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 5, count)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultGetInProgressJobsOfItineraryCount_Zero(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	itineraryId := int64(123)
+
+	mock.ExpectQuery(`SELECT COUNT\(itinerary_file_jobs.id\) FROM itinerary_file_jobs WHERE status IN \('pending','running'\) AND itinerary_id = \?`).
+		WithArgs(itineraryId).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+
+	job := &ItineraryFileJob{}
+	count, err := job.defaultGetInProgressJobsOfItineraryCount(itineraryId)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultGetInProgressJobsOfItineraryCount_Error(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	itineraryId := int64(123)
+
+	mock.ExpectQuery(`SELECT COUNT\(itinerary_file_jobs.id\) FROM itinerary_file_jobs WHERE status IN \('pending','running'\) AND itinerary_id = \?`).
+		WithArgs(itineraryId).
+		WillReturnError(sqlmock.ErrCancelled)
+
+	job := &ItineraryFileJob{}
+	count, err := job.defaultGetInProgressJobsOfItineraryCount(itineraryId)
 
 	assert.Error(t, err)
 	assert.Equal(t, 0, count)

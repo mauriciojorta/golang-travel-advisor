@@ -283,6 +283,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/routes.ErrorResponse"
                         }
                     },
+                    "409": {
+                        "description": "Itinerary has pending or running jobs. Please wait for them to complete or stop them before deleting the itinerary.",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
                     "500": {
                         "description": "Could not delete itinerary. Try again later.",
                         "schema": {
@@ -539,6 +545,12 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Itinerary job not found.",
+                        "schema": {
+                            "$ref": "#/definitions/routes.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Cannot delete job that is still pending or running.",
                         "schema": {
                             "$ref": "#/definitions/routes.ErrorResponse"
                         }

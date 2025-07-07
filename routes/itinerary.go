@@ -238,6 +238,7 @@ func updateItinerary(context *gin.Context) {
 // @Failure      401  {object}  ErrorResponse  "Not authorized."
 // @Failure      403  {object}  ErrorResponse "You do not have permission to access this resource."
 // @Failure      404  {object}  ErrorResponse "Itinerary not found."
+// @Failure      409  {object}  ErrorResponse  "Itinerary has pending or running jobs. Please wait for them to complete or stop them before deleting the itinerary."
 // @Failure      500  {object}  ErrorResponse  "Could not delete itinerary. Try again later."
 // @Router       /itineraries/{itineraryId} [delete]
 func deleteItinerary(context *gin.Context) {
@@ -248,9 +249,24 @@ func deleteItinerary(context *gin.Context) {
 		return
 	}
 
+	jobsService := services.GetItineraryFileJobService()
+
+	jobsRunningCount, err := jobsService.GetInProgressJobsOfItineraryCount(itinerary.ID)
+	if err != nil {
+		log.Errorf("Error checking running/pending jobs for itinerary %d: %v", itinerary.ID, err)
+		context.JSON(http.StatusInternalServerError, &ErrorResponse{Message: "Could not delete itinerary. Try again later."})
+		return
+	}
+
+	if jobsRunningCount > 0 {
+		log.Errorf("Itinerary %d has %d jobs running or pending, cannot delete", itinerary.ID, jobsRunningCount)
+		context.JSON(http.StatusConflict, &ErrorResponse{Message: "Itinerary has pending or running jobs. Please wait for them to complete or stop them before deleting the itinerary."})
+		return
+	}
+
 	itineraryService := services.GetItineraryService()
 
-	err := itineraryService.Delete(itinerary.ID)
+	err = itineraryService.Delete(itinerary.ID)
 	if err != nil {
 		log.Errorf("Error deleting itinerary %d: %v", itinerary.ID, err)
 		context.JSON(http.StatusInternalServerError, &ErrorResponse{Message: "Could not delete itinerary. Try again later."})
@@ -346,7 +362,7 @@ func runItineraryFileJob(context *gin.Context) {
 	// Check if there is already a job running for this user
 	userId, _ := context.Get("userId")
 
-	jobsRunningCount, err := jobsService.GetJobsRunningOfUserCount(userId.(int64))
+	jobsRunningCount, err := jobsService.GetInProgressJobsOfUserCount(userId.(int64))
 	if err != nil {
 		log.Errorf("Error checking running jobs for user %d: %v", userId, err)
 		context.JSON(http.StatusInternalServerError, &ErrorResponse{Message: "Could not check job status. Try again later."})
@@ -657,6 +673,7 @@ func stopItineraryJob(context *gin.Context) {
 // @Failure      401  {object}  ErrorResponse  "Not authorized."
 // @Failure      403  {object}  ErrorResponse  "You do not have permission to access this resource."
 // @Failure      404  {object}  ErrorResponse  "Itinerary job not found."
+// @Failure      409  {object}  ErrorResponse  "Cannot delete job that is still pending or running."
 // @Failure      500  {object}  ErrorResponse  "Could not delete job. Try again later."
 // @Router       /itineraries/{itineraryId}/jobs/{itineraryJobId} [delete]
 func deleteItineraryJob(context *gin.Context) {
@@ -685,7 +702,7 @@ func deleteItineraryJob(context *gin.Context) {
 
 	jobsService := services.GetItineraryFileJobService()
 
-	itineraryJob, err := jobsService.FindAliveLightweightById(itineraryJobId)
+	itineraryJob, err := jobsService.FindAliveById(itineraryJobId)
 	if err != nil {
 		if strings.Contains(err.Error(), sql.ErrNoRows.Error()) {
 			log.Error("Itinerary job not found: ", err)
@@ -701,6 +718,12 @@ func deleteItineraryJob(context *gin.Context) {
 
 	itineraryJob = validateItineraryJobOwnership(itinerary.ID, itineraryJob, context)
 	if itineraryJob == nil {
+		return
+	}
+
+	if itineraryJob.Status == "pending" || itineraryJob.Status == "running" {
+		log.Error("Cannot delete itinerary job that is still pending or running")
+		context.JSON(http.StatusConflict, &ErrorResponse{Message: "Cannot delete itinerary job that is still pending or running. Please wait for it to complete or stop it first."})
 		return
 	}
 

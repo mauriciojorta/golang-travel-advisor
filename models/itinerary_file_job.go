@@ -25,20 +25,21 @@ type ItineraryFileJob struct {
 	ItineraryID int64     `json:"itineraryId" example:"123"`                                            // ItineraryID is the ID of the itinerary associated with this job
 	AsyncTaskID string    `json:"asyncTaskId,omitempty" example:"e2467dd0-db8a-49db-a5cb-9474f8e63933"` // Optional, async task ID from task manager
 
-	FindAliveById                 func(id int64) (*ItineraryFileJob, error)            `json:"-"`
-	FindAliveLightweightById      func(id int64) (*ItineraryFileJob, error)            `json:"-"`
-	FindAliveByItineraryId        func(itineraryId int64) ([]*ItineraryFileJob, error) `json:"-"`
-	FindDead                      func(fetchLimit int) ([]*ItineraryFileJob, error)    `json:"-"`
-	GetJobsRunningOfUserCount     func(userId int64) (int, error)                      `json:"-"`
-	PrepareJob                    func(itinerary *Itinerary) error                     `json:"-"`
-	AddAsyncTaskId                func(asyncTaskId string) error                       `json:"-"` // Functions for job management
-	StartJob                      func() error                                         `json:"-"`
-	FailJob                       func(errorDescription string) error                  `json:"-"`
-	StopJob                       func() error                                         `json:"-"`
-	CompleteJob                   func() error                                         `json:"-"`
-	DeleteJob                     func() error                                         `json:"-"`
-	SoftDeleteJob                 func() error                                         `json:"-"`
-	SoftDeleteJobsByItineraryIdTx func(itineraryId int64, tx *sql.Tx) error            `json:"-"`
+	FindAliveById                     func(id int64) (*ItineraryFileJob, error)            `json:"-"`
+	FindAliveLightweightById          func(id int64) (*ItineraryFileJob, error)            `json:"-"`
+	FindAliveByItineraryId            func(itineraryId int64) ([]*ItineraryFileJob, error) `json:"-"`
+	FindDead                          func(fetchLimit int) ([]*ItineraryFileJob, error)    `json:"-"`
+	GetInProgressJobsOfUserCount      func(userId int64) (int, error)                      `json:"-"`
+	GetInProgressJobsOfItineraryCount func(itineraryId int64) (int, error)                 `json:"-"`
+	PrepareJob                        func(itinerary *Itinerary) error                     `json:"-"`
+	AddAsyncTaskId                    func(asyncTaskId string) error                       `json:"-"` // Functions for job management
+	StartJob                          func() error                                         `json:"-"`
+	FailJob                           func(errorDescription string) error                  `json:"-"`
+	StopJob                           func() error                                         `json:"-"`
+	CompleteJob                       func() error                                         `json:"-"`
+	DeleteJob                         func() error                                         `json:"-"`
+	SoftDeleteJob                     func() error                                         `json:"-"`
+	SoftDeleteJobsByItineraryIdTx     func(itineraryId int64, tx *sql.Tx) error            `json:"-"`
 }
 
 var InitItineraryFileJob = func() *ItineraryFileJob {
@@ -52,7 +53,8 @@ var InitItineraryFileJobFunctions = func(job *ItineraryFileJob) *ItineraryFileJo
 	job.FindAliveLightweightById = job.defaultFindAliveLightweightById
 	job.FindAliveByItineraryId = job.defaultFindAliveByItineraryId
 	job.FindDead = job.defaultFindDead
-	job.GetJobsRunningOfUserCount = job.defaultGetJobsRunningOfUserCount
+	job.GetInProgressJobsOfUserCount = job.defaultGetInProgressJobsOfUserCount
+	job.GetInProgressJobsOfItineraryCount = job.defaultGetInProgressJobsOfItineraryCount
 	job.PrepareJob = job.defaultPrepareJob
 	job.StartJob = job.defaultStartJob
 	job.AddAsyncTaskId = job.defaultAddAsyncTaskId
@@ -245,9 +247,20 @@ func (ifj *ItineraryFileJob) defaultFindDead(fetchLimit int) ([]*ItineraryFileJo
 	return jobs, nil
 }
 
-func (ifj *ItineraryFileJob) defaultGetJobsRunningOfUserCount(userId int64) (int, error) {
-	query := `SELECT COUNT(itinerary_file_jobs.id) FROM itinerary_file_jobs WHERE status = 'running' AND itinerary_id IN (SELECT itineraries.id FROM itineraries WHERE owner_id = ?)`
+func (ifj *ItineraryFileJob) defaultGetInProgressJobsOfUserCount(userId int64) (int, error) {
+	query := `SELECT COUNT(itinerary_file_jobs.id) FROM itinerary_file_jobs WHERE status IN ('pending','running') AND itinerary_id IN (SELECT itineraries.id FROM itineraries WHERE owner_id = ?)`
 	row := db.DB.QueryRow(query, userId)
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (ifj *ItineraryFileJob) defaultGetInProgressJobsOfItineraryCount(itineraryId int64) (int, error) {
+	query := `SELECT COUNT(itinerary_file_jobs.id) FROM itinerary_file_jobs WHERE status IN ('pending','running') AND itinerary_id = ?`
+	row := db.DB.QueryRow(query, itineraryId)
 	var count int
 	err := row.Scan(&count)
 	if err != nil {
