@@ -80,14 +80,62 @@
 
 ## Environment Variables
 
-See .env.example.txt for all available configuration options. Key variables include:
+See `.env.example.txt` for all available configuration options. Below is a list of all supported environment variables and their purposes:
 
-- `DB_DRIVER`, `DB_DATASOURCE` — SQL Database configuration.
-- `OPENAI_API_KEY` — Your OpenAI API key.
-- `LLM_VENDOR`, `LLM_MODEL` — LLM provider and model.
-- `REDIS_ADDR`, `REDIS_PASSWORD` — Redis connection for job queue.
-- `JWT_SECRET_KEY` — Secret for JWT signing.
-- `JOBS_RUNNING_PER_USER_LIMIT` — Limit concurrent jobs per user.
+### Database Configuration
+
+- `DB_DRIVER` — SQL driver to use (e.g., `sqlite`).
+- `DB_DATASOURCE` — Database connection string (e.g., `file:api.sql?cache=shared&_busy_timeout=5000`).
+- `DB_MAX_OPEN_CONNECTIONS` — Maximum number of open DB connections.
+- `DB_MAX_IDLE_CONNECTIONS` — Maximum number of idle DB connections.
+
+### OpenAI API Configuration
+
+- `OPENAI_API_KEY` — Your OpenAI API key for LLM-powered itinerary generation.
+
+### LLM (Large Language Model) Configuration
+
+- `LLM_VENDOR` — LLM provider/vendor (e.g., `openai`).
+- `LLM_MODEL` — LLM model name (e.g., `gpt-4o-2024-08-06`).
+- `LLM_TEMPERATURE` — Sampling temperature for LLM responses (higher values = more creative).
+- `LLM_MIN_RESPONSE_LENGTH` — Minimum length of LLM-generated responses.
+- `LLM_MAX_RESPONSE_LENGTH` — Maximum length of LLM-generated responses.
+
+### Logging
+
+- `LOGGER_LEVEL` — Logging level (e.g., `debug`, `info`, `warn`, `error`).
+
+### JWT Configuration
+
+- `JWT_SECRET_KEY` — Secret key for signing JWT tokens.
+
+### Asynchronous Job Processing
+
+- `JOBS_RUNNING_PER_USER_LIMIT` — Maximum number of concurrent jobs per user.
+- `ASYNC_TASK_TIMEOUT_MINUTES` — Timeout (in minutes) for async tasks.
+
+### File Manager
+
+- `FILE_MANAGER` — File storage backend. Only `local` is supported in current version.
+
+### Redis Configuration
+
+- `REDIS_ADDR` — Redis server address (e.g., `127.0.0.1:6379`).
+- `REDIS_PASSWORD` — Redis password.
+
+### Deleted Itinerary File Jobs Garbage Collection
+
+- `DEAD_ITINERARY_FILE_JOBS_TIMER_MINUTES_INTERVAL` — Interval (in minutes) for running garbage collection of deleted jobs.
+- `DEAD_ITINERARY_FILE_JOBS_FETCH_LIMIT` — Maximum number of deleted jobs to fetch and clean up per interval.
+
+### Continuous Integration Environment
+
+- `CI` — Set to `"local"` for local development or `"ci"` for CI environments.
+
+---
+
+**Note:**  
+Copy `.env.example.txt` to `.env` and adjust these variables as needed
 
 ---
 
@@ -98,6 +146,7 @@ See .env.example.txt for all available configuration options. Key variables incl
 - Background jobs are managed with [Asynq](https://github.com/hibiken/asynq) and require a running Redis instance.
 - Periodic cleanup of deleted jobs is handled automatically.
 - Swagger documentation is available at `/swagger/index.html` after running the server. To use the itinerary endpoints, you need to authenticate first and obtain a JWT token by logging in with a user account. The JWT token should be included in the `Authorization` header of your requests to the itinerary endpoints.
+- Static Redoc HTML documentation for the API is available at /docs/redoc-static.html.
 - Run tests with `go test ./...` to ensure everything is working correctly.
 
 ---
@@ -111,9 +160,3 @@ MIT License. See LICENSE for details.
 ## Contributing
 
 Pull requests and issues are welcome! Please open an issue to discuss your ideas or report bugs.
-
----
-
-## Contact
-
-For questions or support, please contact [your-email@example.com].
