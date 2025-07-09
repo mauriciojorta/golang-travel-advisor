@@ -1,0 +1,41 @@
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, build artifacts
+*.test
+*.out
+
+# Output of the go coverage tool
+*.cover
+
+# Dependency directories (vendor/)
+vendor/
+
+# Folders of logs and server files
+files/
+logs/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# IDE/editor specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# SQLite database file
+*.db
+
+# Specific file to ignore
+api.sql
+
+# Environment variables file
+.env
