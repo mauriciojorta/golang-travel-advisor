@@ -8,245 +8,199 @@ import (
 	"testing"
 
 	"example.com/travel-advisor/models"
-	"example.com/travel-advisor/utils"
+	"example.com/travel-advisor/services"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSignUp_InvalidRequestBody(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/signup", signUp)
+// --- Mocks ---
 
-	body := `{"email": "invalid-email"}`
-	req, _ := http.NewRequest(http.MethodPost, "/signup", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assert.Contains(t, rec.Body.String(), "Could not parse request data.")
+type mockUserService struct {
+	findByEmailFunc         func(email string) (*models.User, error)
+	createFunc              func(user *models.User) error
+	validateCredentialsFunc func(user *models.User, password string) error
+	generateLoginTokenFunc  func(user *models.User) (string, error)
 }
 
-func TestSignUp_UserAlreadyExists(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/signup", func(c *gin.Context) {
-
-		models.NewUser = func(email, password string) *models.User {
-			user := &models.User{
-				Email:    email,
-				Password: password,
-			}
-
-			user.FindUser = func() error {
-				return nil // Simulate user already exists
-			}
-
-			return user
-		}
-
-		signUp(c)
-	})
-
-	body := `{"email": "test@example.com", "password": "password123"}`
-	req, _ := http.NewRequest(http.MethodPost, "/signup", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assert.Contains(t, rec.Body.String(), "Could not create user. It already exists.")
+func (m *mockUserService) FindByEmail(email string) (*models.User, error) {
+	return m.findByEmailFunc(email)
+}
+func (m *mockUserService) Create(user *models.User) error {
+	return m.createFunc(user)
+}
+func (m *mockUserService) ValidateCredentials(user *models.User, password string) error {
+	return m.validateCredentialsFunc(user, password)
+}
+func (m *mockUserService) GenerateLoginToken(user *models.User) (string, error) {
+	return m.generateLoginTokenFunc(user)
 }
 
-func TestSignUp_CreateUserError(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/signup", func(c *gin.Context) {
-		models.NewUser = func(email, password string) *models.User {
-			user := &models.User{
-				Email:    email,
-				Password: password,
-			}
-
-			// Set default implementations for FindUser and Create
-			mockFindUser := func() error {
-				return errors.New("user not found") // Simulate user does not exist
-			}
-			user.FindUser = mockFindUser
-
-			mockCreate := func() error {
-				return errors.New("create error") // Simulate create user error
-			}
-			user.Create = mockCreate
-
-			return user
-		}
-
-		signUp(c)
-	})
-
-	body := `{"email": "test@example.com", "password": "password123"}`
-	req, _ := http.NewRequest(http.MethodPost, "/signup", bytes.NewBufferString(body))
-	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
-
-	router.ServeHTTP(rec, req)
-
-	assert.Equal(t, http.StatusInternalServerError, rec.Code)
-	assert.Contains(t, rec.Body.String(), "Could not create user. Try again later.")
+// Patch services.GetUserService to return our mock
+func setMockUserService(mock services.UserServiceInterface) func() {
+	orig := services.GetUserService
+	services.GetUserService = func() services.UserServiceInterface {
+		return mock
+	}
+	return func() { services.GetUserService = orig }
 }
+
+// --- Tests ---
 
 func TestSignUp_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/signup", func(c *gin.Context) {
-		models.NewUser = func(email, password string) *models.User {
-			user := &models.User{
-				Email:    email,
-				Password: password,
-			}
+	mockSvc := &mockUserService{
+		findByEmailFunc: func(email string) (*models.User, error) { return nil, errors.New("not found") },
+		createFunc:      func(user *models.User) error { return nil },
+	}
+	restore := setMockUserService(mockSvc)
+	defer restore()
 
-			// Set default implementations for FindUser and Create
-			user.FindUser = func() error {
-				return errors.New("user not found") // Simulate user does not exist
-			}
-			user.Create = func() error {
-				return nil // Simulate successful user creation
-			}
-
-			return user
-		}
-
-		signUp(c)
-	})
-
-	body := `{"email": "test@example.com", "password": "password123"}`
-	req, _ := http.NewRequest(http.MethodPost, "/signup", bytes.NewBufferString(body))
+	body := []byte(`{"email":"test@example.com","password":"pass123"}`)
+	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
 
-	router.ServeHTTP(rec, req)
+	signUp(c)
 
-	assert.Equal(t, http.StatusCreated, rec.Code)
-	assert.Contains(t, rec.Body.String(), "User created.")
+	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.Contains(t, w.Body.String(), "User created.")
 }
 
-func TestLogin_InvalidRequestBody(t *testing.T) {
+func TestSignUp_UserExists(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/login", login)
+	mockSvc := &mockUserService{
+		findByEmailFunc: func(email string) (*models.User, error) { return &models.User{}, nil },
+	}
+	restore := setMockUserService(mockSvc)
+	defer restore()
 
-	body := `{"email": "invalid-email"}`
-	req, _ := http.NewRequest(http.MethodPost, "/login", bytes.NewBufferString(body))
+	body := []byte(`{"email":"test@example.com","password":"pass123"}`)
+	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
 
-	router.ServeHTTP(rec, req)
+	signUp(c)
 
-	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assert.Contains(t, rec.Body.String(), "Could not parse request data.")
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "It already exists")
 }
 
-func TestLogin_InvalidCredentials(t *testing.T) {
+func TestSignUp_BadRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/login", func(c *gin.Context) {
-		models.NewUser = func(email, password string) *models.User {
-			user := &models.User{
-				Email:    email,
-				Password: password,
-			}
-
-			user.ValidateCredentials = func() error {
-				return errors.New("invalid credentials")
-			}
-
-			return user
-		}
-
-		login(c)
-	})
-
-	body := `{"email": "test@example.com", "password": "wrongpassword"}`
-	req, _ := http.NewRequest(http.MethodPost, "/login", bytes.NewBufferString(body))
+	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer([]byte(`{bad json`)))
 	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
 
-	router.ServeHTTP(rec, req)
+	signUp(c)
 
-	assert.Equal(t, http.StatusUnauthorized, rec.Code)
-	assert.Contains(t, rec.Body.String(), "Wrong user credentials.")
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data")
 }
 
-func TestLogin_TokenGenerationFailure(t *testing.T) {
+func TestSignUp_CreateError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/login", func(c *gin.Context) {
-		models.NewUser = func(email, password string) *models.User {
-			user := &models.User{
-				Email:    email,
-				Password: password,
-			}
+	mockSvc := &mockUserService{
+		findByEmailFunc: func(email string) (*models.User, error) { return nil, errors.New("not found") },
+		createFunc:      func(user *models.User) error { return errors.New("db error") },
+	}
+	restore := setMockUserService(mockSvc)
+	defer restore()
 
-			user.ValidateCredentials = func() error {
-				return nil // Simulate valid credentials
-			}
-
-			return user
-		}
-		utils.GenerateToken = func(email string, userID int64) (string, error) {
-			return "", errors.New("token generation failed")
-		}
-
-		login(c)
-	})
-
-	body := `{"email": "test@example.com", "password": "password123"}`
-	req, _ := http.NewRequest(http.MethodPost, "/login", bytes.NewBufferString(body))
+	body := []byte(`{"email":"test@example.com","password":"pass123"}`)
+	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
 
-	router.ServeHTTP(rec, req)
+	signUp(c)
 
-	assert.Equal(t, http.StatusUnauthorized, rec.Code)
-	assert.Contains(t, rec.Body.String(), "Wrong user credentials.")
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not create user")
 }
 
 func TestLogin_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := gin.Default()
-	router.POST("/login", func(c *gin.Context) {
+	mockSvc := &mockUserService{
+		validateCredentialsFunc: func(user *models.User, password string) error { return nil },
+		generateLoginTokenFunc:  func(user *models.User) (string, error) { return "mocktoken", nil },
+	}
+	restoreSvc := setMockUserService(mockSvc)
+	defer restoreSvc()
 
-		models.NewUser = func(email, password string) *models.User {
-			user := &models.User{
-				Email:    email,
-				Password: password,
-			}
-
-			user.ValidateCredentials = func() error {
-				return nil // Simulate valid credentials
-			}
-
-			return user
-		}
-
-		utils.GenerateToken = func(email string, userID int64) (string, error) {
-			return "mocked-token", nil // Simulate successful token generation
-		}
-		login(c)
-	})
-
-	body := `{"email": "test@example.com", "password": "password123"}`
-	req, _ := http.NewRequest(http.MethodPost, "/login", bytes.NewBufferString(body))
+	body := []byte(`{"email":"test@example.com","password":"pass123"}`)
+	req, _ := http.NewRequest("POST", "/login", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
-	rec := httptest.NewRecorder()
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
 
-	router.ServeHTTP(rec, req)
+	login(c)
 
-	assert.Equal(t, http.StatusOK, rec.Code)
-	assert.Contains(t, rec.Body.String(), "Login successful!")
-	assert.Contains(t, rec.Body.String(), "mocked-token")
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Contains(t, w.Body.String(), "Login successful")
+	assert.Contains(t, w.Body.String(), "mocktoken")
+}
+
+func TestLogin_BadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	req, _ := http.NewRequest("POST", "/login", bytes.NewBuffer([]byte(`{bad json`)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	login(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data")
+}
+
+func TestLogin_InvalidCredentials(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockSvc := &mockUserService{
+		validateCredentialsFunc: func(user *models.User, password string) error { return errors.New("invalid") },
+	}
+	restore := setMockUserService(mockSvc)
+	defer restore()
+
+	body := []byte(`{"email":"test@example.com","password":"wrongpass"}`)
+	req, _ := http.NewRequest("POST", "/login", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	login(c)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Contains(t, w.Body.String(), "Wrong user credentials")
+}
+
+func TestLogin_TokenError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockSvc := &mockUserService{
+		validateCredentialsFunc: func(user *models.User, password string) error { return nil },
+		generateLoginTokenFunc:  func(user *models.User) (string, error) { return "", errors.New("error generating token") },
+	}
+	restoreSvc := setMockUserService(mockSvc)
+	defer restoreSvc()
+
+	body := []byte(`{"email":"test@example.com","password":"pass123"}`)
+	req, _ := http.NewRequest("POST", "/login", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	login(c)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+	assert.Contains(t, w.Body.String(), "Unexpected error.")
 }

@@ -14,6 +14,10 @@
 # Dependency directories (vendor/)
 vendor/
 
+# Folders of logs and server files
+files/
+logs/
+
 # Go workspace file
 go.work
 go.work.sum
@@ -32,3 +36,6 @@ go.work.sum
 
 # Specific file to ignore
 api.sql
+
+# Environment variables file
+.env
