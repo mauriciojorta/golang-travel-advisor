@@ -1,22 +1,26 @@
 package routes
 
 import (
+	"fmt"
 	"net/http"
+	"os"
+	"strconv"
 
 	"example.com/travel-advisor/models"
 	"example.com/travel-advisor/services"
+	"example.com/travel-advisor/utils"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
 
 type SignUpRequest struct {
-	Email    string `json:"email" binding:"required" example:"test@example.com"`
-	Password string `json:"password" binding:"required" example:"password123"`
+	Email    string `json:"email" binding:"required,max=128" example:"test@example.com"`
+	Password string `json:"password" binding:"required,max=256" example:"password123"`
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required" example:"test@example.com"`
-	Password string `json:"password" binding:"required" example:"password123"`
+	Email    string `json:"email" binding:"required,max=100" example:"test@example.com"`
+	Password string `json:"password" binding:"required,max=256" example:"password123"`
 }
 
 type SignUpResponse struct {
@@ -47,15 +51,41 @@ func signUp(context *gin.Context) {
 
 	// Bind JSON input to the input struct
 	if err := context.ShouldBindJSON(&input); err != nil {
-		log.Errorf("Error parsing request data: %v", err)
-		context.JSON(http.StatusBadRequest, gin.H{"error": "Could not parse request data."})
+		log.Errorf("Error parsing JSON: %v", err)
+		context.JSON(http.StatusBadRequest, gin.H{"error": "Could not parse request data. One or more mandatory attributes are null/empty or at least one of the expected attributes is too large."})
+		return
+	}
+
+	err := utils.ValidateEmail(input.Email)
+	if err != nil {
+		log.Errorf("User email is empty or invalid")
+		context.JSON(http.StatusBadRequest, gin.H{"error": "Could not create user. The provided email is empty or invalid."})
+		return
+	}
+
+	minUserPasswordLenghtStr := os.Getenv("MIN_USER_PASSWORD_LENGTH")
+	minPasswordLength := 8 // Default min password length
+	if minUserPasswordLenghtStr != "" {
+		minPasswordLength, err = strconv.Atoi(minUserPasswordLenghtStr)
+		if err != nil {
+			log.Errorf("Unexpected error reading min user password length in environment properties")
+			context.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create user. Try again later."})
+			return
+		}
+	}
+
+	isPasswordValid := utils.ValidatePassword(input.Password, minPasswordLength)
+	if !isPasswordValid {
+		log.Errorf("The provided user password is invalid. It must contain at least 1 number, 1 upper case letter and 1 special character")
+		errorMsg := fmt.Sprintf("The provided user password is invalid. It must be at least %d characters long, contain at least 1 number, 1 upper case letter and 1 special character (a punctuation sign or a symbol like @,#,*,etc)", minPasswordLength)
+		context.JSON(http.StatusBadRequest, gin.H{"error": errorMsg})
 		return
 	}
 
 	userService := services.GetUserService()
 
 	// Check if the user already exists
-	_, err := userService.FindByEmail(input.Email)
+	_, err = userService.FindByEmail(input.Email)
 
 	if err == nil {
 		log.Errorf("User with email %s already exists", input.Email)
@@ -94,8 +124,8 @@ func login(context *gin.Context) {
 
 	// Bind JSON input to the input struct
 	if err := context.ShouldBindJSON(&input); err != nil {
-		log.Errorf("Error parsing request data: %v", err)
-		context.JSON(http.StatusBadRequest, gin.H{"error": "Could not parse request data."})
+		log.Errorf("Error parsing JSON: %v", err)
+		context.JSON(http.StatusBadRequest, gin.H{"error": "Could not parse request data. One or more mandatory attributes are null/empty or at least one of the expected attributes is too large."})
 		return
 	}
 

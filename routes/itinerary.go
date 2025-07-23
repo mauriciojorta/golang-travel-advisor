@@ -17,23 +17,23 @@ import (
 )
 
 type CreateItineraryRequest struct {
-	Title        string             `json:"title" binding:"required" example:"Trip to Spain"`
-	Description  string             `json:"description" example:"Summer vacation in Spain"`
-	Notes        *string            `json:"notes" example:"I want to enjoy the nightlife"`
-	Destinations *[]DestinationItem `json:"destinations" binding:"required,dive"`
+	Title        string             `json:"title" binding:"required,max=128" example:"Trip to Spain"`
+	Description  string             `json:"description" binding:"omitempty,max=512" example:"Summer vacation in Spain"`
+	Notes        *string            `json:"notes" binding:"omitnil,omitempty,max=512" example:"I want to enjoy the nightlife"`
+	Destinations []*DestinationItem `json:"destinations" binding:"required,min=1,max=20,dive"`
 }
 
 type UpdateItineraryRequest struct {
 	ID           int64              `json:"id" binding:"required" example:"1"`
-	Title        string             `json:"title" binding:"required" example:"Trip to Spain"`
-	Description  string             `json:"description" example:"Summer vacation in Spain"`
-	Notes        *string            `json:"notes" example:"I want to enjoy the nightlife"`
-	Destinations *[]DestinationItem `json:"destinations" binding:"required,dive"`
+	Title        string             `json:"title" binding:"required,max=128" example:"Trip to Spain"`
+	Description  string             `json:"description" binding:"omitempty,max=256" example:"Summer vacation in Spain"`
+	Notes        *string            `json:"notes" binding:"omitnil,omitempty,max=512" example:"I want to enjoy the nightlife"`
+	Destinations []*DestinationItem `json:"destinations" binding:"required,min=1,max=20,dive"`
 }
 
 type DestinationItem struct {
-	Country       string    `json:"country" binding:"required" example:"Spain"`
-	City          string    `json:"city" binding:"required" example:"Madrid"`
+	Country       string    `json:"country" binding:"required,max=128" example:"Spain"`
+	City          string    `json:"city" binding:"required,max=128" example:"Madrid"`
 	ArrivalDate   time.Time `json:"arrivalDate" binding:"required" example:"2024-07-01T00:00:00Z"`
 	DepartureDate time.Time `json:"departureDate" binding:"required" example:"2024-07-05T00:00:00Z"`
 }
@@ -106,14 +106,15 @@ func createItinerary(context *gin.Context) {
 
 	// Bind JSON input to the input struct
 	if err := context.ShouldBindJSON(&input); err != nil {
-		context.JSON(http.StatusBadRequest, &ErrorResponse{Message: "Could not parse request data."})
+		log.Errorf("Error parsing JSON %v", err)
+		context.JSON(http.StatusBadRequest, &ErrorResponse{Message: "Could not parse request data. One or more mandatory attributes are null/empty or at least one of the expected attributes is too large."})
 		return
 	}
 
 	itineraryService := services.GetItineraryService()
 
 	var itineraryTravelDestinations []*models.ItineraryTravelDestination
-	for _, destination := range *input.Destinations {
+	for _, destination := range input.Destinations {
 		itineraryTravelDestination := models.NewItineraryTravelDestination(destination.Country, destination.City, destination.ArrivalDate, destination.DepartureDate)
 		itineraryTravelDestinations = append(itineraryTravelDestinations, itineraryTravelDestination)
 	}
@@ -168,9 +169,10 @@ func updateItinerary(context *gin.Context) {
 		return
 	}
 
+	// Bind JSON input to the input struct
 	if err := context.ShouldBindJSON(&input); err != nil {
 		log.Errorf("Error parsing JSON %v", err)
-		context.JSON(http.StatusBadRequest, &ErrorResponse{Message: "Could not parse request data."})
+		context.JSON(http.StatusBadRequest, &ErrorResponse{Message: "Could not parse request data. One or more mandatory attributes are null/empty or at least one of the expected attributes is too large."})
 		return
 	}
 
@@ -202,7 +204,7 @@ func updateItinerary(context *gin.Context) {
 	itinerary.Notes = input.Notes
 
 	var itineraryTravelDestinations []*models.ItineraryTravelDestination
-	for _, destination := range *input.Destinations {
+	for _, destination := range input.Destinations {
 		itineraryTravelDestination := models.NewItineraryTravelDestination(destination.Country, destination.City, destination.ArrivalDate, destination.DepartureDate)
 		itineraryTravelDestinations = append(itineraryTravelDestinations, itineraryTravelDestination)
 	}
