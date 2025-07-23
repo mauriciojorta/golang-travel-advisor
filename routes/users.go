@@ -15,12 +15,12 @@ import (
 
 type SignUpRequest struct {
 	Email    string `json:"email" binding:"required,max=128" example:"test@example.com"`
-	Password string `json:"password" binding:"required,max=256" example:"password123"`
+	Password string `json:"password" binding:"required,max=256" example:"Password123-"`
 }
 
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required,max=100" example:"test@example.com"`
-	Password string `json:"password" binding:"required,max=256" example:"password123"`
+	Password string `json:"password" binding:"required,max=256" example:"Password123-"`
 }
 
 type SignUpResponse struct {
@@ -35,7 +35,7 @@ type LoginResponse struct {
 
 // signUp godoc
 // @Summary      Register a new user
-// @Description  Creates a new user account.
+// @Description  Creates a new user account. The password must be at least 8 characters long and contain at least 1 number, 1 upper case letter, and 1 special character.
 // @Tags         users
 // @Accept       json
 // @Produce      json

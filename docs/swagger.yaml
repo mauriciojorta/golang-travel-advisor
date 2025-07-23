@@ -106,16 +106,21 @@ definitions:
     properties:
       description:
         example: Summer vacation in Spain
+        maxLength: 512
         type: string
       destinations:
         items:
           $ref: '#/definitions/routes.DestinationItem'
+        maxItems: 20
+        minItems: 1
         type: array
       notes:
         example: I want to enjoy the nightlife
+        maxLength: 512
         type: string
       title:
         example: Trip to Spain
+        maxLength: 128
         type: string
     required:
     - destinations
@@ -149,9 +154,11 @@ definitions:
         type: string
       city:
         example: Madrid
+        maxLength: 128
         type: string
       country:
         example: Spain
+        maxLength: 128
         type: string
       departureDate:
         example: "2024-07-05T00:00:00Z"
@@ -201,9 +208,11 @@ definitions:
     properties:
       email:
         example: test@example.com
+        maxLength: 100
         type: string
       password:
-        example: password123
+        example: Password123-
+        maxLength: 256
         type: string
     required:
     - email
@@ -222,9 +231,11 @@ definitions:
     properties:
       email:
         example: test@example.com
+        maxLength: 128
         type: string
       password:
-        example: password123
+        example: Password123-
+        maxLength: 256
         type: string
     required:
     - email
@@ -258,19 +269,24 @@ definitions:
     properties:
       description:
         example: Summer vacation in Spain
+        maxLength: 256
         type: string
       destinations:
         items:
           $ref: '#/definitions/routes.DestinationItem'
+        maxItems: 20
+        minItems: 1
         type: array
       id:
         example: 1
         type: integer
       notes:
         example: I want to enjoy the nightlife
+        maxLength: 512
         type: string
       title:
         example: Trip to Spain
+        maxLength: 128
         type: string
     required:
     - destinations
@@ -781,7 +797,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Creates a new user account.
+      description: Creates a new user account. The password must be at least 8 characters
+        long and contain at least 1 number, 1 upper case letter, and 1 special character.
       parameters:
       - description: User registration data
         in: body
