@@ -754,7 +754,7 @@ const docTemplate = `{
         },
         "/signup": {
             "post": {
-                "description": "Creates a new user account.",
+                "description": "Creates a new user account. The password must be at least 8 characters long and contain at least 1 number, 1 upper case letter, and 1 special character.",
                 "consumes": [
                     "application/json"
                 ],
@@ -946,20 +946,25 @@ const docTemplate = `{
             "properties": {
                 "description": {
                     "type": "string",
+                    "maxLength": 512,
                     "example": "Summer vacation in Spain"
                 },
                 "destinations": {
                     "type": "array",
+                    "maxItems": 20,
+                    "minItems": 1,
                     "items": {
                         "$ref": "#/definitions/routes.DestinationItem"
                     }
                 },
                 "notes": {
                     "type": "string",
+                    "maxLength": 512,
                     "example": "I want to enjoy the nightlife"
                 },
                 "title": {
                     "type": "string",
+                    "maxLength": 128,
                     "example": "Trip to Spain"
                 }
             }
@@ -1010,10 +1015,12 @@ const docTemplate = `{
                 },
                 "city": {
                     "type": "string",
+                    "maxLength": 128,
                     "example": "Madrid"
                 },
                 "country": {
                     "type": "string",
+                    "maxLength": 128,
                     "example": "Spain"
                 },
                 "departureDate": {
@@ -1089,11 +1096,13 @@ const docTemplate = `{
             "properties": {
                 "email": {
                     "type": "string",
+                    "maxLength": 100,
                     "example": "test@example.com"
                 },
                 "password": {
                     "type": "string",
-                    "example": "password123"
+                    "maxLength": 256,
+                    "example": "Password123-"
                 }
             }
         },
@@ -1119,11 +1128,13 @@ const docTemplate = `{
             "properties": {
                 "email": {
                     "type": "string",
+                    "maxLength": 128,
                     "example": "test@example.com"
                 },
                 "password": {
                     "type": "string",
-                    "example": "password123"
+                    "maxLength": 256,
+                    "example": "Password123-"
                 }
             }
         },
@@ -1172,10 +1183,13 @@ const docTemplate = `{
             "properties": {
                 "description": {
                     "type": "string",
+                    "maxLength": 256,
                     "example": "Summer vacation in Spain"
                 },
                 "destinations": {
                     "type": "array",
+                    "maxItems": 20,
+                    "minItems": 1,
                     "items": {
                         "$ref": "#/definitions/routes.DestinationItem"
                     }
@@ -1186,10 +1200,12 @@ const docTemplate = `{
                 },
                 "notes": {
                     "type": "string",
+                    "maxLength": 512,
                     "example": "I want to enjoy the nightlife"
                 },
                 "title": {
                     "type": "string",
+                    "maxLength": 128,
                     "example": "Trip to Spain"
                 }
             }

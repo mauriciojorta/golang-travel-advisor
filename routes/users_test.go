@@ -55,7 +55,7 @@ func TestSignUp_Success(t *testing.T) {
 	restore := setMockUserService(mockSvc)
 	defer restore()
 
-	body := []byte(`{"email":"test@example.com","password":"pass123"}`)
+	body := []byte(`{"email":"test@example.com","password":"Password123-"}`)
 	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -76,7 +76,7 @@ func TestSignUp_UserExists(t *testing.T) {
 	restore := setMockUserService(mockSvc)
 	defer restore()
 
-	body := []byte(`{"email":"test@example.com","password":"pass123"}`)
+	body := []byte(`{"email":"test@example.com","password":"Password123-"}`)
 	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -89,7 +89,183 @@ func TestSignUp_UserExists(t *testing.T) {
 	assert.Contains(t, w.Body.String(), "It already exists")
 }
 
-func TestSignUp_BadRequest(t *testing.T) {
+func TestSignUp_EmptyEmailBadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockSvc := &mockUserService{
+		findByEmailFunc: func(email string) (*models.User, error) { return nil, errors.New("not found") },
+		createFunc:      func(user *models.User) error { return nil },
+	}
+	restore := setMockUserService(mockSvc)
+	defer restore()
+
+	body := []byte(`{"email":"","password":"Password123-"}`)
+	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	signUp(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func TestSignUp_InvalidEmailBadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockSvc := &mockUserService{
+		findByEmailFunc: func(email string) (*models.User, error) { return nil, errors.New("not found") },
+		createFunc:      func(user *models.User) error { return nil },
+	}
+	restore := setMockUserService(mockSvc)
+	defer restore()
+
+	body := []byte(`{"email":"testexample.com","password":"Password123-"}`)
+	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	signUp(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "The provided email is empty or invalid.")
+}
+
+func TestSignUp_InvalidEmailMaxLenghtExceededBadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockSvc := &mockUserService{
+		findByEmailFunc: func(email string) (*models.User, error) { return nil, errors.New("not found") },
+		createFunc:      func(user *models.User) error { return nil },
+	}
+	restore := setMockUserService(mockSvc)
+	defer restore()
+
+	body := []byte(`{"email":"teeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeest@example.com","password":"Password123-"}`)
+	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	signUp(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func TestSignUp_EmptyPasswordBadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockSvc := &mockUserService{
+		findByEmailFunc: func(email string) (*models.User, error) { return nil, errors.New("not found") },
+		createFunc:      func(user *models.User) error { return nil },
+	}
+	restore := setMockUserService(mockSvc)
+	defer restore()
+
+	body := []byte(`{"email":"test@example.com","password":""}`)
+	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	signUp(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func TestSignUp_InvalidPasswordMissingUpperCaseBadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockSvc := &mockUserService{
+		findByEmailFunc: func(email string) (*models.User, error) { return nil, errors.New("not found") },
+		createFunc:      func(user *models.User) error { return nil },
+	}
+	restore := setMockUserService(mockSvc)
+	defer restore()
+
+	body := []byte(`{"email":"test@example.com","password":"password123-"}`)
+	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	signUp(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "The provided user password is invalid.")
+}
+
+func TestSignUp_InvalidPasswordMissingNumberBadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockSvc := &mockUserService{
+		findByEmailFunc: func(email string) (*models.User, error) { return nil, errors.New("not found") },
+		createFunc:      func(user *models.User) error { return nil },
+	}
+	restore := setMockUserService(mockSvc)
+	defer restore()
+
+	body := []byte(`{"email":"test@example.com","password":"Password-"}`)
+	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	signUp(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "The provided user password is invalid.")
+}
+
+func TestSignUp_InvalidPasswordMissingSpecialCharacterBadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockSvc := &mockUserService{
+		findByEmailFunc: func(email string) (*models.User, error) { return nil, errors.New("not found") },
+		createFunc:      func(user *models.User) error { return nil },
+	}
+	restore := setMockUserService(mockSvc)
+	defer restore()
+
+	body := []byte(`{"email":"test@example.com","password":"Password123"}`)
+	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	signUp(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "The provided user password is invalid.")
+}
+
+func TestSignUp_InvalidPasswordMaxLenghtExceededBadRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	mockSvc := &mockUserService{
+		findByEmailFunc: func(email string) (*models.User, error) { return nil, errors.New("not found") },
+		createFunc:      func(user *models.User) error { return nil },
+	}
+	restore := setMockUserService(mockSvc)
+	defer restore()
+
+	body := []byte(`{"email":"test@example.com","password":"Password1232222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222"}`)
+	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = req
+
+	signUp(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func TestSignUp_InvalidJsonBadRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer([]byte(`{bad json`)))
 	req.Header.Set("Content-Type", "application/json")
@@ -112,7 +288,7 @@ func TestSignUp_CreateError(t *testing.T) {
 	restore := setMockUserService(mockSvc)
 	defer restore()
 
-	body := []byte(`{"email":"test@example.com","password":"pass123"}`)
+	body := []byte(`{"email":"test@example.com","password":"Password123-"}`)
 	req, _ := http.NewRequest("POST", "/signup", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -134,7 +310,7 @@ func TestLogin_Success(t *testing.T) {
 	restoreSvc := setMockUserService(mockSvc)
 	defer restoreSvc()
 
-	body := []byte(`{"email":"test@example.com","password":"pass123"}`)
+	body := []byte(`{"email":"test@example.com","password":"Password123-"}`)
 	req, _ := http.NewRequest("POST", "/login", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
@@ -192,7 +368,7 @@ func TestLogin_TokenError(t *testing.T) {
 	restoreSvc := setMockUserService(mockSvc)
 	defer restoreSvc()
 
-	body := []byte(`{"email":"test@example.com","password":"pass123"}`)
+	body := []byte(`{"email":"test@example.com","password":"Password123-"}`)
 	req, _ := http.NewRequest("POST", "/login", bytes.NewBuffer(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()

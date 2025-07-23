@@ -255,6 +255,18 @@ func TestValidateItineraryDestinationsDates_TooLongSpan(t *testing.T) {
 	}
 }
 
+func TestValidateItineraryDestinationsDates_DepartureDateOlderThanArrivalDate(t *testing.T) {
+	svc := &ItineraryService{}
+	now := time.Now()
+	dest := []*models.ItineraryTravelDestination{
+		{DepartureDate: now, ArrivalDate: now.Add(31 * 24 * time.Hour)},
+	}
+	err := svc.ValidateItineraryDestinationsDates(dest)
+	if err == nil {
+		t.Errorf("expected error for departure date older than arrival date")
+	}
+}
+
 func TestValidateItineraryDestinationsDates_Valid(t *testing.T) {
 	svc := &ItineraryService{}
 	now := time.Now()

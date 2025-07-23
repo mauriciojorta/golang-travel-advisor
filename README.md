@@ -118,6 +118,10 @@ See `.env.example.txt` for all available configuration options. Below is a list 
 
 - `FILE_MANAGER` — File storage backend. Only `local` is supported in current version.
 
+### User Management
+
+- `MIN_USER_PASSWORD_LENGTH` — Minimum length for user passwords.
+
 ### Redis Configuration
 
 - `REDIS_ADDR` — Redis server address (e.g., `127.0.0.1:6379`).

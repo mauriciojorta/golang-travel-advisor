@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"example.com/travel-advisor/models"
 	"example.com/travel-advisor/services"
@@ -35,9 +36,11 @@ type mockItineraryService struct {
 func (m *mockItineraryService) ValidateItineraryDestinationsDates(_ []*models.ItineraryTravelDestination) error {
 	return m.ValidateErr
 }
+
 func (m *mockItineraryService) Create(_ *models.Itinerary) error {
 	return m.CreateErr
 }
+
 func (m *mockItineraryService) FindById(_ int64, _ bool) (*models.Itinerary, error) {
 	return m.FindByIdIt, m.FindByIdErr
 }
@@ -208,9 +211,16 @@ func Test_createItinerary_Create_Error(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	setUserId(c, 1)
 	body := map[string]interface{}{
-		"title":        "Test",
-		"description":  "Desc",
-		"destinations": []models.ItineraryTravelDestination{},
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
 	}
 	b, _ := json.Marshal(body)
 	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
@@ -230,10 +240,76 @@ func Test_createItinerary_Success(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	setUserId(c, 1)
 	body := map[string]interface{}{
-		"title":        "Test",
-		"description":  "Desc",
-		"notes":        "Test notes",
-		"destinations": []models.ItineraryTravelDestination{},
+		"title":       "Test",
+		"description": "Desc",
+		"notes":       "Test notes",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusCreated, w.Code)
+}
+
+func Test_createItinerary_SuccessEmptyDescription(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":       "Test",
+		"description": "",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusCreated, w.Code)
+}
+
+func Test_createItinerary_SuccessEmptyNotes(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":       "Test",
+		"description": "Desc",
+		"notes":       "",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
 	}
 	b, _ := json.Marshal(body)
 	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
@@ -253,6 +329,158 @@ func Test_createItinerary_SuccessNullNotes(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	setUserId(c, 1)
 	body := map[string]interface{}{
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusCreated, w.Code)
+}
+
+func Test_createItinerary_TitleEmptyBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":       "",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func Test_createItinerary_TitleMaxLenghtExceededBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":       "Teeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeest",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func Test_createItinerary_DescriptionMaxLenghtExceededBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":       "Test",
+		"description": "Deeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeesc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+
+}
+
+func Test_createItinerary_NotesMaxLenghtExceededBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":       "Test",
+		"description": "Desc",
+		"notes":       "Noteeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeees",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+
+}
+
+func Test_createItinerary_EmptyDestinationsBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
 		"title":        "Test",
 		"description":  "Desc",
 		"destinations": []models.ItineraryTravelDestination{},
@@ -261,7 +489,126 @@ func Test_createItinerary_SuccessNullNotes(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
 	c.Request.Header.Set("Content-Type", "application/json")
 	createItinerary(c)
-	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func Test_createItinerary_DestinationCountryEmptyBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func Test_createItinerary_DestinationCityEmptyBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func Test_createItinerary_DestinationArrivalDateEmptyBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func Test_createItinerary_DestinationDepartureDateEmptyBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:     "Spain",
+				City:        "Madrid",
+				ArrivalDate: time.Now(),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
 }
 
 func Test_getOwnersItineraries_Unauthorized(t *testing.T) {
@@ -779,10 +1126,17 @@ func Test_updateItinerary_ItineraryNotFound(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	setUserId(c, 1)
 	body := map[string]interface{}{
-		"id":           1,
-		"title":        "Test",
-		"description":  "Desc",
-		"destinations": []models.ItineraryTravelDestination{},
+		"id":          1,
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
 	}
 	b, _ := json.Marshal(body)
 	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
@@ -801,10 +1155,17 @@ func Test_updateItinerary_ItineraryUnexpectedError(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	setUserId(c, 1)
 	body := map[string]interface{}{
-		"id":           1,
-		"title":        "Test",
-		"description":  "Desc",
-		"destinations": []models.ItineraryTravelDestination{},
+		"id":          1,
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
 	}
 	b, _ := json.Marshal(body)
 	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
@@ -823,10 +1184,17 @@ func Test_updateItinerary_Forbidden(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	setUserId(c, 1)
 	body := map[string]interface{}{
-		"id":           1,
-		"title":        "Test",
-		"description":  "Desc",
-		"destinations": []models.ItineraryTravelDestination{},
+		"id":          1,
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
 	}
 	b, _ := json.Marshal(body)
 	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
@@ -848,10 +1216,17 @@ func Test_updateItinerary_ValidateItineraryDestinationsDates_Error(t *testing.T)
 	c, _ := gin.CreateTestContext(w)
 	setUserId(c, 1)
 	body := map[string]interface{}{
-		"id":           1,
-		"title":        "Test",
-		"description":  "Desc",
-		"destinations": []models.ItineraryTravelDestination{},
+		"id":          1,
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
 	}
 	b, _ := json.Marshal(body)
 	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
@@ -874,10 +1249,17 @@ func Test_updateItinerary_Update_Error(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	setUserId(c, 1)
 	body := map[string]interface{}{
-		"id":           1,
-		"title":        "Test",
-		"description":  "Desc",
-		"destinations": []models.ItineraryTravelDestination{},
+		"id":          1,
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
 	}
 	b, _ := json.Marshal(body)
 	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
@@ -900,11 +1282,18 @@ func Test_updateItinerary_Success(t *testing.T) {
 	c, _ := gin.CreateTestContext(w)
 	setUserId(c, 1)
 	body := map[string]interface{}{
-		"id":           1,
-		"title":        "Test",
-		"description":  "Desc",
-		"notes":        "Test notes",
-		"destinations": []models.ItineraryTravelDestination{},
+		"id":          1,
+		"title":       "Test",
+		"description": "Desc",
+		"notes":       "Test notes",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
 	}
 	b, _ := json.Marshal(body)
 	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
@@ -912,6 +1301,379 @@ func Test_updateItinerary_Success(t *testing.T) {
 	updateItinerary(c)
 	assert.Equal(t, http.StatusOK, w.Code)
 }
+
+func Test_updateItinerary_SuccessEmptyDescription(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	mock := &mockItineraryService{
+		FindByIdIt: &models.Itinerary{OwnerID: 1},
+		UpdateErr:  nil,
+	}
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return mock
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":          1,
+		"title":       "Test",
+		"description": "",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func Test_updateItinerary_SuccessNullNotes(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	mock := &mockItineraryService{
+		FindByIdIt: &models.Itinerary{OwnerID: 1},
+		UpdateErr:  nil,
+	}
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return mock
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":          1,
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func Test_updateItinerary_SuccessEmptyNotes(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	mock := &mockItineraryService{
+		FindByIdIt: &models.Itinerary{OwnerID: 1},
+		UpdateErr:  nil,
+	}
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return mock
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":          1,
+		"title":       "Test",
+		"description": "Desc",
+		"notes":       "",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func Test_updateItinerary_TitleEmptyBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":          1,
+		"title":       "",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func Test_updateItinerary_TitleMaxLenghtExceededBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":          1,
+		"title":       "Teeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeest",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func Test_updateItinerary_DescriptionMaxLenghtExceededBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":          1,
+		"title":       "Test",
+		"description": "Deeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeesc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+
+}
+
+func Test_updateItinerary_NotesMaxLenghtExceededBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":          1,
+		"title":       "Test",
+		"description": "Desc",
+		"notes":       "Noteeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeees",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+
+}
+
+func Test_updateItinerary_EmptyDestinationsBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":           1,
+		"title":        "Test",
+		"description":  "Desc",
+		"destinations": []models.ItineraryTravelDestination{},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func Test_updateItinerary_DestinationCountryEmptyBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":          1,
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "",
+				City:          "Madrid",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func Test_updateItinerary_DestinationCityEmptyBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":          1,
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "",
+				ArrivalDate:   time.Now(),
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func Test_updateItinerary_DestinationArrivalDateEmptyBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":          1,
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:       "Spain",
+				City:          "Madrid",
+				DepartureDate: time.Now().Add(72 * time.Hour),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
+func Test_updateItinerary_DestinationDepartureDateEmptyBadRequest(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":       "Test",
+		"description": "Desc",
+		"destinations": []models.ItineraryTravelDestination{
+			{
+				Country:     "Spain",
+				City:        "Madrid",
+				ArrivalDate: time.Now(),
+			},
+		},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), "Could not parse request data.")
+}
+
 func Test_deleteItinerary_Unauthorized(t *testing.T) {
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
