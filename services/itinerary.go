@@ -102,6 +102,10 @@ func (is *ItineraryService) ValidateItineraryDestinationsDates(destinations []*m
 	// Find oldest arrival and latest departure
 	var oldestArrival, latestDeparture time.Time
 	for i, dest := range destinations {
+		if dest.ArrivalDate.After(dest.DepartureDate) {
+			return fmt.Errorf("there is at least a destination where the departure date is older than the arrival date")
+		}
+
 		if i == 0 {
 			oldestArrival = dest.ArrivalDate
 			latestDeparture = dest.DepartureDate
@@ -113,11 +117,11 @@ func (is *ItineraryService) ValidateItineraryDestinationsDates(destinations []*m
 				latestDeparture = dest.DepartureDate
 			}
 		}
-	}
 
-	if latestDeparture.Sub(oldestArrival).Hours()/24 > 30 {
-		log.Error("The itinerary cannot span more than 30 days")
-		return fmt.Errorf("the itinerary cannot span more than 30 days")
+		if latestDeparture.Sub(oldestArrival).Hours()/24 > 30 {
+			log.Error("The itinerary cannot span more than 30 days")
+			return fmt.Errorf("the itinerary cannot span more than 30 days")
+		}
 	}
 
 	return nil
