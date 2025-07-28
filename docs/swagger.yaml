@@ -102,7 +102,7 @@ definitions:
     - country
     - departureDate
     type: object
-  routes.CreateItineraryRequest:
+  requests.CreateItineraryRequest:
     properties:
       description:
         example: Summer vacation in Spain
@@ -110,7 +110,7 @@ definitions:
         type: string
       destinations:
         items:
-          $ref: '#/definitions/routes.DestinationItem'
+          $ref: '#/definitions/requests.DestinationItem'
         maxItems: 20
         minItems: 1
         type: array
@@ -126,28 +126,7 @@ definitions:
     - destinations
     - title
     type: object
-  routes.CreateItineraryResponse:
-    properties:
-      itineraryId:
-        example: 123
-        type: integer
-      message:
-        example: Itinerary created.
-        type: string
-    type: object
-  routes.DeleteItineraryJobResponse:
-    properties:
-      message:
-        example: Itinerary job deleted.
-        type: string
-    type: object
-  routes.DeleteItineraryResponse:
-    properties:
-      message:
-        example: Itinerary deleted.
-        type: string
-    type: object
-  routes.DestinationItem:
+  requests.DestinationItem:
     properties:
       arrivalDate:
         example: "2024-07-01T00:00:00Z"
@@ -169,42 +148,7 @@ definitions:
     - country
     - departureDate
     type: object
-  routes.ErrorResponse:
-    properties:
-      message:
-        example: An error occurred.
-        type: string
-    type: object
-  routes.GetItinerariesResponse:
-    properties:
-      itineraries:
-        description: Example JSON representation
-        items:
-          $ref: '#/definitions/models.Itinerary'
-        type: array
-    type: object
-  routes.GetItineraryJobResponse:
-    properties:
-      job:
-        allOf:
-        - $ref: '#/definitions/models.ItineraryFileJob'
-        description: Example JSON representation
-    type: object
-  routes.GetItineraryJobsResponse:
-    properties:
-      job:
-        items:
-          $ref: '#/definitions/models.ItineraryFileJob'
-        type: array
-    type: object
-  routes.GetItineraryResponse:
-    properties:
-      itinerary:
-        allOf:
-        - $ref: '#/definitions/models.Itinerary'
-        description: Example JSON representation
-    type: object
-  routes.LoginRequest:
+  requests.LoginRequest:
     properties:
       email:
         example: test@example.com
@@ -218,16 +162,7 @@ definitions:
     - email
     - password
     type: object
-  routes.LoginResponse:
-    properties:
-      message:
-        example: Login successful!
-        type: string
-      token:
-        example: token123
-        type: string
-    type: object
-  routes.SignUpRequest:
+  requests.SignUpRequest:
     properties:
       email:
         example: test@example.com
@@ -241,31 +176,7 @@ definitions:
     - email
     - password
     type: object
-  routes.SignUpResponse:
-    properties:
-      message:
-        example: User created.
-        type: string
-      user:
-        example: test@example.com
-        type: string
-    type: object
-  routes.StartItineraryJobResponse:
-    properties:
-      jobId:
-        example: 123
-        type: integer
-      message:
-        example: Job started successfully.
-        type: string
-    type: object
-  routes.StopItineraryJobResponse:
-    properties:
-      message:
-        example: Itinerary job stopped.
-        type: string
-    type: object
-  routes.UpdateItineraryRequest:
+  requests.UpdateItineraryRequest:
     properties:
       description:
         example: Summer vacation in Spain
@@ -273,7 +184,7 @@ definitions:
         type: string
       destinations:
         items:
-          $ref: '#/definitions/routes.DestinationItem'
+          $ref: '#/definitions/requests.DestinationItem'
         maxItems: 20
         minItems: 1
         type: array
@@ -293,7 +204,96 @@ definitions:
     - id
     - title
     type: object
-  routes.UpdateItineraryResponse:
+  responses.CreateItineraryResponse:
+    properties:
+      itineraryId:
+        example: 123
+        type: integer
+      message:
+        example: Itinerary created.
+        type: string
+    type: object
+  responses.DeleteItineraryJobResponse:
+    properties:
+      message:
+        example: Itinerary job deleted.
+        type: string
+    type: object
+  responses.DeleteItineraryResponse:
+    properties:
+      message:
+        example: Itinerary deleted.
+        type: string
+    type: object
+  responses.ErrorResponse:
+    properties:
+      message:
+        example: An error occurred.
+        type: string
+    type: object
+  responses.GetItinerariesResponse:
+    properties:
+      itineraries:
+        description: Example JSON representation
+        items:
+          $ref: '#/definitions/models.Itinerary'
+        type: array
+    type: object
+  responses.GetItineraryJobResponse:
+    properties:
+      job:
+        allOf:
+        - $ref: '#/definitions/models.ItineraryFileJob'
+        description: Example JSON representation
+    type: object
+  responses.GetItineraryJobsResponse:
+    properties:
+      job:
+        items:
+          $ref: '#/definitions/models.ItineraryFileJob'
+        type: array
+    type: object
+  responses.GetItineraryResponse:
+    properties:
+      itinerary:
+        allOf:
+        - $ref: '#/definitions/models.Itinerary'
+        description: Example JSON representation
+    type: object
+  responses.LoginResponse:
+    properties:
+      message:
+        example: Login successful!
+        type: string
+      token:
+        example: token123
+        type: string
+    type: object
+  responses.SignUpResponse:
+    properties:
+      message:
+        example: User created.
+        type: string
+      user:
+        example: test@example.com
+        type: string
+    type: object
+  responses.StartItineraryJobResponse:
+    properties:
+      jobId:
+        example: 123
+        type: integer
+      message:
+        example: Job started successfully.
+        type: string
+    type: object
+  responses.StopItineraryJobResponse:
+    properties:
+      message:
+        example: Itinerary job stopped.
+        type: string
+    type: object
+  responses.UpdateItineraryResponse:
     properties:
       message:
         example: Itinerary updated.
@@ -321,15 +321,15 @@ paths:
         "200":
           description: List of itineraries
           schema:
-            $ref: '#/definitions/routes.GetItinerariesResponse'
+            $ref: '#/definitions/responses.GetItinerariesResponse'
         "401":
           description: Not authorized.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "500":
           description: Could not retrieve itineraries. Try again later.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
       security:
       - Auth: []
       summary: Get all itineraries of the authenticated user
@@ -345,26 +345,26 @@ paths:
         name: itinerary
         required: true
         schema:
-          $ref: '#/definitions/routes.CreateItineraryRequest'
+          $ref: '#/definitions/requests.CreateItineraryRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Itinerary created.
           schema:
-            $ref: '#/definitions/routes.CreateItineraryResponse'
+            $ref: '#/definitions/responses.CreateItineraryResponse'
         "400":
           description: Could not parse request data or invalid destinations.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "401":
           description: Not authorized.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "500":
           description: Could not create itinerary. Try again later.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
       security:
       - Auth: []
       summary: Create a new itinerary
@@ -380,34 +380,34 @@ paths:
         name: itinerary
         required: true
         schema:
-          $ref: '#/definitions/routes.UpdateItineraryRequest'
+          $ref: '#/definitions/requests.UpdateItineraryRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Itinerary updated.
           schema:
-            $ref: '#/definitions/routes.UpdateItineraryResponse'
+            $ref: '#/definitions/responses.UpdateItineraryResponse'
         "400":
           description: Could not parse request data or invalid destinations.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "401":
           description: Not authorized.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "403":
           description: You do not have permission to update this itinerary.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "404":
           description: Itinerary not found.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "500":
           description: Could not update itinerary. Try again later.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
       security:
       - Auth: []
       summary: Update an itinerary
@@ -428,28 +428,28 @@ paths:
         "200":
           description: Itinerary deleted.
           schema:
-            $ref: '#/definitions/routes.DeleteItineraryResponse'
+            $ref: '#/definitions/responses.DeleteItineraryResponse'
         "401":
           description: Not authorized.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "403":
           description: You do not have permission to access this resource.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "404":
           description: Itinerary not found.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "409":
           description: Itinerary has pending or running jobs. Please wait for them
             to complete or stop them before deleting the itinerary.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "500":
           description: Could not delete itinerary. Try again later.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
       security:
       - Auth: []
       summary: Delete an itinerary
@@ -469,23 +469,23 @@ paths:
         "200":
           description: Itinerary details
           schema:
-            $ref: '#/definitions/routes.GetItineraryResponse'
+            $ref: '#/definitions/responses.GetItineraryResponse'
         "401":
           description: Not authorized.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "403":
           description: You do not have permission to access this resource.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "404":
           description: Itinerary not found.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "500":
           description: Could not get itinerary. Try again later.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
       security:
       - Auth: []
       summary: Get an itinerary by ID
@@ -507,23 +507,23 @@ paths:
         "200":
           description: List of itinerary file jobs
           schema:
-            $ref: '#/definitions/routes.GetItineraryJobsResponse'
+            $ref: '#/definitions/responses.GetItineraryJobsResponse'
         "401":
           description: Not authorized.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "403":
           description: You do not have permission to access this resource.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "404":
           description: Itinerary not found.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "500":
           description: Could not retrieve jobs. Try again later.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
       security:
       - Auth: []
       summary: Get all file jobs for an itinerary
@@ -545,28 +545,28 @@ paths:
         "202":
           description: Job started successfully.
           schema:
-            $ref: '#/definitions/routes.StartItineraryJobResponse'
+            $ref: '#/definitions/responses.StartItineraryJobResponse'
         "401":
           description: Not authorized.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "403":
           description: You do not have permission to access this resource.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "404":
           description: Itinerary not found.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "409":
           description: Too many jobs running for your user. Please wait for existing
             jobs to complete.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "500":
           description: Could not create job. Try again later.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
       security:
       - Auth: []
       summary: Start itinerary file generation job
@@ -593,31 +593,31 @@ paths:
         "200":
           description: Itinerary job deleted.
           schema:
-            $ref: '#/definitions/routes.DeleteItineraryJobResponse'
+            $ref: '#/definitions/responses.DeleteItineraryJobResponse'
         "400":
           description: Bad request.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "401":
           description: Not authorized.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "403":
           description: You do not have permission to access this resource.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "404":
           description: Itinerary job not found.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "409":
           description: Cannot delete job that is still pending or running.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "500":
           description: Could not delete job. Try again later.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
       security:
       - Auth: []
       summary: Delete an itinerary file job
@@ -642,27 +642,27 @@ paths:
         "200":
           description: Itinerary file job details
           schema:
-            $ref: '#/definitions/routes.GetItineraryJobResponse'
+            $ref: '#/definitions/responses.GetItineraryJobResponse'
         "400":
           description: Bad request.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "401":
           description: Not authorized.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "403":
           description: You do not have permission to access this resource.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "404":
           description: Itinerary job not found.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "500":
           description: Could not get itinerary job. Try again later.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
       security:
       - Auth: []
       summary: Get an itinerary file job by ID
@@ -693,23 +693,23 @@ paths:
         "400":
           description: Bad request.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "401":
           description: Not authorized.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "403":
           description: You do not have permission to access this resource.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "404":
           description: Itinerary job or file not found.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "500":
           description: Could not download file. Try again later.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
       security:
       - Auth: []
       summary: Download itinerary job file
@@ -736,27 +736,27 @@ paths:
         "200":
           description: Itinerary job stopped.
           schema:
-            $ref: '#/definitions/routes.StopItineraryJobResponse'
+            $ref: '#/definitions/responses.StopItineraryJobResponse'
         "400":
           description: Bad request.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "401":
           description: Not authorized.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "403":
           description: You do not have permission to access this resource.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "404":
           description: Itinerary job not found.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "500":
           description: Could not get itinerary job. Try again later.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
       security:
       - Auth: []
       summary: Stop an itinerary file job
@@ -773,23 +773,22 @@ paths:
         name: credentials
         required: true
         schema:
-          $ref: '#/definitions/routes.LoginRequest'
+          $ref: '#/definitions/requests.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: 'Login successful."  example({"message": "Login successful!",
-            "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."})'
+          description: Login successful.
           schema:
-            $ref: '#/definitions/routes.LoginResponse'
+            $ref: '#/definitions/responses.LoginResponse'
         "400":
           description: Could not parse request data.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "401":
           description: Wrong user credentials.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
       summary: User login
       tags:
       - users
@@ -805,23 +804,22 @@ paths:
         name: user
         required: true
         schema:
-          $ref: '#/definitions/routes.SignUpRequest'
+          $ref: '#/definitions/requests.SignUpRequest'
       produces:
       - application/json
       responses:
         "201":
-          description: 'User created."  example({"message": "User created.", "user":
-            "user@example.com"})'
+          description: User created.
           schema:
-            $ref: '#/definitions/routes.SignUpResponse'
+            $ref: '#/definitions/responses.SignUpResponse'
         "400":
           description: Could not parse request data or user already exists.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
         "500":
           description: Could not create user. Try again later.
           schema:
-            $ref: '#/definitions/routes.ErrorResponse'
+            $ref: '#/definitions/responses.ErrorResponse'
       summary: Register a new user
       tags:
       - users

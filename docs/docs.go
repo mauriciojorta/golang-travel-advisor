@@ -38,19 +38,19 @@ const docTemplate = `{
                     "200": {
                         "description": "List of itineraries",
                         "schema": {
-                            "$ref": "#/definitions/routes.GetItinerariesResponse"
+                            "$ref": "#/definitions/responses.GetItinerariesResponse"
                         }
                     },
                     "401": {
                         "description": "Not authorized.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Could not retrieve itineraries. Try again later.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -79,7 +79,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/routes.UpdateItineraryRequest"
+                            "$ref": "#/definitions/requests.UpdateItineraryRequest"
                         }
                     }
                 ],
@@ -87,37 +87,37 @@ const docTemplate = `{
                     "200": {
                         "description": "Itinerary updated.",
                         "schema": {
-                            "$ref": "#/definitions/routes.UpdateItineraryResponse"
+                            "$ref": "#/definitions/responses.UpdateItineraryResponse"
                         }
                     },
                     "400": {
                         "description": "Could not parse request data or invalid destinations.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Not authorized.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "You do not have permission to update this itinerary.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Itinerary not found.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Could not update itinerary. Try again later.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -146,7 +146,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/routes.CreateItineraryRequest"
+                            "$ref": "#/definitions/requests.CreateItineraryRequest"
                         }
                     }
                 ],
@@ -154,25 +154,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Itinerary created.",
                         "schema": {
-                            "$ref": "#/definitions/routes.CreateItineraryResponse"
+                            "$ref": "#/definitions/responses.CreateItineraryResponse"
                         }
                     },
                     "400": {
                         "description": "Could not parse request data or invalid destinations.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Not authorized.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Could not create itinerary. Try again later.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -206,31 +206,31 @@ const docTemplate = `{
                     "200": {
                         "description": "Itinerary details",
                         "schema": {
-                            "$ref": "#/definitions/routes.GetItineraryResponse"
+                            "$ref": "#/definitions/responses.GetItineraryResponse"
                         }
                     },
                     "401": {
                         "description": "Not authorized.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "You do not have permission to access this resource.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Itinerary not found.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Could not get itinerary. Try again later.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -262,37 +262,37 @@ const docTemplate = `{
                     "200": {
                         "description": "Itinerary deleted.",
                         "schema": {
-                            "$ref": "#/definitions/routes.DeleteItineraryResponse"
+                            "$ref": "#/definitions/responses.DeleteItineraryResponse"
                         }
                     },
                     "401": {
                         "description": "Not authorized.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "You do not have permission to access this resource.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Itinerary not found.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Itinerary has pending or running jobs. Please wait for them to complete or stop them before deleting the itinerary.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Could not delete itinerary. Try again later.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -326,31 +326,31 @@ const docTemplate = `{
                     "200": {
                         "description": "List of itinerary file jobs",
                         "schema": {
-                            "$ref": "#/definitions/routes.GetItineraryJobsResponse"
+                            "$ref": "#/definitions/responses.GetItineraryJobsResponse"
                         }
                     },
                     "401": {
                         "description": "Not authorized.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "You do not have permission to access this resource.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Itinerary not found.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Could not retrieve jobs. Try again later.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -382,37 +382,37 @@ const docTemplate = `{
                     "202": {
                         "description": "Job started successfully.",
                         "schema": {
-                            "$ref": "#/definitions/routes.StartItineraryJobResponse"
+                            "$ref": "#/definitions/responses.StartItineraryJobResponse"
                         }
                     },
                     "401": {
                         "description": "Not authorized.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "You do not have permission to access this resource.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Itinerary not found.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Too many jobs running for your user. Please wait for existing jobs to complete.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Could not create job. Try again later.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -453,37 +453,37 @@ const docTemplate = `{
                     "200": {
                         "description": "Itinerary file job details",
                         "schema": {
-                            "$ref": "#/definitions/routes.GetItineraryJobResponse"
+                            "$ref": "#/definitions/responses.GetItineraryJobResponse"
                         }
                     },
                     "400": {
                         "description": "Bad request.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Not authorized.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "You do not have permission to access this resource.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Itinerary job not found.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Could not get itinerary job. Try again later.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -522,43 +522,43 @@ const docTemplate = `{
                     "200": {
                         "description": "Itinerary job deleted.",
                         "schema": {
-                            "$ref": "#/definitions/routes.DeleteItineraryJobResponse"
+                            "$ref": "#/definitions/responses.DeleteItineraryJobResponse"
                         }
                     },
                     "400": {
                         "description": "Bad request.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Not authorized.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "You do not have permission to access this resource.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Itinerary job not found.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Cannot delete job that is still pending or running.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Could not delete job. Try again later.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -605,31 +605,31 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad request.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Not authorized.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "You do not have permission to access this resource.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Itinerary job or file not found.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Could not download file. Try again later.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -670,37 +670,37 @@ const docTemplate = `{
                     "200": {
                         "description": "Itinerary job stopped.",
                         "schema": {
-                            "$ref": "#/definitions/routes.StopItineraryJobResponse"
+                            "$ref": "#/definitions/responses.StopItineraryJobResponse"
                         }
                     },
                     "400": {
                         "description": "Bad request.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Not authorized.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "403": {
                         "description": "You do not have permission to access this resource.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Itinerary job not found.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Could not get itinerary job. Try again later.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -726,27 +726,27 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/routes.LoginRequest"
+                            "$ref": "#/definitions/requests.LoginRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Login successful.\"  example({\"message\": \"Login successful!\", \"token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\"})",
+                        "description": "Login successful.",
                         "schema": {
-                            "$ref": "#/definitions/routes.LoginResponse"
+                            "$ref": "#/definitions/responses.LoginResponse"
                         }
                     },
                     "400": {
                         "description": "Could not parse request data.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Wrong user credentials.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -772,27 +772,27 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/routes.SignUpRequest"
+                            "$ref": "#/definitions/requests.SignUpRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "User created.\"  example({\"message\": \"User created.\", \"user\": \"user@example.com\"})",
+                        "description": "User created.",
                         "schema": {
-                            "$ref": "#/definitions/routes.SignUpResponse"
+                            "$ref": "#/definitions/responses.SignUpResponse"
                         }
                     },
                     "400": {
                         "description": "Could not parse request data or user already exists.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Could not create user. Try again later.",
                         "schema": {
-                            "$ref": "#/definitions/routes.ErrorResponse"
+                            "$ref": "#/definitions/responses.ErrorResponse"
                         }
                     }
                 }
@@ -937,7 +937,7 @@ const docTemplate = `{
                 }
             }
         },
-        "routes.CreateItineraryRequest": {
+        "requests.CreateItineraryRequest": {
             "type": "object",
             "required": [
                 "destinations",
@@ -954,7 +954,7 @@ const docTemplate = `{
                     "maxItems": 20,
                     "minItems": 1,
                     "items": {
-                        "$ref": "#/definitions/routes.DestinationItem"
+                        "$ref": "#/definitions/requests.DestinationItem"
                     }
                 },
                 "notes": {
@@ -969,38 +969,7 @@ const docTemplate = `{
                 }
             }
         },
-        "routes.CreateItineraryResponse": {
-            "type": "object",
-            "properties": {
-                "itineraryId": {
-                    "type": "integer",
-                    "example": 123
-                },
-                "message": {
-                    "type": "string",
-                    "example": "Itinerary created."
-                }
-            }
-        },
-        "routes.DeleteItineraryJobResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "example": "Itinerary job deleted."
-                }
-            }
-        },
-        "routes.DeleteItineraryResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "example": "Itinerary deleted."
-                }
-            }
-        },
-        "routes.DestinationItem": {
+        "requests.DestinationItem": {
             "type": "object",
             "required": [
                 "arrivalDate",
@@ -1029,65 +998,7 @@ const docTemplate = `{
                 }
             }
         },
-        "routes.ErrorResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "example": "An error occurred."
-                }
-            }
-        },
-        "routes.GetItinerariesResponse": {
-            "type": "object",
-            "properties": {
-                "itineraries": {
-                    "description": "Example JSON representation",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.Itinerary"
-                    }
-                }
-            }
-        },
-        "routes.GetItineraryJobResponse": {
-            "type": "object",
-            "properties": {
-                "job": {
-                    "description": "Example JSON representation",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.ItineraryFileJob"
-                        }
-                    ]
-                }
-            }
-        },
-        "routes.GetItineraryJobsResponse": {
-            "type": "object",
-            "properties": {
-                "job": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.ItineraryFileJob"
-                    }
-                }
-            }
-        },
-        "routes.GetItineraryResponse": {
-            "type": "object",
-            "properties": {
-                "itinerary": {
-                    "description": "Example JSON representation",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/models.Itinerary"
-                        }
-                    ]
-                }
-            }
-        },
-        "routes.LoginRequest": {
+        "requests.LoginRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -1106,20 +1017,7 @@ const docTemplate = `{
                 }
             }
         },
-        "routes.LoginResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "example": "Login successful!"
-                },
-                "token": {
-                    "type": "string",
-                    "example": "token123"
-                }
-            }
-        },
-        "routes.SignUpRequest": {
+        "requests.SignUpRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -1138,42 +1036,7 @@ const docTemplate = `{
                 }
             }
         },
-        "routes.SignUpResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "example": "User created."
-                },
-                "user": {
-                    "type": "string",
-                    "example": "test@example.com"
-                }
-            }
-        },
-        "routes.StartItineraryJobResponse": {
-            "type": "object",
-            "properties": {
-                "jobId": {
-                    "type": "integer",
-                    "example": 123
-                },
-                "message": {
-                    "type": "string",
-                    "example": "Job started successfully."
-                }
-            }
-        },
-        "routes.StopItineraryJobResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string",
-                    "example": "Itinerary job stopped."
-                }
-            }
-        },
-        "routes.UpdateItineraryRequest": {
+        "requests.UpdateItineraryRequest": {
             "type": "object",
             "required": [
                 "destinations",
@@ -1191,7 +1054,7 @@ const docTemplate = `{
                     "maxItems": 20,
                     "minItems": 1,
                     "items": {
-                        "$ref": "#/definitions/routes.DestinationItem"
+                        "$ref": "#/definitions/requests.DestinationItem"
                     }
                 },
                 "id": {
@@ -1210,7 +1073,144 @@ const docTemplate = `{
                 }
             }
         },
-        "routes.UpdateItineraryResponse": {
+        "responses.CreateItineraryResponse": {
+            "type": "object",
+            "properties": {
+                "itineraryId": {
+                    "type": "integer",
+                    "example": 123
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Itinerary created."
+                }
+            }
+        },
+        "responses.DeleteItineraryJobResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Itinerary job deleted."
+                }
+            }
+        },
+        "responses.DeleteItineraryResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Itinerary deleted."
+                }
+            }
+        },
+        "responses.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "An error occurred."
+                }
+            }
+        },
+        "responses.GetItinerariesResponse": {
+            "type": "object",
+            "properties": {
+                "itineraries": {
+                    "description": "Example JSON representation",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Itinerary"
+                    }
+                }
+            }
+        },
+        "responses.GetItineraryJobResponse": {
+            "type": "object",
+            "properties": {
+                "job": {
+                    "description": "Example JSON representation",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.ItineraryFileJob"
+                        }
+                    ]
+                }
+            }
+        },
+        "responses.GetItineraryJobsResponse": {
+            "type": "object",
+            "properties": {
+                "job": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ItineraryFileJob"
+                    }
+                }
+            }
+        },
+        "responses.GetItineraryResponse": {
+            "type": "object",
+            "properties": {
+                "itinerary": {
+                    "description": "Example JSON representation",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.Itinerary"
+                        }
+                    ]
+                }
+            }
+        },
+        "responses.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Login successful!"
+                },
+                "token": {
+                    "type": "string",
+                    "example": "token123"
+                }
+            }
+        },
+        "responses.SignUpResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "User created."
+                },
+                "user": {
+                    "type": "string",
+                    "example": "test@example.com"
+                }
+            }
+        },
+        "responses.StartItineraryJobResponse": {
+            "type": "object",
+            "properties": {
+                "jobId": {
+                    "type": "integer",
+                    "example": 123
+                },
+                "message": {
+                    "type": "string",
+                    "example": "Job started successfully."
+                }
+            }
+        },
+        "responses.StopItineraryJobResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Itinerary job stopped."
+                }
+            }
+        },
+        "responses.UpdateItineraryResponse": {
             "type": "object",
             "properties": {
                 "message": {
