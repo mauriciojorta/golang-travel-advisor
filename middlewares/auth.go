@@ -3,6 +3,7 @@ package middlewares
 import (
 	"net/http"
 
+	"example.com/travel-advisor/responses"
 	"example.com/travel-advisor/utils"
 	"github.com/gin-gonic/gin"
 
@@ -15,7 +16,7 @@ func Authenticate(context *gin.Context) {
 
 	if token == "" {
 		log.Error("Authorization header is missing")
-		context.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Not authorized."})
+		context.AbortWithStatusJSON(http.StatusUnauthorized, responses.ErrorResponse{Message: "Not authorized."})
 		return
 	}
 
@@ -23,7 +24,7 @@ func Authenticate(context *gin.Context) {
 
 	if err != nil {
 		log.Errorf("Error verifying token: %v", err)
-		context.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Not authorized."})
+		context.AbortWithStatusJSON(http.StatusUnauthorized, responses.ErrorResponse{Message: "Not authorized."})
 		return
 	}
 
