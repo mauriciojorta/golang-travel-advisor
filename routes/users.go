@@ -7,31 +7,13 @@ import (
 	"strconv"
 
 	"example.com/travel-advisor/models"
+	"example.com/travel-advisor/requests"
+	"example.com/travel-advisor/responses"
 	"example.com/travel-advisor/services"
 	"example.com/travel-advisor/utils"
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
-
-type SignUpRequest struct {
-	Email    string `json:"email" binding:"required,max=128" example:"test@example.com"`
-	Password string `json:"password" binding:"required,max=256" example:"Password123-"`
-}
-
-type LoginRequest struct {
-	Email    string `json:"email" binding:"required,max=100" example:"test@example.com"`
-	Password string `json:"password" binding:"required,max=256" example:"Password123-"`
-}
-
-type SignUpResponse struct {
-	Message string `json:"message" example:"User created."`
-	User    string `json:"user" example:"test@example.com"`
-}
-
-type LoginResponse struct {
-	Message string `json:"message" example:"Login successful!"`
-	Token   string `json:"token" example:"token123"`
-}
 
 // signUp godoc
 // @Summary      Register a new user
@@ -39,27 +21,27 @@ type LoginResponse struct {
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Param        user  body  SignUpRequest  true  "User registration data"
-// @Success      201  {object}  SignUpResponse  "User created."  example({"message": "User created.", "user": "user@example.com"})
-// @Failure      400  {object}  ErrorResponse       "Could not parse request data or user already exists."
-// @Failure      500  {object}  ErrorResponse       "Could not create user. Try again later."
+// @Param        user  body  requests.SignUpRequest  true  "User registration data"
+// @Success      201  {object}  responses.SignUpResponse  "User created."
+// @Failure      400  {object}  responses.ErrorResponse   "Could not parse request data or user already exists."
+// @Failure      500  {object}  responses.ErrorResponse   "Could not create user. Try again later."
 // @Router       /signup [post]
 func signUp(context *gin.Context) {
 	log.Debug("Sign Up endpoint called")
 
-	var input SignUpRequest
+	var input requests.SignUpRequest
 
 	// Bind JSON input to the input struct
 	if err := context.ShouldBindJSON(&input); err != nil {
 		log.Errorf("Error parsing JSON: %v", err)
-		context.JSON(http.StatusBadRequest, gin.H{"error": "Could not parse request data. One or more mandatory attributes are null/empty or at least one of the expected attributes is too large."})
+		context.JSON(http.StatusBadRequest, &responses.ErrorResponse{Message: "Could not parse request data. One or more mandatory attributes are null/empty or at least one of the expected attributes is too large."})
 		return
 	}
 
 	err := utils.ValidateEmail(input.Email)
 	if err != nil {
 		log.Errorf("User email is empty or invalid")
-		context.JSON(http.StatusBadRequest, gin.H{"error": "Could not create user. The provided email is empty or invalid."})
+		context.JSON(http.StatusBadRequest, &responses.ErrorResponse{Message: "Could not create user. The provided email is empty or invalid."})
 		return
 	}
 
@@ -69,7 +51,7 @@ func signUp(context *gin.Context) {
 		minPasswordLength, err = strconv.Atoi(minUserPasswordLenghtStr)
 		if err != nil {
 			log.Errorf("Unexpected error reading min user password length in environment properties")
-			context.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create user. Try again later."})
+			context.JSON(http.StatusInternalServerError, &responses.ErrorResponse{Message: "Could not create user. Try again later."})
 			return
 		}
 	}
@@ -78,7 +60,7 @@ func signUp(context *gin.Context) {
 	if !isPasswordValid {
 		log.Errorf("The provided user password is invalid. It must contain at least 1 number, 1 upper case letter and 1 special character")
 		errorMsg := fmt.Sprintf("The provided user password is invalid. It must be at least %d characters long, contain at least 1 number, 1 upper case letter and 1 special character (a punctuation sign or a symbol like @,#,*,etc)", minPasswordLength)
-		context.JSON(http.StatusBadRequest, gin.H{"error": errorMsg})
+		context.JSON(http.StatusBadRequest, &responses.ErrorResponse{Message: errorMsg})
 		return
 	}
 
@@ -89,7 +71,7 @@ func signUp(context *gin.Context) {
 
 	if err == nil {
 		log.Errorf("User with email %s already exists", input.Email)
-		context.JSON(http.StatusBadRequest, gin.H{"error": "Could not create user. It already exists."})
+		context.JSON(http.StatusBadRequest, &responses.ErrorResponse{Message: "Could not create user. It already exists."})
 		return
 	}
 
@@ -97,13 +79,13 @@ func signUp(context *gin.Context) {
 
 	if err != nil {
 		log.Errorf("Error creating user: %v", err)
-		context.JSON(http.StatusInternalServerError, &ErrorResponse{Message: "Could not create user. Try again later."})
+		context.JSON(http.StatusInternalServerError, &responses.ErrorResponse{Message: "Could not create user. Try again later."})
 		return
 	}
 
 	log.Debugf("User %s created successfully", input.Email)
 
-	context.JSON(http.StatusCreated, &SignUpResponse{Message: "User created.", User: input.Email})
+	context.JSON(http.StatusCreated, &responses.SignUpResponse{Message: "User created.", User: input.Email})
 }
 
 // login godoc
@@ -112,20 +94,20 @@ func signUp(context *gin.Context) {
 // @Tags         users
 // @Accept       json
 // @Produce      json
-// @Param        credentials  body  LoginRequest  true  "User login credentials"
-// @Success      200  {object}  LoginResponse  "Login successful."  example({"message": "Login successful!", "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."})
-// @Failure      400  {object}  ErrorResponse  "Could not parse request data."
-// @Failure      401  {object}  ErrorResponse  "Wrong user credentials."
+// @Param        credentials  body  requests.LoginRequest  true  "User login credentials"
+// @Success      200  {object}  responses.LoginResponse  "Login successful."
+// @Failure      400  {object}  responses.ErrorResponse  "Could not parse request data."
+// @Failure      401  {object}  responses.ErrorResponse  "Wrong user credentials."
 // @Router       /login [post]
 func login(context *gin.Context) {
 	log.Debug("Login endpoint called")
 
-	var input LoginRequest
+	var input requests.LoginRequest
 
 	// Bind JSON input to the input struct
 	if err := context.ShouldBindJSON(&input); err != nil {
 		log.Errorf("Error parsing JSON: %v", err)
-		context.JSON(http.StatusBadRequest, gin.H{"error": "Could not parse request data. One or more mandatory attributes are null/empty or at least one of the expected attributes is too large."})
+		context.JSON(http.StatusBadRequest, &responses.ErrorResponse{Message: "Could not parse request data. One or more mandatory attributes are null/empty or at least one of the expected attributes is too large."})
 		return
 	}
 
@@ -138,17 +120,17 @@ func login(context *gin.Context) {
 	err := userService.ValidateCredentials(user, input.Password)
 	if err != nil {
 		log.Errorf("Error validating user credentials: %v", err)
-		context.JSON(http.StatusUnauthorized, &ErrorResponse{Message: "Wrong user credentials."})
+		context.JSON(http.StatusUnauthorized, &responses.ErrorResponse{Message: "Wrong user credentials."})
 		return
 	}
 
 	token, err := userService.GenerateLoginToken(user)
 	if err != nil {
 		log.Errorf("Error generating token: %v", err)
-		context.JSON(http.StatusUnauthorized, &ErrorResponse{Message: "Unexpected error."})
+		context.JSON(http.StatusUnauthorized, &responses.ErrorResponse{Message: "Unexpected error."})
 		return
 	}
 
 	log.Debugf("User %s logged in successfully", user.Email)
-	context.JSON(http.StatusOK, &LoginResponse{Message: "Login successful!", Token: token})
+	context.JSON(http.StatusOK, &responses.LoginResponse{Message: "Login successful!", Token: token})
 }

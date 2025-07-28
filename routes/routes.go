@@ -8,10 +8,6 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger" // gin-swagger middleware
 )
 
-type ErrorResponse struct {
-	Message string `json:"message" example:"An error occurred."`
-}
-
 func RegisterRoutes(server *gin.Engine) {
 	api := server.Group("/api/v1")
 
