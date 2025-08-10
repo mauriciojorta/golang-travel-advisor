@@ -84,11 +84,12 @@ func (ifj *ItineraryFileJob) defaultFindAliveById(id int64) (*ItineraryFileJob, 
 	itineraryFileJob := &ItineraryFileJob{}
 
 	var statusDescription sql.NullString
+	var startDate sql.NullTime
 	var endDate sql.NullTime
 	var filePath sql.NullString
 	var fileManager sql.NullString
 	var asyncTaskId sql.NullString
-	err := row.Scan(&itineraryFileJob.ID, &itineraryFileJob.Status, &statusDescription, &itineraryFileJob.CreationDate, &itineraryFileJob.StartDate, &endDate, &filePath, &fileManager, &itineraryFileJob.ItineraryID, &asyncTaskId)
+	err := row.Scan(&itineraryFileJob.ID, &itineraryFileJob.Status, &statusDescription, &itineraryFileJob.CreationDate, &startDate, &endDate, &filePath, &fileManager, &itineraryFileJob.ItineraryID, &asyncTaskId)
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +98,11 @@ func (ifj *ItineraryFileJob) defaultFindAliveById(id int64) (*ItineraryFileJob, 
 		itineraryFileJob.StatusDescription = statusDescription.String
 	} else {
 		itineraryFileJob.StatusDescription = ""
+	}
+	if startDate.Valid {
+		itineraryFileJob.StartDate = startDate.Time
+	} else {
+		itineraryFileJob.StartDate = time.Time{}
 	}
 	if endDate.Valid {
 		itineraryFileJob.EndDate = endDate.Time
@@ -149,11 +155,12 @@ func (ifj *ItineraryFileJob) defaultFindAliveByItineraryId(itineraryId int64) ([
 	for rows.Next() {
 		var job ItineraryFileJob
 		var statusDescription sql.NullString
+		var startDate sql.NullTime
 		var endDate sql.NullTime
 		var filePath sql.NullString
 		var fileManager sql.NullString
 		var asyncTaskId sql.NullString
-		err := rows.Scan(&job.ID, &job.Status, &statusDescription, &job.CreationDate, &job.StartDate, &endDate, &filePath, &fileManager, &job.ItineraryID, &asyncTaskId)
+		err := rows.Scan(&job.ID, &job.Status, &statusDescription, &job.CreationDate, &startDate, &endDate, &filePath, &fileManager, &job.ItineraryID, &asyncTaskId)
 
 		if err != nil {
 			return nil, err
@@ -162,6 +169,11 @@ func (ifj *ItineraryFileJob) defaultFindAliveByItineraryId(itineraryId int64) ([
 			job.StatusDescription = statusDescription.String
 		} else {
 			job.StatusDescription = ""
+		}
+		if startDate.Valid {
+			job.StartDate = startDate.Time
+		} else {
+			job.StartDate = time.Time{}
 		}
 		if endDate.Valid {
 			job.EndDate = endDate.Time
@@ -204,11 +216,12 @@ func (ifj *ItineraryFileJob) defaultFindDead(fetchLimit int) ([]*ItineraryFileJo
 	for rows.Next() {
 		var job ItineraryFileJob
 		var statusDescription sql.NullString
+		var startDate sql.NullTime
 		var endDate sql.NullTime
 		var filePath sql.NullString
 		var fileManager sql.NullString
 		var asyncTaskId sql.NullString
-		err := rows.Scan(&job.ID, &job.Status, &statusDescription, &job.CreationDate, &job.StartDate, &endDate, &filePath, &fileManager, &job.ItineraryID, &asyncTaskId)
+		err := rows.Scan(&job.ID, &job.Status, &statusDescription, &job.CreationDate, &startDate, &endDate, &filePath, &fileManager, &job.ItineraryID, &asyncTaskId)
 
 		if err != nil {
 			return nil, err
@@ -217,6 +230,11 @@ func (ifj *ItineraryFileJob) defaultFindDead(fetchLimit int) ([]*ItineraryFileJo
 			job.StatusDescription = statusDescription.String
 		} else {
 			job.StatusDescription = ""
+		}
+		if startDate.Valid {
+			job.StartDate = startDate.Time
+		} else {
+			job.StartDate = time.Time{}
 		}
 		if endDate.Valid {
 			job.EndDate = endDate.Time
