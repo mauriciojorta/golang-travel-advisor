@@ -526,7 +526,6 @@ func downloadItineraryJobFile(context *gin.Context) {
 	http.ServeContent(context.Writer, context.Request, fileInfo.Name(), fileInfo.ModTime(), file)
 
 	log.Debugf("File %s served successfully for itinerary job ID %d", fileInfo.Name(), itineraryJobId)
-	context.Status(http.StatusOK)
 	// Note: The file will be served directly to the client, so no further action is needed here.
 
 }
