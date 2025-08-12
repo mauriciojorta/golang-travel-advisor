@@ -54,6 +54,61 @@ func TestFileJobDefaultFindAliveByItineraryId_Success(t *testing.T) {
 	}
 }
 
+func TestFileJobDefaultFindAliveByItineraryId_NilStartAndEndDateSuccess(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	itineraryID := int64(1)
+	asyncTaskId1 := "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+	asyncTaskId2 := "952057c1-ac50-4014-972e-28ab65242ed6"
+	asyncTaskId3 := "12345678-1234-5678-1234-567812345678"
+	rows := sqlmock.NewRows([]string{"id", "status", "status_description", "creation_date", "start_date", "end_date", "file_path", "file_manager", "itinerary_id", "async_task_id"}).
+		AddRow(1, "completed", "Job OK", time.Now(), time.Now().Add(1*time.Minute), time.Now().Add(24*time.Hour), "/path/to/file1", "local", itineraryID, asyncTaskId1).
+		AddRow(2, "running", "Job running", time.Now().Add(48*time.Hour), time.Now().Add(49*time.Hour), time.Now().Add(72*time.Hour), "/path/to/file2", "local", itineraryID, asyncTaskId2).
+		AddRow(3, "pending", "Job pending", time.Now().Add(72*time.Hour), nil, nil, "/path/to/file3", "local", itineraryID, asyncTaskId3)
+
+	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE itinerary_id = \\? AND status != 'deleted'").
+		WithArgs(itineraryID).
+		WillReturnRows(rows)
+
+	job := &ItineraryFileJob{}
+	result, err := job.defaultFindAliveByItineraryId(itineraryID)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Len(t, result, 3)
+
+	assert.Equal(t, int64(1), (result)[0].ID)
+	assert.Equal(t, "completed", (result)[0].Status)
+	assert.Equal(t, "Job OK", (result)[0].StatusDescription)
+	assert.Equal(t, "/path/to/file1", (result)[0].Filepath)
+	assert.Equal(t, "local", (result)[0].FileManager)
+	assert.Equal(t, int64(1), (result)[0].ItineraryID)
+	assert.Equal(t, asyncTaskId1, (result)[0].AsyncTaskID)
+
+	assert.Equal(t, int64(2), (result)[1].ID)
+	assert.Equal(t, "running", (result)[1].Status)
+	assert.Equal(t, "Job running", (result)[1].StatusDescription)
+	assert.Equal(t, "/path/to/file2", (result)[1].Filepath)
+	assert.Equal(t, "local", (result)[1].FileManager)
+	assert.Equal(t, int64(1), (result)[1].ItineraryID)
+	assert.Equal(t, asyncTaskId2, (result)[1].AsyncTaskID)
+
+	assert.Equal(t, int64(3), (result)[2].ID)
+	assert.Equal(t, "pending", (result)[2].Status)
+	assert.Equal(t, "Job pending", (result)[2].StatusDescription)
+	assert.Equal(t, "/path/to/file3", (result)[2].Filepath)
+	assert.Equal(t, "local", (result)[2].FileManager)
+	assert.Equal(t, int64(1), (result)[2].ItineraryID)
+	assert.Equal(t, asyncTaskId3, (result)[2].AsyncTaskID)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
 func TestFileJobDefaultFindAliveByItineraryId_Error(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
@@ -109,6 +164,38 @@ func TestFileJobDefaultFindAliveById_Success(t *testing.T) {
 	}
 }
 
+func TestFileJobDefaultFindAliveById_NullStartAndEndDateSuccess(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	jobID := int64(1)
+	asyncTaskId := "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+	row := sqlmock.NewRows([]string{"id", "status", "status_description", "creation_date", "start_date", "end_date", "file_path", "file_manager", "itinerary_id", "async_task_id"}).
+		AddRow(jobID, "pending", "Job OK", time.Now(), nil, nil, "/path/to/file", "local", 1, asyncTaskId)
+
+	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE id = \\? AND status != 'deleted'").
+		WithArgs(jobID).
+		WillReturnRows(row)
+
+	job := &ItineraryFileJob{ID: jobID}
+	j, err := job.defaultFindAliveById(jobID)
+
+	assert.NoError(t, err)
+	assert.Equal(t, jobID, j.ID)
+	assert.Equal(t, "pending", j.Status)
+	assert.Equal(t, "/path/to/file", j.Filepath)
+	assert.Equal(t, "local", j.FileManager)
+	assert.Equal(t, "Job OK", j.StatusDescription)
+	assert.Equal(t, int64(1), j.ItineraryID)
+	assert.Equal(t, asyncTaskId, j.AsyncTaskID)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
 func TestFileJobDefaultFindAliveById_Error(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
@@ -116,12 +203,12 @@ func TestFileJobDefaultFindAliveById_Error(t *testing.T) {
 	db.DB = dbMock
 
 	itineraryID := int64(1)
-	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE itinerary_id = \\? AND status != 'deleted'").
+	mock.ExpectQuery("SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id FROM itinerary_file_jobs WHERE id = \\? AND status != 'deleted'").
 		WithArgs(itineraryID).
 		WillReturnError(sqlmock.ErrCancelled)
 
 	job := &ItineraryFileJob{}
-	result, err := job.defaultFindAliveByItineraryId(itineraryID)
+	result, err := job.defaultFindAliveById(itineraryID)
 
 	assert.Error(t, err)
 	assert.Nil(t, result)
@@ -150,6 +237,59 @@ func TestDefaultFindDead_Success(t *testing.T) {
 	}).
 		AddRow(job1ID, "deleted", "desc1", now, now.Add(1*time.Minute), now.Add(2*time.Minute), "/dead/file1", "local", itineraryID, asyncTaskId1).
 		AddRow(job2ID, "deleted", "desc2", now.Add(1*time.Hour), now.Add(2*time.Hour), now.Add(3*time.Hour), "/dead/file2", "s3", itineraryID, asyncTaskId2)
+
+	mock.ExpectQuery(`SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id
+	FROM itinerary_file_jobs WHERE status = 'deleted' ORDER BY creation_date ASC LIMIT \?`).
+		WithArgs(2).
+		WillReturnRows(rows)
+
+	job := &ItineraryFileJob{}
+	result, err := job.defaultFindDead(2)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Len(t, result, 2)
+
+	assert.Equal(t, job1ID, (result)[0].ID)
+	assert.Equal(t, "deleted", (result)[0].Status)
+	assert.Equal(t, "desc1", (result)[0].StatusDescription)
+	assert.Equal(t, "/dead/file1", (result)[0].Filepath)
+	assert.Equal(t, "local", (result)[0].FileManager)
+	assert.Equal(t, itineraryID, (result)[0].ItineraryID)
+	assert.Equal(t, asyncTaskId1, (result)[0].AsyncTaskID)
+
+	assert.Equal(t, job2ID, (result)[1].ID)
+	assert.Equal(t, "deleted", (result)[1].Status)
+	assert.Equal(t, "desc2", (result)[1].StatusDescription)
+	assert.Equal(t, "/dead/file2", (result)[1].Filepath)
+	assert.Equal(t, "s3", (result)[1].FileManager)
+	assert.Equal(t, itineraryID, (result)[1].ItineraryID)
+	assert.Equal(t, asyncTaskId2, (result)[1].AsyncTaskID)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultFindDead_NilStartAndEndDateSuccess(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	now := time.Now()
+	job1ID := int64(1)
+	job2ID := int64(2)
+	itineraryID := int64(10)
+	asyncTaskId1 := "dead-task-1"
+	asyncTaskId2 := "dead-task-2"
+
+	rows := sqlmock.NewRows([]string{
+		"id", "status", "status_description", "creation_date", "start_date", "end_date",
+		"file_path", "file_manager", "itinerary_id", "async_task_id",
+	}).
+		AddRow(job1ID, "deleted", "desc1", now, now.Add(1*time.Minute), now.Add(2*time.Minute), "/dead/file1", "local", itineraryID, asyncTaskId1).
+		AddRow(job2ID, "deleted", "desc2", now.Add(1*time.Hour), nil, nil, "/dead/file2", "s3", itineraryID, asyncTaskId2)
 
 	mock.ExpectQuery(`SELECT id, status, status_description, creation_date, start_date, end_date, file_path, file_manager, itinerary_id, async_task_id
 	FROM itinerary_file_jobs WHERE status = 'deleted' ORDER BY creation_date ASC LIMIT \?`).
