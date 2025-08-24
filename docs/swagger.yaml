@@ -112,7 +112,7 @@ definitions:
         items:
           $ref: '#/definitions/requests.DestinationItem'
         maxItems: 20
-        minItems: 1
+        minItems: 0
         type: array
       notes:
         example: I want to enjoy the nightlife
@@ -186,7 +186,7 @@ definitions:
         items:
           $ref: '#/definitions/requests.DestinationItem'
         maxItems: 20
-        minItems: 1
+        minItems: 0
         type: array
       id:
         example: 1

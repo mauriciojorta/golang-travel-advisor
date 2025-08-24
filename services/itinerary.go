@@ -90,8 +90,8 @@ func (is *ItineraryService) Delete(id int64) error {
 }
 func (is *ItineraryService) ValidateItineraryDestinationsDates(destinations []*models.ItineraryTravelDestination) error {
 	if len(destinations) == 0 {
-		log.Error("At least one destination is required")
-		return fmt.Errorf("at least one destination is required")
+		log.Warn("No planned destinations were found. Skipping validation...")
+		return nil
 	}
 
 	if len(destinations) > 20 {
