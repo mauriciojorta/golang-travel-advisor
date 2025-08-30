@@ -259,6 +259,29 @@ func Test_createItinerary_Success(t *testing.T) {
 	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
+func Test_createItinerary_EmptyTravelDestinations_Success(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{}
+	}
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"title":        "Test",
+		"description":  "Desc",
+		"notes":        "Test notes",
+		"destinations": []models.ItineraryTravelDestination{},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	createItinerary(c)
+	assert.Equal(t, http.StatusCreated, w.Code)
+}
+
 func Test_createItinerary_SuccessEmptyDescription(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
@@ -468,29 +491,6 @@ func Test_createItinerary_NotesMaxLenghtExceededBadRequest(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "Could not parse request data.")
 
-}
-
-func Test_createItinerary_EmptyDestinationsBadRequest(t *testing.T) {
-	orig := services.GetItineraryService
-	defer func() { services.GetItineraryService = orig }()
-	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{}
-	}
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	setUserId(c, 1)
-	body := map[string]interface{}{
-		"title":        "Test",
-		"description":  "Desc",
-		"destinations": []models.ItineraryTravelDestination{},
-	}
-	b, _ := json.Marshal(body)
-	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
-	c.Request.Header.Set("Content-Type", "application/json")
-	createItinerary(c)
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Could not parse request data.")
 }
 
 func Test_createItinerary_DestinationCountryEmptyBadRequest(t *testing.T) {
@@ -1302,6 +1302,33 @@ func Test_updateItinerary_Success(t *testing.T) {
 	assert.Equal(t, http.StatusOK, w.Code)
 }
 
+func Test_updateItinerary_SuccessEmptyTravelDestinations(t *testing.T) {
+	orig := services.GetItineraryService
+	defer func() { services.GetItineraryService = orig }()
+	mock := &mockItineraryService{
+		FindByIdIt: &models.Itinerary{OwnerID: 1},
+		UpdateErr:  nil,
+	}
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return mock
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	body := map[string]interface{}{
+		"id":           1,
+		"title":        "Test",
+		"description":  "Desc",
+		"notes":        "Test notes",
+		"destinations": []models.ItineraryTravelDestination{},
+	}
+	b, _ := json.Marshal(body)
+	c.Request = httptest.NewRequest(http.MethodPut, "/", bytes.NewBuffer(b))
+	c.Request.Header.Set("Content-Type", "application/json")
+	updateItinerary(c)
+	assert.Equal(t, http.StatusOK, w.Code)
+}
+
 func Test_updateItinerary_SuccessEmptyDescription(t *testing.T) {
 	orig := services.GetItineraryService
 	defer func() { services.GetItineraryService = orig }()
@@ -1527,30 +1554,6 @@ func Test_updateItinerary_NotesMaxLenghtExceededBadRequest(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	assert.Contains(t, w.Body.String(), "Could not parse request data.")
 
-}
-
-func Test_updateItinerary_EmptyDestinationsBadRequest(t *testing.T) {
-	orig := services.GetItineraryService
-	defer func() { services.GetItineraryService = orig }()
-	services.GetItineraryService = func() services.ItineraryServiceInterface {
-		return &mockItineraryService{}
-	}
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	setUserId(c, 1)
-	body := map[string]interface{}{
-		"id":           1,
-		"title":        "Test",
-		"description":  "Desc",
-		"destinations": []models.ItineraryTravelDestination{},
-	}
-	b, _ := json.Marshal(body)
-	c.Request = httptest.NewRequest(http.MethodPost, "/", bytes.NewBuffer(b))
-	c.Request.Header.Set("Content-Type", "application/json")
-	updateItinerary(c)
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "Could not parse request data.")
 }
 
 func Test_updateItinerary_DestinationCountryEmptyBadRequest(t *testing.T) {

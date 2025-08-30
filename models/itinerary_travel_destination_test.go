@@ -40,6 +40,31 @@ func TestDestinationTravelDestination_Find_Success(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestDestinationTravelDestination_Find_SuccessEmpty(t *testing.T) {
+	// Arrange
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+
+	db.DB = dbMock
+
+	destination := &ItineraryTravelDestination{}
+
+	rows := &sqlmock.Rows{}
+
+	mock.ExpectQuery("SELECT id, country, city, itinerary_id, arrival_date, departure_date, creation_date, update_date FROM itinerary_travel_destinations WHERE itinerary_id = \\? ORDER BY arrival_date ASC").
+		WithArgs(1).
+		WillReturnRows(rows)
+
+	// Act
+	destinations, err := destination.defaultFindByItineraryId(1)
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Len(t, destinations, 0)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestDestinationTravelDestination_Find_NoRows(t *testing.T) {
 	// Arrange
 	dbMock, mock, err := sqlmock.New()

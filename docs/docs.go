@@ -952,7 +952,7 @@ const docTemplate = `{
                 "destinations": {
                     "type": "array",
                     "maxItems": 20,
-                    "minItems": 1,
+                    "minItems": 0,
                     "items": {
                         "$ref": "#/definitions/requests.DestinationItem"
                     }
@@ -1052,7 +1052,7 @@ const docTemplate = `{
                 "destinations": {
                     "type": "array",
                     "maxItems": 20,
-                    "minItems": 1,
+                    "minItems": 0,
                     "items": {
                         "$ref": "#/definitions/requests.DestinationItem"
                     }

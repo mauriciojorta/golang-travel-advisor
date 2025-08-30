@@ -61,11 +61,12 @@ Title: {{.title}}
 Description: {{.description}}
 {{if .notes}}Notes: {{.notes}}
 {{end}}
-Destinations:
+{{if .travelDestinations}}
+Planned Destinations:
 {{range .travelDestinations}}
 - Country: {{.country}}, City: {{.city}}, Arrival: {{.arrivalDate}}, Departure: {{.departureDate}}
 {{end}}
-
+{{end}}
 Please provide a day-by-day plan, including recommendations for activities, local attractions, and travel tips for each destination. The plan should provide a schedule for each day, including morning, afternoon, and evening activities. The itinerary should be suitable for a traveler who enjoys cultural experiences, local cuisine, and sightseeing.`
 
 // FindAliveById retrieves the job by its ID

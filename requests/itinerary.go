@@ -6,7 +6,7 @@ type CreateItineraryRequest struct {
 	Title        string             `json:"title" binding:"required,max=128" example:"Trip to Spain"`
 	Description  string             `json:"description" binding:"omitempty,max=512" example:"Summer vacation in Spain"`
 	Notes        *string            `json:"notes" binding:"omitnil,omitempty,max=512" example:"I want to enjoy the nightlife"`
-	Destinations []*DestinationItem `json:"destinations" binding:"required,min=1,max=20,dive"`
+	Destinations []*DestinationItem `json:"destinations" binding:"required,min=0,max=20,dive"`
 }
 
 type UpdateItineraryRequest struct {
@@ -14,7 +14,7 @@ type UpdateItineraryRequest struct {
 	Title        string             `json:"title" binding:"required,max=128" example:"Trip to Spain"`
 	Description  string             `json:"description" binding:"omitempty,max=256" example:"Summer vacation in Spain"`
 	Notes        *string            `json:"notes" binding:"omitnil,omitempty,max=512" example:"I want to enjoy the nightlife"`
-	Destinations []*DestinationItem `json:"destinations" binding:"required,min=1,max=20,dive"`
+	Destinations []*DestinationItem `json:"destinations" binding:"required,min=0,max=20,dive"`
 }
 
 type DestinationItem struct {
