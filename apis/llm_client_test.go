@@ -2,6 +2,7 @@ package apis
 
 import (
 	"context"
+	"errors"
 	"os"
 	"sync"
 	"testing"
@@ -16,10 +17,14 @@ import (
 // mockModel implements llms.Model for testing.
 type mockModel struct {
 	generateContentCalled bool
+	throwError            bool
 }
 
 func (m *mockModel) GenerateContent(ctx context.Context, messages []llms.MessageContent, opts ...llms.CallOption) (*llms.ContentResponse, error) {
 	m.generateContentCalled = true
+	if m.throwError {
+		return nil, errors.New("simulated LLM API error")
+	}
 	return &llms.ContentResponse{
 		Choices: []*llms.ContentChoice{
 			{
@@ -284,5 +289,30 @@ func TestCallLlm_InvalidMaxLength(t *testing.T) {
 	resp, err := CallLlm(messages)
 	assert.NoError(t, err)
 	assert.NotNil(t, resp)
+	assert.True(t, mock.generateContentCalled)
+}
+
+func TestCallLlm_LlmApiError(t *testing.T) {
+	resetSingleton()
+	os.Setenv("OPENAI_API_KEY", "test_key")
+	defer os.Clearenv()
+	mock := &mockModel{}
+	llmClient = mock
+	mock.generateContentCalled = false
+	mock.throwError = true
+
+	messages := []llms.MessageContent{
+		{
+			Role: llms.ChatMessageTypeSystem,
+			Parts: []llms.ContentPart{
+				llms.TextContent{Text: "Test LLM API error handling."},
+			},
+		},
+	}
+
+	resp, err := CallLlm(messages)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "itinerary file generation request failed")
+	assert.Nil(t, resp)
 	assert.True(t, mock.generateContentCalled)
 }
