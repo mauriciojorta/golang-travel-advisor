@@ -957,3 +957,49 @@ func TestItineraryFileJobService_OpenItineraryJobFile_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, reader, file)
 }
+func TestItineraryFileJobService_GetJobsFromUserInLastNSeconds_InvalidUser(t *testing.T) {
+	svc := &ItineraryFileJobService{}
+	count, err := svc.GetJobsFromUserInLastNSeconds(0, 60)
+	assert.Equal(t, 0, count)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid user ID")
+}
+
+func TestItineraryFileJobService_GetJobsFromUserInLastNSeconds_InvalidSeconds(t *testing.T) {
+	svc := &ItineraryFileJobService{}
+	count, err := svc.GetJobsFromUserInLastNSeconds(1, 0)
+	assert.Equal(t, 0, count)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "invalid seconds value")
+}
+
+func TestItineraryFileJobService_GetJobsFromUserInLastNSeconds_Fail(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.GetJobsFromUserInLastNSeconds = func(userId int64, seconds int) (int, error) {
+		return 0, errors.New("fail")
+	}
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
+		return ifj
+	}
+
+	svc := &ItineraryFileJobService{}
+	count, err := svc.GetJobsFromUserInLastNSeconds(1, 60)
+	assert.Equal(t, 0, count)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "fail")
+}
+
+func TestItineraryFileJobService_GetJobsFromUserInLastNSeconds_Success(t *testing.T) {
+	ifj := mockItineraryFileJob()
+	ifj.GetJobsFromUserInLastNSeconds = func(userId int64, seconds int) (int, error) {
+		return 3, nil // Simulate finding 3 jobs
+	}
+	models.InitItineraryFileJob = func() *models.ItineraryFileJob {
+		return ifj
+	}
+
+	svc := &ItineraryFileJobService{}
+	count, err := svc.GetJobsFromUserInLastNSeconds(1, 60)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, count)
+}
