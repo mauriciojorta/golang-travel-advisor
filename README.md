@@ -112,6 +112,8 @@ See `.env.example.txt` for all available configuration options. Below is a list 
 ### Asynchronous Job Processing
 
 - `JOBS_RUNNING_PER_USER_LIMIT` — Maximum number of concurrent jobs per user.
+- `MAX_JOBS_ALLOWED_IN_SECONDS_INTERVAL` — Maximum number of jobs allowed in a given seconds interval.
+- `JOBS_SECONDS_INTERVAL` — Time interval (in seconds) for job limit enforcement.
 - `ASYNC_TASK_TIMEOUT_MINUTES` — Timeout (in minutes) for async tasks.
 
 ### File Manager
