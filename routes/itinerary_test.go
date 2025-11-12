@@ -65,6 +65,8 @@ func (m *mockItineraryService) Delete(_ int64) error {
 type mockJobsService struct {
 	GetInProgressJobsOfUserCountVal      int
 	GetInProgressJobsOfUserCountErr      error
+	GetJobsOfUserInLastNSecondsCountVal  int
+	GetJobsOfUserInLastNSecondsCountErr  error
 	GetInProgressJobsOfItineraryCountVal int
 	GetInProgressJobsOfItineraryCountErr error
 	PrepareJobTask                       *services.ItineraryFileAsyncTaskPayload
@@ -82,6 +84,10 @@ type mockJobsService struct {
 	SoftDeleteErr                        error
 	SoftDeleteByItineraryId              error
 	DeleteErr                            error
+}
+
+func (m *mockJobsService) GetJobsFromUserInLastNSeconds(userId int64, seconds int) (int, error) {
+	return m.GetJobsOfUserInLastNSecondsCountVal, m.GetJobsOfUserInLastNSecondsCountErr
 }
 
 func (m *mockJobsService) GetInProgressJobsOfUserCount(_ int64) (int, error) {
@@ -791,7 +797,7 @@ func Test_runItineraryFileJob_ItineraryForbidden(t *testing.T) {
 	assert.Equal(t, http.StatusForbidden, w.Code)
 }
 
-func Test_runItineraryFileJob_GetInProgressJobsOfUserCount_Error(t *testing.T) {
+func Test_runItineraryFileJob_GetJobsFromUserInLastNSeconds_Error(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
@@ -800,7 +806,7 @@ func Test_runItineraryFileJob_GetInProgressJobsOfUserCount_Error(t *testing.T) {
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
-		return &mockJobsService{GetInProgressJobsOfUserCountErr: errors.New("count error")}
+		return &mockJobsService{GetJobsOfUserInLastNSecondsCountErr: errors.New("count error")}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -810,7 +816,7 @@ func Test_runItineraryFileJob_GetInProgressJobsOfUserCount_Error(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 }
 
-func Test_runItineraryFileJob_TooManyJobsRunning(t *testing.T) {
+func Test_runItineraryFileJob_TooManyRecentJobs_DefaultValue(t *testing.T) {
 	origIt := services.GetItineraryService
 	defer func() { services.GetItineraryService = origIt }()
 	services.GetItineraryService = func() services.ItineraryServiceInterface {
@@ -819,7 +825,91 @@ func Test_runItineraryFileJob_TooManyJobsRunning(t *testing.T) {
 	origJobs := services.GetItineraryFileJobService
 	defer func() { services.GetItineraryFileJobService = origJobs }()
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
-		return &mockJobsService{GetInProgressJobsOfUserCountVal: 5}
+		return &mockJobsService{GetJobsOfUserInLastNSecondsCountVal: 11}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func Test_runItineraryFileJob_TooManyRecentJobs_CustomizedValue(t *testing.T) {
+	os.Setenv("MAX_JOBS_ALLOWED_IN_SECONDS_INTERVAL", "5")
+	os.Setenv("JOBS_SECONDS_INTERVAL", "3600")
+	defer os.Unsetenv("MAX_JOBS_ALLOWED_IN_SECONDS_INTERVAL")
+	defer os.Unsetenv("JOBS_SECONDS_INTERVAL")
+
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{GetJobsOfUserInLastNSecondsCountVal: 7}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func Test_runItineraryFileJob_GetInProgressJobsOfUserCount_Error(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{GetJobsOfUserInLastNSecondsCountVal: 0, GetInProgressJobsOfUserCountErr: errors.New("count error")}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func Test_runItineraryFileJob_TooManyJobsRunning_DefaultValue(t *testing.T) {
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{GetJobsOfUserInLastNSecondsCountVal: 0, GetInProgressJobsOfUserCountVal: 5}
+	}
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	setUserId(c, 1)
+	c.Params = gin.Params{{Key: "itineraryId", Value: "1"}}
+	runItineraryFileJob(c)
+	assert.Equal(t, http.StatusConflict, w.Code)
+}
+
+func Test_runItineraryFileJob_TooManyJobsRunning_CustomizedValue(t *testing.T) {
+	os.Setenv("JOBS_RUNNING_PER_USER_LIMIT", "1")
+	defer os.Unsetenv("JOBS_RUNNING_PER_USER_LIMIT")
+
+	origIt := services.GetItineraryService
+	defer func() { services.GetItineraryService = origIt }()
+	services.GetItineraryService = func() services.ItineraryServiceInterface {
+		return &mockItineraryService{FindByIdIt: &models.Itinerary{OwnerID: 1}}
+	}
+	origJobs := services.GetItineraryFileJobService
+	defer func() { services.GetItineraryFileJobService = origJobs }()
+	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
+		return &mockJobsService{GetJobsOfUserInLastNSecondsCountVal: 0, GetInProgressJobsOfUserCountVal: 2}
 	}
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -839,8 +929,9 @@ func Test_runItineraryFileJob_PrepareJob_Error(t *testing.T) {
 	defer func() { services.GetItineraryFileJobService = origJobs }()
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
 		return &mockJobsService{
-			GetInProgressJobsOfUserCountVal: 0,
-			PrepareJobErr:                   errors.New("prepare error"),
+			GetInProgressJobsOfUserCountVal:     0,
+			GetJobsOfUserInLastNSecondsCountVal: 0,
+			PrepareJobErr:                       errors.New("prepare error"),
 		}
 	}
 	w := httptest.NewRecorder()
@@ -861,7 +952,8 @@ func Test_runItineraryFileJob_InitAsyncTaskQueueClient_Error(t *testing.T) {
 	defer func() { services.GetItineraryFileJobService = origJobs }()
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
 		return &mockJobsService{
-			GetInProgressJobsOfUserCountVal: 0,
+			GetInProgressJobsOfUserCountVal:     0,
+			GetJobsOfUserInLastNSecondsCountVal: 0,
 			PrepareJobTask: &services.ItineraryFileAsyncTaskPayload{
 				Itinerary:        &models.Itinerary{OwnerID: 1},
 				ItineraryFileJob: &models.ItineraryFileJob{},
@@ -891,7 +983,8 @@ func Test_runItineraryFileJob_Enqueue_Error(t *testing.T) {
 	defer func() { services.GetItineraryFileJobService = origJobs }()
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
 		return &mockJobsService{
-			GetInProgressJobsOfUserCountVal: 0,
+			GetInProgressJobsOfUserCountVal:     0,
+			GetJobsOfUserInLastNSecondsCountVal: 0,
 			PrepareJobTask: &services.ItineraryFileAsyncTaskPayload{
 				Itinerary:        &models.Itinerary{OwnerID: 1},
 				ItineraryFileJob: &models.ItineraryFileJob{},
@@ -921,7 +1014,8 @@ func Test_runItineraryFileJob_AddAsyncTaskId_Error(t *testing.T) {
 	defer func() { services.GetItineraryFileJobService = origJobs }()
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
 		return &mockJobsService{
-			GetInProgressJobsOfUserCountVal: 0,
+			GetInProgressJobsOfUserCountVal:     0,
+			GetJobsOfUserInLastNSecondsCountVal: 0,
 			PrepareJobTask: &services.ItineraryFileAsyncTaskPayload{
 				Itinerary:        &models.Itinerary{OwnerID: 1},
 				ItineraryFileJob: &models.ItineraryFileJob{},
@@ -952,7 +1046,8 @@ func Test_runItineraryFileJob_Success(t *testing.T) {
 	defer func() { services.GetItineraryFileJobService = origJobs }()
 	services.GetItineraryFileJobService = func() services.ItineraryFileJobServiceInterface {
 		return &mockJobsService{
-			GetInProgressJobsOfUserCountVal: 0,
+			GetInProgressJobsOfUserCountVal:     0,
+			GetJobsOfUserInLastNSecondsCountVal: 0,
 			PrepareJobTask: &services.ItineraryFileAsyncTaskPayload{
 				Itinerary:        &models.Itinerary{OwnerID: 1},
 				ItineraryFileJob: &models.ItineraryFileJob{},

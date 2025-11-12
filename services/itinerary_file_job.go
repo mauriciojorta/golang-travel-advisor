@@ -26,6 +26,7 @@ type ItineraryFileJobServiceInterface interface {
 	FindAliveByItineraryId(itineraryId int64) ([]*models.ItineraryFileJob, error)
 	OpenItineraryJobFile(itineraryFileJob *models.ItineraryFileJob) (io.ReadSeekCloser, error)
 	GetInProgressJobsOfUserCount(userId int64) (int, error)
+	GetJobsFromUserInLastNSeconds(userId int64, seconds int) (int, error)
 	GetInProgressJobsOfItineraryCount(itineraryId int64) (int, error)
 	PrepareJob(itinerary *models.Itinerary) (*ItineraryFileAsyncTaskPayload, error)
 	AddAsyncTaskId(asyncTaskId string, itineraryFileJob *models.ItineraryFileJob) error
@@ -130,6 +131,20 @@ func (ifjs *ItineraryFileJobService) GetInProgressJobsOfUserCount(userId int64) 
 	}
 	job := models.InitItineraryFileJob()
 	return job.GetInProgressJobsOfUserCount(userId)
+}
+
+// GetJobsFromUserInLastNSeconds retrieves the count of jobs for a user in the last N seconds
+func (ifjs *ItineraryFileJobService) GetJobsFromUserInLastNSeconds(userId int64, seconds int) (int, error) {
+	if userId <= 0 {
+		log.Error("invalid user ID")
+		return 0, errors.New("invalid user ID")
+	}
+	if seconds <= 0 {
+		log.Error("invalid seconds value")
+		return 0, errors.New("invalid seconds value")
+	}
+	job := models.InitItineraryFileJob()
+	return job.GetJobsFromUserInLastNSeconds(userId, seconds)
 }
 
 // GetInProgressJobsOfItineraryCount retrieves the count of running/pending jobs for an itinerary

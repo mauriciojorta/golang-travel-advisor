@@ -142,6 +142,16 @@ func createTables() {
 		panic("Could not create itineraries file jobs index!")
 	}
 
+	createItinerariesFileJobsIndexCreationDate := `
+	CREATE INDEX IF NOT EXISTS idx_itinerary_file_jobs_creation_date 
+	ON itinerary_file_jobs (creation_date)
+	`
+	_, err = DB.Exec(createItinerariesFileJobsIndexCreationDate)
+	if err != nil {
+		log.Errorf("Error creating itineraries file jobs creation date index: %v", err)
+		panic("Could not create itineraries file jobs creation date index!")
+	}
+
 	createAuditEventsTable := `
 		CREATE TABLE IF NOT EXISTS audit_events (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,

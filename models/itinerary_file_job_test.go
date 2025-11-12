@@ -542,6 +542,102 @@ func TestDefaultGetInProgressJobsOfItineraryCount_Error(t *testing.T) {
 	}
 }
 
+func TestDefaultGetJobsFromUserInLastNSeconds_Success(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	userId := int64(5)
+	seconds := 60
+
+	mock.ExpectQuery(`SELECT COUNT\(itinerary_file_jobs.id\) FROM itinerary_file_jobs WHERE creation_date >= DATETIME\('now', 'localtime', '-' || \? || ' seconds'\) AND creation_date <= DATETIME\('now', 'localtime'\) AND itinerary_id IN \(SELECT itineraries.id FROM itineraries WHERE owner_id = \?\)`).
+		WithArgs(seconds, userId).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(3))
+
+	job := &ItineraryFileJob{}
+	count, err := job.defaultGetJobsFromUserInLastNSeconds(userId, seconds)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 3, count)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultGetJobsFromUserInLastNSeconds_ZeroCount(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	userId := int64(5)
+	seconds := 120
+
+	mock.ExpectQuery(`SELECT COUNT\(itinerary_file_jobs.id\) FROM itinerary_file_jobs WHERE creation_date >= DATETIME\('now', 'localtime', '-' || \? || ' seconds'\) AND creation_date <= DATETIME\('now', 'localtime'\) AND itinerary_id IN \(SELECT itineraries.id FROM itineraries WHERE owner_id = \?\)`).
+		WithArgs(seconds, userId).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+
+	job := &ItineraryFileJob{}
+	count, err := job.defaultGetJobsFromUserInLastNSeconds(userId, seconds)
+
+	assert.NoError(t, err)
+	assert.Equal(t, 0, count)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultGetJobsFromUserInLastNSeconds_QueryError(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	userId := int64(5)
+	seconds := 30
+
+	mock.ExpectQuery(`SELECT COUNT\(itinerary_file_jobs.id\) FROM itinerary_file_jobs WHERE creation_date >= DATETIME\('now', 'localtime', '-' || \? || ' seconds'\) AND creation_date <= DATETIME\('now', 'localtime'\) AND itinerary_id IN \(SELECT itineraries.id FROM itineraries WHERE owner_id = \?\)`).
+		WithArgs(seconds, userId).
+		WillReturnError(sqlmock.ErrCancelled)
+
+	job := &ItineraryFileJob{}
+	count, err := job.defaultGetJobsFromUserInLastNSeconds(userId, seconds)
+
+	assert.Error(t, err)
+	assert.Equal(t, 0, count)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+func TestDefaultGetJobsFromUserInLastNSeconds_ScanError(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+	db.DB = dbMock
+
+	userId := int64(5)
+	seconds := 45
+
+	mock.ExpectQuery(`SELECT COUNT\(itinerary_file_jobs.id\) FROM itinerary_file_jobs WHERE creation_date >= DATETIME\('now', 'localtime', '-' || \? || ' seconds'\) AND creation_date <= DATETIME\('now', 'localtime'\) AND itinerary_id IN \(SELECT itineraries.id FROM itineraries WHERE owner_id = \?\)`).
+		WithArgs(seconds, userId).
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow("not-an-int"))
+
+	job := &ItineraryFileJob{}
+	count, err := job.defaultGetJobsFromUserInLastNSeconds(userId, seconds)
+
+	assert.Error(t, err)
+	assert.Equal(t, 0, count)
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
 func TestFileJobDefaultStopJob_SuccessWithRunningJob(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
