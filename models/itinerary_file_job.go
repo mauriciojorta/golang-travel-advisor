@@ -30,6 +30,7 @@ type ItineraryFileJob struct {
 	FindAliveByItineraryId            func(itineraryId int64) ([]*ItineraryFileJob, error) `json:"-"`
 	FindDead                          func(fetchLimit int) ([]*ItineraryFileJob, error)    `json:"-"`
 	GetInProgressJobsOfUserCount      func(userId int64) (int, error)                      `json:"-"`
+	GetJobsFromUserInLastNSeconds     func(userId int64, seconds int) (int, error)         `json:"-"`
 	GetInProgressJobsOfItineraryCount func(itineraryId int64) (int, error)                 `json:"-"`
 	PrepareJob                        func(itinerary *Itinerary) error                     `json:"-"`
 	AddAsyncTaskId                    func(asyncTaskId string) error                       `json:"-"` // Functions for job management
@@ -54,6 +55,7 @@ var InitItineraryFileJobFunctions = func(job *ItineraryFileJob) *ItineraryFileJo
 	job.FindAliveByItineraryId = job.defaultFindAliveByItineraryId
 	job.FindDead = job.defaultFindDead
 	job.GetInProgressJobsOfUserCount = job.defaultGetInProgressJobsOfUserCount
+	job.GetJobsFromUserInLastNSeconds = job.defaultGetJobsFromUserInLastNSeconds
 	job.GetInProgressJobsOfItineraryCount = job.defaultGetInProgressJobsOfItineraryCount
 	job.PrepareJob = job.defaultPrepareJob
 	job.StartJob = job.defaultStartJob
@@ -268,6 +270,17 @@ func (ifj *ItineraryFileJob) defaultFindDead(fetchLimit int) ([]*ItineraryFileJo
 func (ifj *ItineraryFileJob) defaultGetInProgressJobsOfUserCount(userId int64) (int, error) {
 	query := `SELECT COUNT(itinerary_file_jobs.id) FROM itinerary_file_jobs WHERE status IN ('pending','running') AND itinerary_id IN (SELECT itineraries.id FROM itineraries WHERE owner_id = ?)`
 	row := db.DB.QueryRow(query, userId)
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (ifj *ItineraryFileJob) defaultGetJobsFromUserInLastNSeconds(userId int64, seconds int) (int, error) {
+	query := `SELECT COUNT(itinerary_file_jobs.id) FROM itinerary_file_jobs WHERE creation_date >= DATETIME('now', 'localtime', '-' || ? || ' seconds') AND creation_date <= DATETIME('now', 'localtime') AND itinerary_id IN (SELECT itineraries.id FROM itineraries WHERE owner_id = ?)`
+	row := db.DB.QueryRow(query, seconds, userId)
 	var count int
 	err := row.Scan(&count)
 	if err != nil {

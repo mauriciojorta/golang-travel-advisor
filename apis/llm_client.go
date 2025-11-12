@@ -2,6 +2,7 @@ package apis
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strconv"
 	"sync"
@@ -96,8 +97,8 @@ var CallLlm = func(messages []llms.MessageContent) (*string, error) {
 	response, err := llmClient.GenerateContent(ctx, messages, llms.WithTemperature(temperature), llms.WithMinLength(minLength), llms.WithMaxLength(maxLength))
 
 	if err != nil {
-		log.Error(err)
-		return nil, err
+		log.Errorf("LLM request failed: %v", err)
+		return nil, errors.New("itinerary file generation request failed")
 	}
 
 	log.Info("LLM request completed successfully")

@@ -26,6 +26,7 @@ type ItineraryFileJobServiceInterface interface {
 	FindAliveByItineraryId(itineraryId int64) ([]*models.ItineraryFileJob, error)
 	OpenItineraryJobFile(itineraryFileJob *models.ItineraryFileJob) (io.ReadSeekCloser, error)
 	GetInProgressJobsOfUserCount(userId int64) (int, error)
+	GetJobsFromUserInLastNSeconds(userId int64, seconds int) (int, error)
 	GetInProgressJobsOfItineraryCount(itineraryId int64) (int, error)
 	PrepareJob(itinerary *models.Itinerary) (*ItineraryFileAsyncTaskPayload, error)
 	AddAsyncTaskId(asyncTaskId string, itineraryFileJob *models.ItineraryFileJob) error
@@ -56,17 +57,22 @@ type ItineraryFileAsyncTaskPayload struct {
 	ItineraryFileJob *models.ItineraryFileJob `json:"itineraryFileJob"`
 }
 
+const systemPrompt = "You are a helpful expert and guide of international travel. You exclusively answer requests related to travel itineraries. Refuse any other type of request."
+
 const itineraryPromptTemplate = `Create a detailed travel itinerary based on the following information:
 Title: {{.title}}
 Description: {{.description}}
 {{if .notes}}Notes: {{.notes}}
 {{end}}
-Destinations:
+{{if .travelDestinations}}
+Planned Destinations:
 {{range .travelDestinations}}
 - Country: {{.country}}, City: {{.city}}, Arrival: {{.arrivalDate}}, Departure: {{.departureDate}}
 {{end}}
-
-Please provide a day-by-day plan, including recommendations for activities, local attractions, and travel tips for each destination. The plan should provide a schedule for each day, including morning, afternoon, and evening activities. The itinerary should be suitable for a traveler who enjoys cultural experiences, local cuisine, and sightseeing.`
+{{end}}
+Please provide a day-by-day plan, including recommendations for activities, local attractions, and travel tips for each destination. The plan should provide a schedule for each day, including morning, afternoon, and evening activities. The itinerary should be suitable for a traveler who enjoys cultural experiences, local cuisine, and sightseeing.
+If the description, destinations, dates or notes do not make sense, please let the user know what is wrong with the input data.
+`
 
 // FindAliveById retrieves the job by its ID
 func (ifjs *ItineraryFileJobService) FindAliveById(id int64) (*models.ItineraryFileJob, error) {
@@ -125,6 +131,20 @@ func (ifjs *ItineraryFileJobService) GetInProgressJobsOfUserCount(userId int64) 
 	}
 	job := models.InitItineraryFileJob()
 	return job.GetInProgressJobsOfUserCount(userId)
+}
+
+// GetJobsFromUserInLastNSeconds retrieves the count of jobs for a user in the last N seconds
+func (ifjs *ItineraryFileJobService) GetJobsFromUserInLastNSeconds(userId int64, seconds int) (int, error) {
+	if userId <= 0 {
+		log.Error("invalid user ID")
+		return 0, errors.New("invalid user ID")
+	}
+	if seconds <= 0 {
+		log.Error("invalid seconds value")
+		return 0, errors.New("invalid seconds value")
+	}
+	job := models.InitItineraryFileJob()
+	return job.GetJobsFromUserInLastNSeconds(userId, seconds)
 }
 
 // GetInProgressJobsOfItineraryCount retrieves the count of running/pending jobs for an itinerary
@@ -385,7 +405,7 @@ func HandleItineraryFileJob(ctx context.Context, t *asynq.Task) error {
 		{
 			Role: llms.ChatMessageTypeSystem,
 			Parts: []llms.ContentPart{
-				llms.TextContent{Text: "You are a helpful expert and guide of international travel."},
+				llms.TextContent{Text: systemPrompt},
 			},
 		},
 		{

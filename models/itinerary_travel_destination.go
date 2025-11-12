@@ -62,7 +62,6 @@ func (d *ItineraryTravelDestination) defaultFindByItineraryId(itineraryId int64)
 		log.Errorf("Error querying itinerary travel destinations: %v", err)
 		return nil, err
 	}
-
 	var travelDestinations []*ItineraryTravelDestination
 
 	for destRows.Next() {
@@ -76,6 +75,8 @@ func (d *ItineraryTravelDestination) defaultFindByItineraryId(itineraryId int64)
 		travelDestinations = append(travelDestinations, &destination)
 	}
 	destRows.Close()
+
+	log.Debugf("Found %d itinerary travel destinations for itinerary ID %d", len(travelDestinations), itineraryId)
 
 	return travelDestinations, nil
 }

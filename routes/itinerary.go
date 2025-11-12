@@ -301,28 +301,8 @@ func runItineraryFileJob(context *gin.Context) {
 	// Check if there is already a job running for this user
 	userId, _ := context.Get("userId")
 
-	jobsRunningCount, err := jobsService.GetInProgressJobsOfUserCount(userId.(int64))
-	if err != nil {
-		log.Errorf("Error checking running jobs for user %d: %v", userId, err)
-		context.JSON(http.StatusInternalServerError, &responses.ErrorResponse{Message: "Could not check job status. Try again later."})
-		return
-	}
-
-	jobsRunningLimitStr := os.Getenv("JOBS_RUNNING_PER_USER_LIMIT")
-	jobsRunningLimit := 5 // Default limit if not set
-	if jobsRunningLimitStr != "" {
-		var convErr error
-		jobsRunningLimit, convErr = strconv.Atoi(jobsRunningLimitStr)
-		if convErr != nil {
-			log.Errorf("Invalid JOBS_RUNNING_PER_USER_LIMIT environment variable: %v", convErr)
-			context.JSON(http.StatusInternalServerError, &responses.ErrorResponse{Message: "Invalid jobs running limit configuration."})
-			return
-		}
-	}
-
-	if jobsRunningCount >= jobsRunningLimit {
-		log.Errorf("User %d has too many jobs running: %d", userId, jobsRunningCount)
-		context.JSON(http.StatusConflict, &responses.ErrorResponse{Message: "Too many jobs running for your user. Please wait for existing jobs to complete."})
+	if !isUserWithinJobUsageLimits(userId.(int64), jobsService, context) {
+		log.Errorf("User %d has exceeded job usage limits", userId)
 		return
 	}
 
@@ -710,6 +690,79 @@ func getAllItineraryFileJobs(context *gin.Context) {
 
 	log.Debugf("Retrieved %d itinerary file jobs for itinerary ID %d", len(itineraryFileJobs), itinerary.ID)
 	context.JSON(http.StatusOK, &responses.GetItineraryJobsResponse{Jobs: itineraryFileJobs})
+}
+
+func isUserWithinJobUsageLimits(userId int64, jobsService services.ItineraryFileJobServiceInterface, context *gin.Context) bool {
+
+	userJobsInLastNSecondsCount := 0
+	maxJobsAllowedInSecondsIntervalStr := os.Getenv("MAX_JOBS_ALLOWED_IN_SECONDS_INTERVAL")
+	maxJobsAllowedInSecondsInterval := 10 // Default to 10 if not set
+	jobsSecondsInterval := 10800          // Default to 3 hours if not set
+
+	if maxJobsAllowedInSecondsIntervalStr != "" {
+		var convErr error
+		maxJobsAllowedInSecondsInterval, convErr = strconv.Atoi(maxJobsAllowedInSecondsIntervalStr)
+		if convErr != nil {
+			log.Errorf("Invalid MAX_JOBS_ALLOWED_IN_SECONDS_INTERVAL environment variable: %v", convErr)
+			context.JSON(http.StatusInternalServerError, &responses.ErrorResponse{Message: "Invalid jobs limit configuration."})
+			return false
+		}
+	}
+
+	jobsSecondsIntervalStr := os.Getenv("JOBS_SECONDS_INTERVAL")
+
+	if jobsSecondsIntervalStr != "" {
+		var convErr error
+		jobsSecondsInterval, convErr = strconv.Atoi(jobsSecondsIntervalStr)
+		if convErr != nil {
+			log.Errorf("Invalid JOBS_SECONDS_INTERVAL environment variable: %v", convErr)
+			context.JSON(http.StatusInternalServerError, &responses.ErrorResponse{Message: "Invalid jobs limit configuration."})
+			return false
+		}
+	}
+
+	var err error
+	userJobsInLastNSecondsCount, err = jobsService.GetJobsFromUserInLastNSeconds(userId, jobsSecondsInterval)
+	if err != nil {
+		log.Errorf("Error checking jobs in last %d seconds for user %d: %v", jobsSecondsInterval, userId, err)
+		context.JSON(http.StatusInternalServerError, &responses.ErrorResponse{Message: "Could not check job status. Try again later."})
+		return false
+	}
+
+	if userJobsInLastNSecondsCount >= maxJobsAllowedInSecondsInterval {
+		log.Errorf("User %d has too many jobs in the last %d seconds: %d", userId, jobsSecondsInterval, userJobsInLastNSecondsCount)
+		context.JSON(http.StatusConflict, &responses.ErrorResponse{Message: "Too many jobs created recently for your user. Please wait before starting new jobs."})
+		return false
+	}
+
+	jobsRunningCount, err := jobsService.GetInProgressJobsOfUserCount(userId)
+	if err != nil {
+		log.Errorf("Error checking running jobs for user %d: %v", userId, err)
+		context.JSON(http.StatusInternalServerError, &responses.ErrorResponse{Message: "Could not check job status. Try again later."})
+		return false
+	}
+
+	jobsRunningLimitStr := os.Getenv("JOBS_RUNNING_PER_USER_LIMIT")
+	jobsRunningLimit := 5 // Default limit if not set
+	if jobsRunningLimitStr != "" {
+		var convErr error
+		jobsRunningLimit, convErr = strconv.Atoi(jobsRunningLimitStr)
+		if convErr != nil {
+			log.Errorf("Invalid JOBS_RUNNING_PER_USER_LIMIT environment variable: %v", convErr)
+			context.JSON(http.StatusInternalServerError, &responses.ErrorResponse{Message: "Invalid jobs running limit configuration."})
+			return false
+		}
+	} else {
+		log.Debug("No JOBS_RUNNING_PER_USER_LIMIT set, using default of 5")
+	}
+
+	if jobsRunningCount >= jobsRunningLimit {
+		log.Errorf("User %d has too many jobs running: %d", userId, jobsRunningCount)
+		context.JSON(http.StatusConflict, &responses.ErrorResponse{Message: "Too many jobs running for your user. Please wait for existing jobs to complete."})
+		return false
+	}
+
+	return true
 }
 
 func validateAuthenticatedUser(context *gin.Context) *int64 {

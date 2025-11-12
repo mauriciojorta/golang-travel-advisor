@@ -468,6 +468,42 @@ func TestItineraryItinerary_Create_Success(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestItineraryItinerary_Create_EmptyTravelDestinations_Success(t *testing.T) {
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+
+	db.DB = dbMock
+
+	testNotes := "A test trip"
+	itinerary := &Itinerary{
+		Title:              "Test Title",
+		Description:        "Test Description",
+		Notes:              &testNotes,
+		OwnerID:            1,
+		TravelDestinations: []*ItineraryTravelDestination{},
+	}
+
+	mock.ExpectBegin()
+
+	mock.ExpectPrepare("INSERT INTO itineraries").
+		ExpectExec().
+		WithArgs("Test Title", "Test Description", "A test trip", int64(1), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	mock.ExpectCommit()
+
+	err = itinerary.defaultCreate()
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), itinerary.ID)
+	assert.Equal(t, itinerary.Title, "Test Title")
+	assert.Equal(t, itinerary.Description, "Test Description")
+	assert.Equal(t, &testNotes, itinerary.Notes)
+	assert.Equal(t, int64(1), itinerary.OwnerID)
+	assert.Len(t, itinerary.TravelDestinations, 0)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestItineraryItinerary_Create_SuccessNullNotes(t *testing.T) {
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
@@ -691,7 +727,52 @@ func TestItineraryUpdate_Success(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestItineraryUpdate_SuccessNullNotes(t *testing.T) {
+func TestItineraryUpdate_EmptyTravelDestinations_Success(t *testing.T) {
+	// Arrange
+	dbMock, mock, err := sqlmock.New()
+	assert.NoError(t, err)
+	defer dbMock.Close()
+
+	db.DB = dbMock
+
+	testNotes := "A test trip"
+	itinerary := &Itinerary{
+		ID:                 1,
+		Title:              "Updated Title",
+		Description:        "Updated Description",
+		OwnerID:            1,
+		Notes:              &testNotes,
+		TravelDestinations: []*ItineraryTravelDestination{},
+	}
+
+	mock.ExpectBegin()
+
+	mock.ExpectPrepare(`UPDATE itineraries SET title = \?, description = \?, notes = \?, update_date = \? WHERE id = \?`).
+		ExpectExec().
+		WithArgs(itinerary.Title, itinerary.Description, itinerary.Notes, sqlmock.AnyArg(), itinerary.ID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	mock.ExpectPrepare(`DELETE FROM itinerary_travel_destinations WHERE itinerary_id = \?`).ExpectExec().
+		WithArgs(itinerary.ID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	mock.ExpectCommit()
+
+	// Act
+	err = itinerary.defaultUpdate()
+
+	// Assert
+	assert.NoError(t, err)
+	assert.Equal(t, int64(1), itinerary.ID)
+	assert.Equal(t, itinerary.Title, "Updated Title")
+	assert.Equal(t, itinerary.Description, "Updated Description")
+	assert.Equal(t, &testNotes, itinerary.Notes)
+	assert.Equal(t, int64(1), itinerary.OwnerID)
+	assert.Len(t, itinerary.TravelDestinations, 0)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestItineraryUpdate_NullNotes_Success(t *testing.T) {
 	// Arrange
 	dbMock, mock, err := sqlmock.New()
 	assert.NoError(t, err)
